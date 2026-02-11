@@ -67,10 +67,10 @@ async function translateToKorean(englishContent: string): Promise<string> {
             role: 'system',
             content:
               'You are a professional Korean translator for crypto/stablecoin industry news. ' +
-              'Translate English markdown into Korean markdown. Preserve structure, numbering, bullets, and links. ' +
+              'Translate the FULL English markdown into natural Korean markdown. Preserve structure, numbering, bullets, and links. ' +
               'Keep proper nouns/tickers (USDC, USDT, CFTC, FSS, Bithumb, Deel, MoonPay) as-is. ' +
-              'Translate headings like [KR]/[Global]/[Watchlist]/[One-liner] into [한국]/[글로벌]/[주시 항목]/[한 줄 요약]. ' +
-              'Do not add commentary. Output ONLY the translated markdown.'
+              'Keep section headers exactly as [KR], [Global], [Watchlist], [One-liner] (do NOT translate these tags). ' +
+              'Do not add any extra symbols like **. Do not add commentary. Output ONLY the translated markdown.'
           },
           { role: 'user', content: englishContent }
         ]
