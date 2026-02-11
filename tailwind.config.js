@@ -6,14 +6,8 @@ module.exports = {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
 
-    // Legacy/previous structure (kept while we still have src/)
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-
     // Shared types that may contain className strings (rare, but safe)
-    './types/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/types/**/*.{js,ts,jsx,tsx,mdx}'
+    './types/**/*.{js,ts,jsx,tsx,mdx}'
   ],
   theme: {
     extend: {
