@@ -67,8 +67,20 @@ export function NewsCard({ item, defaultExpanded = false }: NewsCardProps) {
       </div>
       
       <div className={expanded ? 'px-4 pb-4' : 'hidden'}>
-        <div className="prose prose-sm md:prose-base max-w-none text-gray-900 dark:text-gray-100 prose-headings:font-semibold prose-a:break-words prose-a:text-blue-700 prose-a:underline prose-a:underline-offset-2 dark:prose-invert dark:prose-a:text-blue-300 prose-a:decoration-2 prose-a:decoration-blue-500 dark:prose-a:decoration-blue-300 prose-p:leading-relaxed">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        <div className="prose prose-sm md:prose-base max-w-none text-gray-900 dark:text-gray-100 prose-headings:font-semibold dark:prose-invert prose-p:leading-relaxed">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: (props) => (
+                <a
+                  {...props}
+                  className="text-blue-700 underline underline-offset-2 decoration-2 decoration-blue-500 dark:text-blue-300 dark:decoration-blue-300 break-words"
+                  target="_blank"
+                  rel="noreferrer"
+                />
+              )
+            }}
+          >
             {content}
           </ReactMarkdown>
         </div>

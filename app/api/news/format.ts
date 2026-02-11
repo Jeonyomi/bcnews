@@ -22,17 +22,24 @@ export function formatMarkdown(md: string, opts: FormatOpts = {}): string {
     .replace(/^\s*-\s*Why it matters\s*:\s*/gmi, '- Why it matters: ')
     .replace(/^\s*-\s*Link\s*:\s*/gmi, '- Link: ')
 
-  // Ensure link is always on a new line and rendered as a clickable <a>
+  // Ensure link is always on its own line and rendered as a clickable <a>
   // Render as "🔗 <url>" (markdown link) like the PDF.
-  s = s.replace(/-\s*Link\s*:\s*(https?:\/\/\S+)/g, (_m, url) => `🔗 [${url}](${url})`)
+  s = s.replace(/-\s*Link\s*:\s*(https?:\/\/\S+)/g, (_m, url) => `\n🔗 [${url}](${url})`)
 
   // Also convert bare "Link: https://..." styles
-  s = s.replace(/^\s*Link\s*:\s*(https?:\/\/\S+)\s*$/gmi, (_m, url) => `🔗 [${url}](${url})`)
+  s = s.replace(/^\s*Link\s*:\s*(https?:\/\/\S+)\s*$/gmi, (_m, url) => `\n🔗 [${url}](${url})`)
+
+  // Convert raw URL lines to the same format
+  s = s.replace(/^\s*(https?:\/\/\S+)\s*$/gmi, (_m, url) => `🔗 [${url}](${url})`)
 
   if (opts.addBlankLineAfterLink) {
-    // Add one blank line after raw URL link lines
-    s = s.replace(/(\nhttps?:\/\/\S+)(\n)(?!\n)/g, '$1\n\n')
+    // Add one blank line after link icon lines
+    s = s.replace(/(\n🔗\s*\[[^\]]+\]\([^\)]+\))(\n)(?!\n)/g, '$1\n\n')
   }
+
+  // Ensure clear separation before English section markers
+  s = s.replace(/\n*(={10,})\n*/g, '\n\n$1\n\n')
+  s = s.replace(/\n*(🌍\s*English Version)\n*/g, '\n\n$1\n\n')
 
   // Collapse excessive blank lines
   s = s.replace(/\n{3,}/g, '\n\n')

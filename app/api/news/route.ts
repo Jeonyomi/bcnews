@@ -33,11 +33,11 @@ https://www.yna.co.kr/view/AKR20260209030100002
 [Global]
 CFTC, ‘결제용 스테이블코인(payment stablecoin)’ 정의에 National Trust Bank 포함
 
-Summary
-The CFTC’s Market Participants Division reissued Staff Letter 25-40 with a limited revision. Under the updated no-action position, a national trust bank can now qualify as a permitted issuer of a “payment stablecoin” for margin collateral purposes.
+요약
+미국 상품선물거래위원회(CFTC) 시장참여자부는 Staff Letter 25-40을 재발행하며 제한적 개정을 실시했습니다. 이번 개정으로 National Trust Bank도 Staff no-action 입장 하에서 “결제용 스테이블코인(payment stablecoin)”의 허용 발행자로 인정될 수 있도록 정의가 확대되었습니다. (마진 담보 관련 맥락)
 
-Why it matters
-Expanding the range of eligible issuers may accelerate institutional adoption of stablecoins within regulated derivatives and clearing infrastructure.
+시사점 (Why it matters)
+적격 발행자 범위 확대는 규제된 파생상품·청산 인프라 내에서 스테이블코인의 제도권 활용을 가속화할 수 있습니다.
 
 Link:
 https://www.cftc.gov/PressRoom/PressReleases/9180-26
