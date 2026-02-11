@@ -16,11 +16,20 @@ export function formatMarkdown(md: string, opts: FormatOpts = {}): string {
     .replace(/\n*\[주시 항목\]\n*/g, '\n\n[Watchlist]\n\n')
     .replace(/\n*\[한 줄 요약\]\n*/g, '\n\n[One-liner]\n\n')
 
-  // Make labels consistent (NO ** markdown)
+  // Convert common label lines into headings (no ** markers)
   s = s
-    .replace(/^\s*-\s*Summary\s*:\s*/gmi, '- Summary: ')
-    .replace(/^\s*-\s*Why it matters\s*:\s*/gmi, '- Why it matters: ')
-    .replace(/^\s*-\s*Link\s*:\s*/gmi, '- Link: ')
+    .replace(/^\s*(🇰🇷\s*한국어 버전)\s*$/gmi, '## $1')
+    .replace(/^\s*(🌍\s*English Version)\s*$/gmi, '## $1')
+    .replace(/^\s*요약\s*$/gmi, '### 요약')
+    .replace(/^\s*시사점\s*\(Why it matters\)\s*$/gmi, '### 시사점 (Why it matters)')
+    .replace(/^\s*Summary\s*$/gmi, '### Summary')
+    .replace(/^\s*Why it matters\s*$/gmi, '### Why it matters')
+
+  // Legacy bullet label forms
+  s = s
+    .replace(/^\s*-\s*Summary\s*:\s*/gmi, '')
+    .replace(/^\s*-\s*Why it matters\s*:\s*/gmi, '')
+    .replace(/^\s*-\s*Link\s*:\s*/gmi, 'Link: ')
 
   // Ensure link is always on its own line and rendered as a clickable <a>
   // Render as "🔗 <url>" (markdown link) like the PDF.
@@ -44,7 +53,7 @@ export function formatMarkdown(md: string, opts: FormatOpts = {}): string {
   // Collapse excessive blank lines
   s = s.replace(/\n{3,}/g, '\n\n')
 
-  // Remove any stray bold markers
+  // Remove any stray bold markers (hard rule)
   s = s.replace(/\*\*/g, '')
 
   return s.trim()

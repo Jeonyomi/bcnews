@@ -7,7 +7,6 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([])
-  const [searchText, setSearchText] = useState('')
   const [sourceFilter, setSourceFilter] = useState('all')
 
   useEffect(() => {
@@ -28,16 +27,10 @@ export default function Home() {
 
   const filteredNews = useMemo(() => {
     return news.filter((item) => {
-      if (searchText) {
-        const content = String(item.body || '').toLowerCase()
-        const title = (item.title || '').toLowerCase()
-        const q = searchText.toLowerCase()
-        if (!content.includes(q) && !title.includes(q)) return false
-      }
       if (sourceFilter !== 'all' && item.source !== sourceFilter) return false
       return true
     })
-  }, [news, searchText, sourceFilter])
+  }, [news, sourceFilter])
 
   const groupedNews = useMemo(() => {
     const groups: Record<string, NewsItem[]> = {}
@@ -78,18 +71,7 @@ export default function Home() {
 
           {/* Controls */}
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Search</label>
-              <input
-                type="text"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Search title or body..."
-                className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100"
-              />
-            </div>
-
-            <div>
+            <div className="sm:col-span-1">
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Source</label>
               <select
                 value={sourceFilter}

@@ -71,6 +71,18 @@ export function NewsCard({ item, defaultExpanded = false }: NewsCardProps) {
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
+              h2: (props) => (
+                <h2
+                  {...props}
+                  className="mt-6 mb-3 text-lg font-bold text-gray-900 dark:text-gray-100"
+                />
+              ),
+              h3: (props) => (
+                <h3
+                  {...props}
+                  className="mt-5 mb-2 text-base font-bold text-gray-900 dark:text-gray-100"
+                />
+              ),
               a: (props) => (
                 <a
                   {...props}
