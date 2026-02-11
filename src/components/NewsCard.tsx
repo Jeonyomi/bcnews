@@ -26,14 +26,16 @@ export function NewsCard({ item, locale }: NewsCardProps) {
     return `${Math.floor(minutes / 1440)}d ago`
   }
 
+  const createdAt = new Date(item.createdAt as any)
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <div className="px-4 py-3 flex justify-between items-start">
         <div>
           <h3 className="font-medium text-gray-900">{item.title}</h3>
           <div className="mt-1 flex items-center gap-1 text-sm text-gray-500">
-            <time dateTime={item.createdAt.toISOString()} title={item.createdAt.toLocaleString()}>
-              {timeAgo(item.createdAt)}
+            <time dateTime={createdAt.toISOString()} title={createdAt.toLocaleString()}>
+              {timeAgo(createdAt)}
             </time>
             <span>•</span>
             <span>{item.source}</span>
