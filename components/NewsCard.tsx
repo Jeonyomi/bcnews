@@ -61,7 +61,7 @@ export function NewsCard({ item, defaultExpanded = false }: NewsCardProps) {
       </div>
 
       <div className={expanded ? 'px-4 pb-4' : 'hidden'}>
-        <div className="max-w-none">
+        <div className="max-w-none text-gray-900 dark:text-gray-100">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -92,6 +92,7 @@ export function NewsCard({ item, defaultExpanded = false }: NewsCardProps) {
               hr: () => <div className="my-6 h-px w-full bg-gray-200 dark:bg-gray-800" />,
               ul: (props) => <ul {...props} className="my-2 list-disc space-y-1 pl-6" />,
               ol: (props) => <ol {...props} className="my-2 list-decimal space-y-1 pl-6" />,
+              li: (props) => <li {...props} className="text-gray-900 dark:text-gray-100" />,
               p: (props) => <p {...props} className="my-2 leading-relaxed text-gray-900 dark:text-gray-100" />,
               a: (props) => (
                 <a
