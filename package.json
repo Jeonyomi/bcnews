@@ -1,21 +1,31 @@
 {
-  "name": "stablecoin-ops-dashboard",
+  "name": "bcnews",
+  "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "build": "npm run build:shared && npm run build:web",
-    "build:shared": "cd packages/shared && npm run build",
-    "build:web": "cd apps/web && npm run build",
-    "dev": "npm run build:shared && concurrently \"npm run dev:shared\" \"npm run dev:web\" \"npm run dev:api\"",
-    "dev:shared": "cd packages/shared && npm run dev",
-    "dev:web": "cd apps/web && npm run dev",
-    "dev:api": "cd apps/api && npm run dev"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.2",
+    "next": "14.1.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "typescript": "^5.4.1"
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.1.0",
+    "postcss": "^8",
+    "prisma": "^5.10.2",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5"
   }
 }
