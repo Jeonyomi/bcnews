@@ -6,11 +6,26 @@ import remarkGfm from 'remark-gfm'
 interface NewsCardProps {
   item: NewsItem
   locale: Locale
+  defaultExpanded?: boolean
 }
 
-export function NewsCard({ item, locale }: NewsCardProps) {
-  const [expanded, setExpanded] = useState(false)
-  const content = locale === 'ko' ? item.body.ko : item.body.en
+function normalizeMarkdown(md: string): string {
+  // Normalize Windows newlines + collapse excessive blank lines
+  let s = (md || '').replace(/\r\n/g, '\n')
+
+  // Ensure a blank line after section headers like [KR]
+  s = s.replace(/\n?(\[(KR|Global|Watchlist|One-liner|한국|글로벌|주시 항목|한 줄 요약)\])\n(?!\n)/g, '$1\n\n')
+
+  // Normalize bullet/paragraph spacing
+  s = s.replace(/\n{3,}/g, '\n\n')
+
+  return s.trim()
+}
+
+export function NewsCard({ item, locale, defaultExpanded = false }: NewsCardProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
+  const raw = locale === 'ko' ? item.body.ko : item.body.en
+  const content = normalizeMarkdown(raw)
   
   const copyToClipboard = () => {
     navigator.clipboard.writeText(content)

@@ -193,9 +193,17 @@ export default function Home() {
                     {date === 'Today' ? `Today (${new Date().toISOString().split('T')[0]})` : date}
                   </h3>
                   <div className="space-y-4">
-                    {items.map((item) => (
-                      <NewsCard key={item.id} item={item} locale={locale} />
-                    ))}
+                    {items
+                      .slice()
+                      .sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime())
+                      .map((item, idx) => (
+                        <NewsCard
+                          key={item.id}
+                          item={item}
+                          locale={locale}
+                          defaultExpanded={idx === 0}
+                        />
+                      ))}
                   </div>
                 </div>
               ))}
