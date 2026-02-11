@@ -4,123 +4,71 @@ import { formatMarkdown } from './format'
 
 const prisma = new PrismaClient()
 
-// Dictionary-based KO translation (automation-grade, deterministic).
-const DICT: Record<string, string> = {
-  // section headers (will be bolded later)
-  '[KR]': '[KR]',
-  '[Global]': '[Global]',
-  '[Watchlist]': '[Watchlist]',
-  '[One-liner]': '[One-liner]',
-
-  // common terms
-
-  'Digital Asset Basic Act': '디지털자산 기본법',
-  Korea: '한국',
-  Stablecoin: '스테이블코인',
-  stablecoin: '스테이블코인',
-  Stablecoins: '스테이블코인',
-  'Financial Supervisory Service': '금융감독원',
-  FSS: '금융감독원',
-  USDC: 'USDC',
-  USDT: 'USDT',
-  // NOTE: actual section header translation happens in the LLM prompt (best) or post-processing (fallback).
-}
-
-function translateToKoreanRuleBased(englishContent: string): string {
-  let text = englishContent
-  for (const [en, ko] of Object.entries(DICT)) {
-    const esc = en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    text = text.replace(new RegExp(esc, 'g'), ko)
-  }
-  return text
-}
-
-// Optional: higher-quality KO translation via OpenRouter (set OPENROUTER_API_KEY in Vercel env)
-// Falls back to rule-based translation if no key or request fails.
-const _koCache = new Map<string, string>()
-
-async function translateToKorean(englishContent: string): Promise<string> {
-  const key = process.env.OPENROUTER_API_KEY
-  if (!key) return translateToKoreanRuleBased(englishContent)
-
-  const cached = _koCache.get(englishContent)
-  if (cached) return cached
-
-  try {
-    const controller = new AbortController()
-    const t = setTimeout(() => controller.abort(), 12000)
-
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
-        // Optional attribution headers
-        'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://bcnews-flame.vercel.app',
-        'X-Title': process.env.OPENROUTER_TITLE || 'bcnews'
-      },
-      body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet',
-        temperature: 0.1,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a professional Korean translator for crypto/stablecoin industry news. ' +
-              'Translate the FULL English markdown into natural Korean markdown. Preserve structure, numbering, bullets, and links. ' +
-              'Keep proper nouns/tickers (USDC, USDT, CFTC, FSS, Bithumb, Deel, MoonPay) as-is. ' +
-              'Keep section headers exactly as [KR], [Global], [Watchlist], [One-liner] (do NOT translate these tags). ' +
-              'Do not add any extra symbols like **. Do not add commentary. Output ONLY the translated markdown.'
-          },
-          { role: 'user', content: englishContent }
-        ]
-      }),
-      signal: controller.signal
-    })
-
-    clearTimeout(t)
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '')
-      console.warn('OpenRouter translate failed:', res.status, txt.slice(0, 200))
-      return translateToKoreanRuleBased(englishContent)
-    }
-
-    const data: any = await res.json()
-    const out = data?.choices?.[0]?.message?.content
-    if (typeof out !== 'string' || !out.trim()) return translateToKoreanRuleBased(englishContent)
-
-    const ko = out.trim()
-    _koCache.set(englishContent, ko)
-    return ko
-  } catch (e) {
-    console.warn('OpenRouter translate exception:', e)
-    return translateToKoreanRuleBased(englishContent)
-  }
-}
+// NOTE: We do NOT translate on the server at runtime.
+// We store the brief as a single markdown body that already contains:
+// 1) Korean version (fully translated)
+// 2) Separator line
+// 3) English version
+// This avoids requiring Vercel env keys and keeps output deterministic.
 
 // - fetch rows
 // - return safe empty list if DB/table isn't initialized (common on fresh Vercel deploy)
-const SAMPLE_EN = `
-[KR]
+const SAMPLE_BODY = `
+📰 Digital Asset & Stablecoin Regulatory Brief
 
-1) Korea FSS targets crypto market manipulation; sets up Digital Asset Basic Act prep team (incl. stablecoins)
-- Summary: Korea’s Financial Supervisory Service (FSS) announced planned investigations into high-risk crypto market misconduct and plans to build AI-assisted detection. It also formed a prep team for the upcoming “Digital Asset Basic Act,” including disclosure standards and licensing-review manuals for digital-asset businesses and stablecoin issuers.
-- Why it matters: Korea is moving from reactive enforcement to systemized supervision—important for exchange integrity and any future KRW-linked stablecoin regime.
-- Link: https://www.yna.co.kr/view/AKR20260209030100002
+🇰🇷 한국어 버전
+
+[KR]
+금융감독원, 가상자산 시장조작 집중 점검… ‘디지털자산 기본법’ 준비팀 출범 (스테이블코인 포함)
+
+요약
+한국 금융감독원은 고위험 가상자산 시장 불공정 행위에 대한 조사 계획을 발표하고, AI 기반 이상거래 탐지 시스템을 구축할 예정이라고 밝혔습니다. 또한 향후 제정 예정인 「디지털자산 기본법」에 대비해 준비 전담팀을 구성했으며, 공시 기준 및 인허가 심사 매뉴얼 정비, 스테이블코인 발행자 관련 감독 체계 준비를 포함합니다.
+
+시사점 (Why it matters)
+한국은 사후적 제재 중심의 대응에서 벗어나, 체계적·상시적 감독 체계로 전환하고 있습니다. 이는 거래소 시장 신뢰도 제고는 물론, 향후 KRW 연동 스테이블코인 제도 설계에도 중요한 기반이 될 수 있습니다.
+
+Link:
+https://www.yna.co.kr/view/AKR20260209030100002
 
 [Global]
+CFTC, ‘결제용 스테이블코인(payment stablecoin)’ 정의에 National Trust Bank 포함
 
-1) CFTC staff updates “payment stablecoin” definition to include national trust banks (margin collateral context)
-- Summary: The CFTC’s Market Participants Division reissued Staff Letter 25-40 with a limited revision so that a national trust bank can qualify as a permitted issuer of a “payment stablecoin” under the staff no-action position.
-- Why it matters: Broadening eligible issuer types can accelerate institutional adoption of stablecoins in regulated derivatives/clearing plumbing.
-- Link: https://www.cftc.gov/PressRoom/PressReleases/9180-26
+Summary
+The CFTC’s Market Participants Division reissued Staff Letter 25-40 with a limited revision. Under the updated no-action position, a national trust bank can now qualify as a permitted issuer of a “payment stablecoin” for margin collateral purposes.
 
-[Watchlist]
-- Korea: Post-incident guidance on reconciliation frequency, custody controls, and “real asset holding” expectations.
+Why it matters
+Expanding the range of eligible issuers may accelerate institutional adoption of stablecoins within regulated derivatives and clearing infrastructure.
 
-[One-liner]
-Korea is tightening exchange oversight, while globally stablecoins keep expanding into real payroll/payment rails as regulators refine definitions.
+Link:
+https://www.cftc.gov/PressRoom/PressReleases/9180-26
+
+====================================================================
+
+🌍 English Version
+
+[KR]
+Korea FSS targets crypto market manipulation; sets up Digital Asset Basic Act prep team (incl. stablecoins)
+
+Summary
+Korea’s Financial Supervisory Service (FSS) announced planned investigations into high-risk crypto market misconduct and the development of AI-assisted detection systems. It also formed a dedicated preparation team for the upcoming “Digital Asset Basic Act,” including disclosure standards, licensing review manuals, and supervisory framework preparation for stablecoin issuers.
+
+Why it matters
+Korea is shifting from reactive enforcement to systemized, ongoing supervision. This is significant for exchange integrity and for the potential design of a future KRW-linked stablecoin regime.
+
+Link:
+https://www.yna.co.kr/view/AKR20260209030100002
+
+[Global]
+CFTC updates “payment stablecoin” definition to include national trust banks (margin collateral context)
+
+Summary
+The CFTC’s Market Participants Division reissued Staff Letter 25-40 with a limited revision. A national trust bank can now qualify as a permitted issuer of a “payment stablecoin” for margin collateral purposes.
+
+Why it matters
+Expanding the range of eligible issuers may accelerate institutional adoption of stablecoins within regulated derivatives and clearing infrastructure.
+
+Link:
+https://www.cftc.gov/PressRoom/PressReleases/9180-26
 `.trim()
 
 export async function GET() {
@@ -142,7 +90,7 @@ export async function GET() {
           {
             id: 'seed-brief-2026-02-11',
             title: 'Stablecoin / Crypto News Brief — 2026-02-11 (seed)',
-            body: SAMPLE_EN,
+            body: SAMPLE_BODY,
             source: 'seed',
             createdAt: new Date('2026-02-11T00:00:00.000Z'),
             updatedAt: new Date('2026-02-11T00:00:00.000Z')
@@ -151,26 +99,8 @@ export async function GET() {
 
     const items = await Promise.all(
       baseItems.map(async (item: any) => {
-        const en = String(item.body || '')
-        const ko = await translateToKorean(en)
-
-        // Format for readability like the PDF template.
-        const koFmt = formatMarkdown(ko, { addBlankLineAfterLink: true })
-        const enFmt = formatMarkdown(en, { addBlankLineAfterLink: false })
-
-        const body = [
-          '📰 Digital Asset & Stablecoin Regulatory Brief',
-          '',
-          '🇰🇷 한국어 버전',
-          '',
-          koFmt,
-          '',
-          '====================================================================',
-          '',
-          '🌍 English Version',
-          '',
-          enFmt
-        ].join('\n')
+        const raw = String(item.body || '')
+        const body = formatMarkdown(raw, { addBlankLineAfterLink: true })
 
         return {
           ...item,
@@ -184,23 +114,7 @@ export async function GET() {
   } catch (err: any) {
     // Prisma error P2021: table does not exist
     if (err?.code === 'P2021') {
-      const en = SAMPLE_EN
-      const ko = await translateToKorean(en)
-      const koFmt = formatMarkdown(ko, { addBlankLineAfterLink: true })
-      const enFmt = formatMarkdown(en, { addBlankLineAfterLink: false })
-      const body = [
-        '📰 Digital Asset & Stablecoin Regulatory Brief',
-        '',
-        '🇰🇷 한국어 버전',
-        '',
-        koFmt,
-        '',
-        '====================================================================',
-        '',
-        '🌍 English Version',
-        '',
-        enFmt
-      ].join('\n')
+      const body = formatMarkdown(SAMPLE_BODY, { addBlankLineAfterLink: true })
 
       return NextResponse.json({
         items: [
