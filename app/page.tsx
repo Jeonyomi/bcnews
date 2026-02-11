@@ -7,7 +7,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([])
-  const [sourceFilter, setSourceFilter] = useState('all')
+  // source filter removed
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -25,12 +25,7 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [])
 
-  const filteredNews = useMemo(() => {
-    return news.filter((item) => {
-      if (sourceFilter !== 'all' && item.source !== sourceFilter) return false
-      return true
-    })
-  }, [news, sourceFilter])
+  const filteredNews = useMemo(() => news, [news])
 
   const groupedNews = useMemo(() => {
     const groups: Record<string, NewsItem[]> = {}
@@ -69,29 +64,13 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="sm:col-span-1">
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Source</label>
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100"
-              >
-                <option value="all">all</option>
-                <option value="cron">cron</option>
-                <option value="manual">manual</option>
-                <option value="seed">seed</option>
-                <option value="cron-manual">cron-manual</option>
-              </select>
-            </div>
-          </div>
+          {/* Controls removed */}
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6">
         <div className="mb-4 text-xs text-gray-500 dark:text-gray-400">
-          Tip: the latest item is expanded by default. Use Copy to copy the full body.
+          Tip: the latest item is expanded by default.
         </div>
 
         {Object.keys(groupedNews).length === 0 ? (

@@ -43,7 +43,7 @@ export function NewsCard({ item, defaultExpanded = false }: NewsCardProps) {
   const createdAt = new Date(item.createdAt as any)
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-800 dark:bg-gray-950">
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-800 dark:bg-gray-950">
       <div className="px-4 py-3 flex justify-between items-start">
         <div>
           <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{item.title}</h3>
@@ -67,21 +67,45 @@ export function NewsCard({ item, defaultExpanded = false }: NewsCardProps) {
       </div>
       
       <div className={expanded ? 'px-4 pb-4' : 'hidden'}>
-        <div className="prose prose-sm md:prose-base max-w-none text-gray-900 dark:text-gray-100 prose-headings:font-semibold dark:prose-invert prose-p:leading-relaxed">
+        <div className="max-w-none">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
+              h1: (props) => (
+                <h1
+                  {...props}
+                  className="mb-4 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100"
+                />
+              ),
               h2: (props) => (
                 <h2
                   {...props}
-                  className="mt-6 mb-3 text-lg font-bold text-gray-900 dark:text-gray-100"
+                  className="mt-6 mb-4 text-xl font-extrabold text-gray-900 dark:text-gray-100"
                 />
               ),
               h3: (props) => (
                 <h3
                   {...props}
-                  className="mt-5 mb-2 text-base font-bold text-gray-900 dark:text-gray-100"
+                  className="mt-6 mb-3 text-lg font-bold text-gray-900 dark:text-gray-100"
                 />
+              ),
+              h4: (props) => (
+                <h4
+                  {...props}
+                  className="mt-4 mb-2 text-base font-bold text-gray-900 dark:text-gray-100"
+                />
+              ),
+              hr: () => (
+                <div className="my-6 h-px w-full bg-gray-200 dark:bg-gray-800" />
+              ),
+              ul: (props) => (
+                <ul {...props} className="my-2 list-disc space-y-1 pl-6" />
+              ),
+              ol: (props) => (
+                <ol {...props} className="my-2 list-decimal space-y-1 pl-6" />
+              ),
+              p: (props) => (
+                <p {...props} className="my-2 leading-relaxed text-gray-900 dark:text-gray-100" />
               ),
               a: (props) => (
                 <a

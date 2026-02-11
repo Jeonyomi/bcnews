@@ -18,12 +18,23 @@ export function formatMarkdown(md: string, opts: FormatOpts = {}): string {
 
   // Convert common label lines into headings (no ** markers)
   s = s
-    .replace(/^\s*(🇰🇷\s*한국어 버전)\s*$/gmi, '## $1')
-    .replace(/^\s*(🌍\s*English Version)\s*$/gmi, '## $1')
-    .replace(/^\s*요약\s*$/gmi, '### 요약')
-    .replace(/^\s*시사점\s*\(Why it matters\)\s*$/gmi, '### 시사점 (Why it matters)')
-    .replace(/^\s*Summary\s*$/gmi, '### Summary')
-    .replace(/^\s*Why it matters\s*$/gmi, '### Why it matters')
+    // Title line
+    .replace(/^\s*📰\s*(.+)\s*$/gmi, '# $1')
+    // Version headings (match screenshot style)
+    .replace(/^\s*🇰🇷\s*한국어 버전\s*$/gmi, '## ⏳ 한국어 버전')
+    .replace(/^\s*🌍\s*English Version\s*$/gmi, '## 🌍 English Version')
+
+    // Section tags as headings
+    .replace(/^\s*\[KR\]\s*$/gmi, '### [KR]')
+    .replace(/^\s*\[Global\]\s*$/gmi, '### [Global]')
+    .replace(/^\s*\[Watchlist\]\s*$/gmi, '### [Watchlist]')
+    .replace(/^\s*\[One-liner\]\s*$/gmi, '### [One-liner]')
+
+    // Content sub-headings
+    .replace(/^\s*요약\s*$/gmi, '#### 요약')
+    .replace(/^\s*시사점\s*\(Why it matters\)\s*$/gmi, '#### 시사점 (Why it matters)')
+    .replace(/^\s*Summary\s*$/gmi, '#### Summary')
+    .replace(/^\s*Why it matters\s*$/gmi, '#### Why it matters')
 
   // Legacy bullet label forms
   s = s
