@@ -1,4 +1,4 @@
-﻿📰 Digital Asset & Stablecoin Regulatory Brief
+📰 Digital Asset & Stablecoin Regulatory Brief
 
 ## 🇰🇷 한국어 버전
 
