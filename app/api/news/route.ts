@@ -154,11 +154,23 @@ export async function GET() {
         const en = String(item.body || '')
         const ko = await translateToKorean(en)
 
-        // Bold section labels and ensure link is always on a new line.
+        // Format for readability like the PDF template.
         const koFmt = formatMarkdown(ko, { addBlankLineAfterLink: true })
         const enFmt = formatMarkdown(en, { addBlankLineAfterLink: false })
 
-        const body = `## KR\n\n${koFmt}\n\n---\n\n## EN\n\n${enFmt}`
+        const body = [
+          '📰 Digital Asset & Stablecoin Regulatory Brief',
+          '',
+          '🇰🇷 한국어 버전',
+          '',
+          koFmt,
+          '',
+          '====================================================================',
+          '',
+          '🌍 English Version',
+          '',
+          enFmt
+        ].join('\n')
 
         return {
           ...item,
@@ -176,7 +188,19 @@ export async function GET() {
       const ko = await translateToKorean(en)
       const koFmt = formatMarkdown(ko, { addBlankLineAfterLink: true })
       const enFmt = formatMarkdown(en, { addBlankLineAfterLink: false })
-      const body = `## KR\n\n${koFmt}\n\n---\n\n## EN\n\n${enFmt}`
+      const body = [
+        '📰 Digital Asset & Stablecoin Regulatory Brief',
+        '',
+        '🇰🇷 한국어 버전',
+        '',
+        koFmt,
+        '',
+        '====================================================================',
+        '',
+        '🌍 English Version',
+        '',
+        enFmt
+      ].join('\n')
 
       return NextResponse.json({
         items: [

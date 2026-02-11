@@ -67,7 +67,7 @@ export function NewsCard({ item, defaultExpanded = false }: NewsCardProps) {
       </div>
       
       <div className={expanded ? 'px-4 pb-4' : 'hidden'}>
-        <div className="prose prose-sm md:prose-base max-w-none prose-headings:font-semibold prose-a:break-words prose-a:text-blue-700 prose-a:underline prose-a:underline-offset-2 dark:prose-invert dark:prose-a:text-blue-300">
+        <div className="prose prose-sm md:prose-base max-w-none prose-headings:font-semibold prose-a:break-words prose-a:text-blue-700 prose-a:underline prose-a:underline-offset-2 dark:prose-invert dark:prose-a:text-blue-300 prose-p:leading-relaxed">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {content}
           </ReactMarkdown>
@@ -79,21 +79,15 @@ export function NewsCard({ item, defaultExpanded = false }: NewsCardProps) {
       </div>
       
       {!expanded && (
-        <div className="px-4 pb-4 text-sm text-gray-700 dark:text-gray-300">
+        <div className="px-4 pb-4 text-sm text-gray-800 dark:text-gray-100 whitespace-pre-line">
           {(() => {
-            const lines = content.split('\n').map((l) => l.trimEnd())
-            // Show something like: [KR] + first meaningful line
-            const firstNonEmptyIdx = lines.findIndex((l) => l.trim().length > 0)
-            const secondNonEmptyIdx = lines.findIndex(
-              (l, i) => i > firstNonEmptyIdx && l.trim().length > 0
-            )
-            const preview = [
-              firstNonEmptyIdx >= 0 ? lines[firstNonEmptyIdx] : '',
-              secondNonEmptyIdx >= 0 ? lines[secondNonEmptyIdx] : ''
-            ]
-              .filter(Boolean)
-              .join(' ')
-            return <div className="line-clamp-2">{preview}</div>
+            const lines = content
+              .split('\n')
+              .map((l) => l.trimEnd())
+              .filter((l) => l.trim().length > 0)
+
+            const preview = lines.slice(0, 3).join('\n')
+            return <div className="line-clamp-3">{preview}</div>
           })()}
         </div>
       )}
