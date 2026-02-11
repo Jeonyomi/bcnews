@@ -1,0 +1,21 @@
+{
+  "name": "stablecoin-ops-dashboard",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build:shared && npm run build:web",
+    "build:shared": "cd packages/shared && npm run build",
+    "build:web": "cd apps/web && npm run build",
+    "dev": "npm run build:shared && concurrently \"npm run dev:shared\" \"npm run dev:web\" \"npm run dev:api\"",
+    "dev:shared": "cd packages/shared && npm run dev",
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:api": "cd apps/api && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.1"
+  }
+}
