@@ -21,7 +21,7 @@ export function formatMarkdown(md: string, opts: FormatOpts = {}): string {
     // Title line
     .replace(/^\s*📰\s*(.+)\s*$/gmi, '# $1')
     // Version headings (match screenshot style)
-    .replace(/^\s*🇰🇷\s*한국어 버전\s*$/gmi, '## ⏳ 한국어 버전')
+    .replace(/^\s*🇰🇷\s*한국어 버전\s*$/gmi, '## 🇰🇷 한국어 버전')
     .replace(/^\s*🌍\s*English Version\s*$/gmi, '## 🌍 English Version')
 
     // Section tags as headings
