@@ -30,6 +30,10 @@ export function formatMarkdown(md: string, opts: FormatOpts = {}): string {
     .replace(/^\s*\[Watchlist\]\s*$/gmi, '### [Watchlist]')
     .replace(/^\s*\[One-liner\]\s*$/gmi, '### [One-liner]')
 
+    // Item title lines
+    .replace(/^\s*제목\s*:\s*/gmi, '#### ')
+    .replace(/^\s*Title\s*:\s*/gmi, '#### ')
+
     // Content sub-headings
     .replace(/^\s*요약\s*$/gmi, '#### 요약')
     .replace(/^\s*시사점\s*\(Why it matters\)\s*$/gmi, '#### 시사점 (Why it matters)')
