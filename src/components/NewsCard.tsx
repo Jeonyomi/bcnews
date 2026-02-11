@@ -10,13 +10,18 @@ interface NewsCardProps {
 }
 
 function normalizeMarkdown(md: string): string {
-  // Normalize Windows newlines + collapse excessive blank lines
   let s = (md || '').replace(/\r\n/g, '\n')
 
-  // Ensure a blank line after section headers like [KR]
-  s = s.replace(/\n?(\[(KR|Global|Watchlist|One-liner|한국|글로벌|주시 항목|한 줄 요약)\])\n(?!\n)/g, '$1\n\n')
+  // Normalize common label lines into bold markdown labels
+  s = s
+    .replace(/^\s*-\s*Summary\s*:\s*/gmi, '- **Summary:** ')
+    .replace(/^\s*-\s*Why it matters\s*:\s*/gmi, '- **Why it matters:** ')
+    .replace(/^\s*-\s*Link\s*:\s*/gmi, '- **Link:** ')
 
-  // Normalize bullet/paragraph spacing
+  // Ensure blank lines around section headers so [KR] / [Global] blocks are visually separated
+  s = s.replace(/\n*(\[(KR|Global|Watchlist|One-liner|한국|글로벌|주시 항목|한 줄 요약)\])\n*/g, '\n\n$1\n\n')
+
+  // Collapse excessive blank lines
   s = s.replace(/\n{3,}/g, '\n\n')
 
   return s.trim()
@@ -44,11 +49,11 @@ export function NewsCard({ item, locale, defaultExpanded = false }: NewsCardProp
   const createdAt = new Date(item.createdAt as any)
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-800 dark:bg-gray-950">
       <div className="px-4 py-3 flex justify-between items-start">
         <div>
-          <h3 className="font-medium text-gray-900">{item.title}</h3>
-          <div className="mt-1 flex items-center gap-1 text-sm text-gray-500">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{item.title}</h3>
+          <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             <time dateTime={createdAt.toISOString()} title={createdAt.toLocaleString()}>
               {timeAgo(createdAt)}
             </time>
@@ -72,8 +77,8 @@ export function NewsCard({ item, locale, defaultExpanded = false }: NewsCardProp
         </div>
       </div>
       
-      <div className={expanded ? 'px-4 pb-3' : 'hidden'}>
-        <div className="prose prose-sm max-w-none">
+      <div className={expanded ? 'px-4 pb-4' : 'hidden'}>
+        <div className="prose prose-sm md:prose-base max-w-none prose-headings:font-semibold prose-a:break-words prose-a:text-blue-700 prose-a:underline prose-a:underline-offset-2 dark:prose-invert dark:prose-a:text-blue-300">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {content}
           </ReactMarkdown>
@@ -85,7 +90,7 @@ export function NewsCard({ item, locale, defaultExpanded = false }: NewsCardProp
       </div>
       
       {!expanded && (
-        <div className="px-4 pb-3 text-sm text-gray-600 line-clamp-2">
+        <div className="px-4 pb-4 text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
           {content.split('\n')[0]}
         </div>
       )}

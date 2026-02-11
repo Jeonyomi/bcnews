@@ -1,3 +1,5 @@
+'use client'
+
 import { type Locale } from '@/types'
 
 interface LocaleToggleProps {
@@ -7,15 +9,21 @@ interface LocaleToggleProps {
 
 export function LocaleToggle({ value, onChange }: LocaleToggleProps) {
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <select 
-        value={value}
-        onChange={(e) => onChange(e.target.value as Locale)}
-        className="bg-white border border-gray-300 rounded px-2 py-1 text-sm"
+    <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => onChange('en')}
+        className={`px-3 py-1.5 text-xs font-semibold ${value === 'en' ? 'bg-gray-100 text-gray-900' : 'bg-white text-gray-600'} dark:${value === 'en' ? 'bg-gray-900/40 text-gray-200' : 'bg-gray-950 text-gray-400'} `}
       >
-        <option value="en">English</option>
-        <option value="ko">한국어</option>
-      </select>
+        EN
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('ko')}
+        className={`px-3 py-1.5 text-xs font-semibold border-l border-gray-300 dark:border-gray-700 ${value === 'ko' ? 'bg-gray-100 text-gray-900' : 'bg-white text-gray-600'} dark:${value === 'ko' ? 'bg-gray-900/40 text-gray-200' : 'bg-gray-950 text-gray-400'} `}
+      >
+        KO
+      </button>
     </div>
   )
 }

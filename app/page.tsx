@@ -1,248 +1,149 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import type { NewsItem, Locale } from '@/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { Locale, NewsItem } from '@/types'
 import { NewsCard } from '@/components/NewsCard'
 import { LocaleToggle } from '@/components/LocaleToggle'
+import { ThemeToggle } from '@/src/components/ThemeToggle'
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'news'|'metrics'|'settings'>('news')
   const [news, setNews] = useState<NewsItem[]>([])
-  const [stats, setStats] = useState({ total: 0, filtered: 0 })
   const [searchText, setSearchText] = useState('')
   const [sourceFilter, setSourceFilter] = useState('all')
-  const [apiStatus, setApiStatus] = useState({ health: '...', lastFetch: null as Date | null })
   const [locale, setLocale] = useState<Locale>('en')
 
-  // Fetch news data
   useEffect(() => {
     const fetchNews = async () => {
       try {
         const res = await fetch('/api/news')
         const data = await res.json()
         setNews(data.items || [])
-        setStats({
-          total: data.items?.length || 0,
-          filtered: data.items?.length || 0
-        })
       } catch (error) {
         console.error('Failed to fetch news:', error)
       }
     }
 
     fetchNews()
-    const interval = setInterval(fetchNews, 30000) // Refresh every 30s
+    const interval = setInterval(fetchNews, 30000)
     return () => clearInterval(interval)
   }, [])
 
-  // Filter news items
-  const filteredNews = news.filter(item => {
-    if (searchText) {
-      const content = item.body[locale].toLowerCase()
-      if (!content.includes(searchText.toLowerCase())) return false
-    }
-    if (sourceFilter !== 'all' && item.source !== sourceFilter) return false
-    return true
-  })
+  const filteredNews = useMemo(() => {
+    return news.filter((item) => {
+      if (searchText) {
+        const content = (item.body?.[locale] || '').toLowerCase()
+        const title = (item.title || '').toLowerCase()
+        const q = searchText.toLowerCase()
+        if (!content.includes(q) && !title.includes(q)) return false
+      }
+      if (sourceFilter !== 'all' && item.source !== sourceFilter) return false
+      return true
+    })
+  }, [news, searchText, sourceFilter, locale])
 
-  // Group by date
-  const groupedNews = filteredNews.reduce((groups, item) => {
-    const date = new Date(item.createdAt).toISOString().split('T')[0]
-    const groupTitle = date === new Date().toISOString().split('T')[0]
-      ? 'Today'
-      : date === new Date(Date.now() - 86400000).toISOString().split('T')[0]
-        ? 'Yesterday'
-        : new Date(date).toLocaleDateString()
-    
-    if (!groups[groupTitle]) groups[groupTitle] = []
-    groups[groupTitle].push(item)
+  const groupedNews = useMemo(() => {
+    const groups: Record<string, NewsItem[]> = {}
+    for (const item of filteredNews) {
+      const date = new Date(item.createdAt as any).toISOString().split('T')[0]
+      const today = new Date().toISOString().split('T')[0]
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+      const groupTitle = date === today ? 'Today' : date === yesterday ? 'Yesterday' : date
+      if (!groups[groupTitle]) groups[groupTitle] = []
+      groups[groupTitle].push(item)
+    }
+
+    // Sort within each group by createdAt desc
+    for (const k of Object.keys(groups)) {
+      groups[k].sort(
+        (a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime()
+      )
+    }
+
     return groups
-  }, {} as Record<string, NewsItem[]>)
+  }, [filteredNews])
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-black">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-semibold">Stablecoin News Dashboard</h1>
-              </div>
+      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-900 dark:bg-black/70">
+        <div className="mx-auto max-w-5xl px-4 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Stablecoin News Dashboard</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">EN/KR briefs • click a card to expand</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <LocaleToggle value={locale} onChange={setLocale} />
+              <ThemeToggle />
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Search</label>
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Search title or body..."
+                className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Source</label>
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100"
+              >
+                <option value="all">all</option>
+                <option value="cron">cron</option>
+                <option value="manual">manual</option>
+                <option value="seed">seed</option>
+                <option value="cron-manual">cron-manual</option>
+              </select>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="-mb-px flex space-x-8">
-            {['news', 'metrics', 'settings'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                className={`
-                  ${activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }
-                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-                `}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </nav>
+      <main className="mx-auto max-w-5xl px-4 py-6">
+        <div className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+          Tip: the latest item is expanded by default. Use Copy to copy the full body.
         </div>
-      </div>
 
-      {/* Main content */}
-      <main className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Status bar */}
-          <div className="mb-6 flex justify-between items-start">
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-gray-500">API</span>
-                <span className="ml-2 text-gray-900">{apiStatus.health}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Last fetch</span>
-                <span className="ml-2 text-gray-900">
-                  {apiStatus.lastFetch?.toLocaleTimeString()}
-                </span>
-              </div>
-            </div>
-            
-            {activeTab === 'news' && (
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-500">News items</span>
-                  <span className="ml-2 text-gray-900">{stats.total}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Filtered</span>
-                  <span className="ml-2 text-gray-900">{filteredNews.length}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Last refresh</span>
-                  <span className="ml-2 text-gray-900">
-                    {apiStatus.lastFetch?.toLocaleTimeString()}
-                  </span>
-                </div>
-              </div>
-            )}
+        {Object.keys(groupedNews).length === 0 ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-900 dark:bg-gray-950 dark:text-gray-300">
+            No items match your filters.
           </div>
-
-          {/* Content area */}
-          {activeTab === 'news' && (
-            <div className="space-y-6">
-              {/* Controls */}
-              <div className="bg-white shadow-sm rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Search</label>
-                      <input
-                        type="text"
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        placeholder="title or body..."
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Source</label>
-                      <select
-                        value={sourceFilter}
-                        onChange={(e) => setSourceFilter(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                      >
-                        <option value="all">all</option>
-                        <option value="cron">cron</option>
-                        <option value="manual">manual</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Language</label>
-                      <LocaleToggle value={locale} onChange={setLocale} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Actions</label>
-                    <div className="mt-1 flex items-center gap-2">
-                      <button
-                        onClick={() => window.location.reload()}
-                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        Refresh
-                      </button>
-                    </div>
-                  </div>
+        ) : (
+          <div className="space-y-8">
+            {Object.entries(groupedNews).map(([date, items]) => (
+              <section key={date}>
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {date === 'Today' || date === 'Yesterday' ? date : date}
+                  </h2>
+                  <div className="text-xs text-gray-400">{items.length}</div>
                 </div>
-                <div className="mt-2 text-sm text-gray-500">
-                  Tip: click a card to expand/collapse. Use "Copy" to copy the full body.
+
+                <div className="space-y-4">
+                  {items.map((item, idx) => (
+                    <NewsCard
+                      key={item.id}
+                      item={item}
+                      locale={locale}
+                      defaultExpanded={idx === 0}
+                    />
+                  ))}
                 </div>
-              </div>
-
-              {/* News items */}
-              {Object.entries(groupedNews).map(([date, items]) => (
-                <div key={date}>
-                  <h3 className="mb-4 text-lg font-medium text-gray-900">
-                    {date === 'Today' ? `Today (${new Date().toISOString().split('T')[0]})` : date}
-                  </h3>
-                  <div className="space-y-4">
-                    {items
-                      .slice()
-                      .sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime())
-                      .map((item, idx) => (
-                        <NewsCard
-                          key={item.id}
-                          item={item}
-                          locale={locale}
-                          defaultExpanded={idx === 0}
-                        />
-                      ))}
-                  </div>
-                </div>
-              ))}
-
-              {filteredNews.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No items match your filters</p>
-                  <button
-                    onClick={() => {
-                      setSearchText('')
-                      setSourceFilter('all')
-                    }}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-500"
-                  >
-                    Clear filters
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'metrics' && (
-            <div className="bg-white shadow-sm rounded-lg p-4">
-              <h2 className="text-lg font-medium text-gray-900">Metrics</h2>
-              <p className="mt-2 text-gray-500">
-                Coming next: USDC/USDT transfers → hourly aggregates → charts.
-              </p>
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="bg-white shadow-sm rounded-lg p-4">
-              <h2 className="text-lg font-medium text-gray-900">Settings</h2>
-              <p className="mt-2 text-gray-500">
-                API status and configuration
-              </p>
-            </div>
-          )}
-        </div>
+              </section>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   )
