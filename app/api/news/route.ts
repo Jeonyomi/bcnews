@@ -3,11 +3,34 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-// NOTE: Full KO translation is produced by transformer.ts (dictionary-based).
-// In this route we primarily:
+// Dictionary-based KO translation (automation-grade, deterministic).
+const DICT: Record<string, string> = {
+  'Digital Asset Basic Act': '디지털자산 기본법',
+  Korea: '한국',
+  Stablecoin: '스테이블코인',
+  stablecoin: '스테이블코인',
+  Stablecoins: '스테이블코인',
+  'Financial Supervisory Service': '금융감독원',
+  FSS: '금융감독원',
+  USDC: 'USDC',
+  USDT: 'USDT',
+  '[KR]': '[한국]',
+  '[Global]': '[글로벌]',
+  '[Watchlist]': '[주시 항목]',
+  '[One-liner]': '[한 줄 요약]'
+}
+
+function translateToKorean(englishContent: string): string {
+  let text = englishContent
+  for (const [en, ko] of Object.entries(DICT)) {
+    const esc = en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    text = text.replace(new RegExp(esc, 'g'), ko)
+  }
+  return text
+}
+
 // - fetch rows
 // - return safe empty list if DB/table isn't initialized (common on fresh Vercel deploy)
-
 export async function GET() {
   try {
     const news = await prisma.newsItem.findMany({
@@ -19,21 +42,20 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     })
 
-    // Keep API response format stable for the UI.
-    const items = news.map((item) => ({
-      ...item,
-      title: item.title.replaceAll('??', ''),
-      body: {
-        en: item.body,
-        // For now: server-side KO translation is handled in a dedicated transformer.
-        // If you want to call it here, we can wire it in; keeping this minimal avoids extra coupling.
-        ko: item.body
+    const items = news.map((item) => {
+      const en = item.body
+      return {
+        ...item,
+        title: item.title.replaceAll('??', ''),
+        body: {
+          en,
+          ko: translateToKorean(en)
+        }
       }
-    }))
+    })
 
     return NextResponse.json({ items })
   } catch (err: any) {
-    // Prisma error P2021: table does not exist
     if (err?.code === 'P2021') {
       return NextResponse.json({ items: [] })
     }
