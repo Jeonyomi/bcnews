@@ -20,13 +20,77 @@ const DICT: Record<string, string> = {
   '[One-liner]': '[한 줄 요약]'
 }
 
-function translateToKorean(englishContent: string): string {
+function translateToKoreanRuleBased(englishContent: string): string {
   let text = englishContent
   for (const [en, ko] of Object.entries(DICT)) {
     const esc = en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     text = text.replace(new RegExp(esc, 'g'), ko)
   }
   return text
+}
+
+// Optional: higher-quality KO translation via OpenRouter (set OPENROUTER_API_KEY in Vercel env)
+// Falls back to rule-based translation if no key or request fails.
+const _koCache = new Map<string, string>()
+
+async function translateToKorean(englishContent: string): Promise<string> {
+  const key = process.env.OPENROUTER_API_KEY
+  if (!key) return translateToKoreanRuleBased(englishContent)
+
+  const cached = _koCache.get(englishContent)
+  if (cached) return cached
+
+  try {
+    const controller = new AbortController()
+    const t = setTimeout(() => controller.abort(), 12000)
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+        // Optional attribution headers
+        'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://bcnews-flame.vercel.app',
+        'X-Title': process.env.OPENROUTER_TITLE || 'bcnews'
+      },
+      body: JSON.stringify({
+        model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet',
+        temperature: 0.1,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a professional Korean translator for crypto/stablecoin industry news. ' +
+              'Translate English markdown into Korean markdown. Preserve structure, numbering, bullets, and links. ' +
+              'Keep proper nouns/tickers (USDC, USDT, CFTC, FSS, Bithumb, Deel, MoonPay) as-is. ' +
+              'Translate headings like [KR]/[Global]/[Watchlist]/[One-liner] into [한국]/[글로벌]/[주시 항목]/[한 줄 요약]. ' +
+              'Do not add commentary. Output ONLY the translated markdown.'
+          },
+          { role: 'user', content: englishContent }
+        ]
+      }),
+      signal: controller.signal
+    })
+
+    clearTimeout(t)
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '')
+      console.warn('OpenRouter translate failed:', res.status, txt.slice(0, 200))
+      return translateToKoreanRuleBased(englishContent)
+    }
+
+    const data: any = await res.json()
+    const out = data?.choices?.[0]?.message?.content
+    if (typeof out !== 'string' || !out.trim()) return translateToKoreanRuleBased(englishContent)
+
+    const ko = out.trim()
+    _koCache.set(englishContent, ko)
+    return ko
+  } catch (e) {
+    console.warn('OpenRouter translate exception:', e)
+    return translateToKoreanRuleBased(englishContent)
+  }
 }
 
 // - fetch rows
@@ -79,23 +143,24 @@ export async function GET() {
           }
         ]
 
-    const items = baseItems.map((item: any) => {
-      const en = item.body
-      return {
-        ...item,
-        title: String(item.title || '').replaceAll('??', ''),
-        body: {
-          en,
-          ko: translateToKorean(en)
+    const items = await Promise.all(
+      baseItems.map(async (item: any) => {
+        const en = item.body
+        const ko = await translateToKorean(en)
+        return {
+          ...item,
+          title: String(item.title || '').replaceAll('??', ''),
+          body: { en, ko }
         }
-      }
-    })
+      })
+    )
 
     return NextResponse.json({ items })
   } catch (err: any) {
     // Prisma error P2021: table does not exist
     if (err?.code === 'P2021') {
       const en = SAMPLE_EN
+      const ko = await translateToKorean(en)
       return NextResponse.json({
         items: [
           {
@@ -104,7 +169,7 @@ export async function GET() {
             source: 'seed',
             createdAt: new Date('2026-02-11T00:00:00.000Z'),
             updatedAt: new Date('2026-02-11T00:00:00.000Z'),
-            body: { en, ko: translateToKorean(en) }
+            body: { en, ko }
           }
         ]
       })
