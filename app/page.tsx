@@ -1,16 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import type { Locale, NewsItem } from '@/types'
+import type { NewsItem } from '@/types'
 import { NewsCard } from '@/components/NewsCard'
-import { LocaleToggle } from '@/components/LocaleToggle'
-import { ThemeToggle } from '@/src/components/ThemeToggle'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([])
   const [searchText, setSearchText] = useState('')
   const [sourceFilter, setSourceFilter] = useState('all')
-  const [locale, setLocale] = useState<Locale>('en')
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -31,7 +29,7 @@ export default function Home() {
   const filteredNews = useMemo(() => {
     return news.filter((item) => {
       if (searchText) {
-        const content = (item.body?.[locale] || '').toLowerCase()
+        const content = String(item.body || '').toLowerCase()
         const title = (item.title || '').toLowerCase()
         const q = searchText.toLowerCase()
         if (!content.includes(q) && !title.includes(q)) return false
@@ -39,7 +37,7 @@ export default function Home() {
       if (sourceFilter !== 'all' && item.source !== sourceFilter) return false
       return true
     })
-  }, [news, searchText, sourceFilter, locale])
+  }, [news, searchText, sourceFilter])
 
   const groupedNews = useMemo(() => {
     const groups: Record<string, NewsItem[]> = {}
@@ -74,7 +72,6 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-2">
-              <LocaleToggle value={locale} onChange={setLocale} />
               <ThemeToggle />
             </div>
           </div>
@@ -132,12 +129,7 @@ export default function Home() {
 
                 <div className="space-y-4">
                   {items.map((item, idx) => (
-                    <NewsCard
-                      key={item.id}
-                      item={item}
-                      locale={locale}
-                      defaultExpanded={idx === 0}
-                    />
+                    <NewsCard key={item.id} item={item} defaultExpanded={idx === 0} />
                   ))}
                 </div>
               </section>

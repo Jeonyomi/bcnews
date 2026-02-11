@@ -1,13 +1,9 @@
-export type Locale = 'en' | 'ko'
-
 export interface NewsItem {
   id: string
   title: string
-  body: {
-    en: string
-    ko: string
-  }
+  // Markdown content contains BOTH KO then EN versions.
+  body: string
   source: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string | Date
+  updatedAt: string | Date
 }

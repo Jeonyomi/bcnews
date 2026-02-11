@@ -21,7 +21,8 @@
   "include": [
     "next-env.d.ts",
     "app/**/*",
-    "src/**/*",
+    "src/components/**/*",
+    "src/types/**/*",
     "components/**/*",
     "types/**/*",
     ".next/types/**/*.ts"
@@ -30,6 +31,8 @@
     "node_modules",
     "apps/**/*",
     "packages/**/*",
+    "src/app/**/*",
+    "src/app/api/**/*",
     "infra/**/*",
     "scripts/**/*",
     "tmp/**/*"

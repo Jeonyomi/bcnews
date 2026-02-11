@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import type { NewsItem, Locale } from '@/types'
+import type { NewsItem } from '@/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 interface NewsCardProps {
   item: NewsItem
-  locale: Locale
   defaultExpanded?: boolean
 }
 
@@ -27,14 +26,9 @@ function normalizeMarkdown(md: string): string {
   return s.trim()
 }
 
-export function NewsCard({ item, locale, defaultExpanded = false }: NewsCardProps) {
+export function NewsCard({ item, defaultExpanded = false }: NewsCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded)
-  const raw = locale === 'ko' ? item.body.ko : item.body.en
-  const content = normalizeMarkdown(raw)
-  
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(content)
-  }
+  const content = normalizeMarkdown(String(item.body || ''))
 
   const timeAgo = (date: Date) => {
     const now = new Date()
@@ -63,14 +57,9 @@ export function NewsCard({ item, locale, defaultExpanded = false }: NewsCardProp
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={copyToClipboard}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            Copy
-          </button>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200 dark:hover:bg-gray-900"
           >
             {expanded ? 'Collapse' : 'Expand'}
           </button>
@@ -90,8 +79,22 @@ export function NewsCard({ item, locale, defaultExpanded = false }: NewsCardProp
       </div>
       
       {!expanded && (
-        <div className="px-4 pb-4 text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
-          {content.split('\n')[0]}
+        <div className="px-4 pb-4 text-sm text-gray-700 dark:text-gray-300">
+          {(() => {
+            const lines = content.split('\n').map((l) => l.trimEnd())
+            // Show something like: [KR] + first meaningful line
+            const firstNonEmptyIdx = lines.findIndex((l) => l.trim().length > 0)
+            const secondNonEmptyIdx = lines.findIndex(
+              (l, i) => i > firstNonEmptyIdx && l.trim().length > 0
+            )
+            const preview = [
+              firstNonEmptyIdx >= 0 ? lines[firstNonEmptyIdx] : '',
+              secondNonEmptyIdx >= 0 ? lines[secondNonEmptyIdx] : ''
+            ]
+              .filter(Boolean)
+              .join(' ')
+            return <div className="line-clamp-2">{preview}</div>
+          })()}
         </div>
       )}
     </div>

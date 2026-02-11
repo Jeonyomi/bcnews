@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
+import { formatMarkdown } from './format'
 
 const prisma = new PrismaClient()
 
 // Dictionary-based KO translation (automation-grade, deterministic).
 const DICT: Record<string, string> = {
+  // section headers (will be bolded later)
+  '[KR]': '[KR]',
+  '[Global]': '[Global]',
+  '[Watchlist]': '[Watchlist]',
+  '[One-liner]': '[One-liner]',
+
+  // common terms
+
   'Digital Asset Basic Act': '디지털자산 기본법',
   Korea: '한국',
   Stablecoin: '스테이블코인',
@@ -14,10 +23,7 @@ const DICT: Record<string, string> = {
   FSS: '금융감독원',
   USDC: 'USDC',
   USDT: 'USDT',
-  '[KR]': '[한국]',
-  '[Global]': '[글로벌]',
-  '[Watchlist]': '[주시 항목]',
-  '[One-liner]': '[한 줄 요약]'
+  // NOTE: actual section header translation happens in the LLM prompt (best) or post-processing (fallback).
 }
 
 function translateToKoreanRuleBased(englishContent: string): string {
@@ -135,7 +141,7 @@ export async function GET() {
       : [
           {
             id: 'seed-brief-2026-02-11',
-            title: 'Stablecoin / Crypto News Brief (EN) — 2026-02-11 (seed)',
+            title: 'Stablecoin / Crypto News Brief — 2026-02-11 (seed)',
             body: SAMPLE_EN,
             source: 'seed',
             createdAt: new Date('2026-02-11T00:00:00.000Z'),
@@ -145,12 +151,19 @@ export async function GET() {
 
     const items = await Promise.all(
       baseItems.map(async (item: any) => {
-        const en = item.body
+        const en = String(item.body || '')
         const ko = await translateToKorean(en)
+
+        // Bold section labels and ensure link is always on a new line.
+        const koFmt = formatMarkdown(ko, { addBlankLineAfterLink: true })
+        const enFmt = formatMarkdown(en, { addBlankLineAfterLink: false })
+
+        const body = `## KR\n\n${koFmt}\n\n---\n\n## EN\n\n${enFmt}`
+
         return {
           ...item,
           title: String(item.title || '').replaceAll('??', ''),
-          body: { en, ko }
+          body
         }
       })
     )
@@ -161,15 +174,19 @@ export async function GET() {
     if (err?.code === 'P2021') {
       const en = SAMPLE_EN
       const ko = await translateToKorean(en)
+      const koFmt = formatMarkdown(ko, { addBlankLineAfterLink: true })
+      const enFmt = formatMarkdown(en, { addBlankLineAfterLink: false })
+      const body = `## KR\n\n${koFmt}\n\n---\n\n## EN\n\n${enFmt}`
+
       return NextResponse.json({
         items: [
           {
             id: 'seed-brief-2026-02-11',
-            title: 'Stablecoin / Crypto News Brief (EN) — 2026-02-11 (seed)',
+            title: 'Stablecoin / Crypto News Brief — 2026-02-11 (seed)',
             source: 'seed',
             createdAt: new Date('2026-02-11T00:00:00.000Z'),
             updatedAt: new Date('2026-02-11T00:00:00.000Z'),
-            body: { en, ko }
+            body
           }
         ]
       })
