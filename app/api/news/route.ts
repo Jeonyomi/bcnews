@@ -22,17 +22,20 @@ export async function GET() {
       throw error
     }
 
-    return new NextResponse(
-      JSON.stringify({ items }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Cache-Control': 'no-store, max-age=0',
-          'Access-Control-Allow-Origin': '*'
-        }
+    // Set proper UTF-8 BOM header for Korean characters
+    const utf8Encoder = new TextEncoder()
+    const jsonString = JSON.stringify({ items })
+    const utf8Data = utf8Encoder.encode('\uFEFF' + jsonString)  // Add BOM
+
+    return new Response(utf8Data, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Language': 'ko-KR, en-US',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Access-Control-Allow-Origin': '*'
       }
-    )
+    })
   } catch (error) {
     console.error('API Error:', error)
     return NextResponse.json(
