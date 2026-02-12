@@ -3,55 +3,109 @@
 ## 🇰🇷 한국어 버전
 
 [KR]
-제목: (복구) 한국어 표시 문제 수정 중 — 다음 정규 브리프에서 최신 내용으로 갱신됩니다
+
+### 한국: 디지털자산 2단계(스테이블코인 포함) 입법, 감독당국-중앙은행 이견으로 2026년으로 지연
+
 #### 요약
-- 웹에서 한국어가 깨져 보이는 문제가 확인되어 seed 파일 인코딩 경로를 수정했습니다.
-- 다음 09:00/21:00 정규 메인 브리프 실행 시 최신 내용으로 자동 업데이트됩니다.
+- 한국의 디지털자산 제도화 로드맵 중 스테이블코인 발행·유통을 제도권에 편입하는 2단계 법안(일명 Digital Asset Basic Act 2단계)이 2026년으로 미뤄졌다는 보도가 나왔다.
+- 핵심 쟁점은 원화 연동 스테이블코인 발행 주체와 감독권한 배분으로, 금융위원회(FSC)와 한국은행(BOK) 간 시각차가 큰 것으로 전해진다.
+- 과세 측면에서는 가상자산 양도차익 과세 도입이 2027년으로 재차 연기됐다는 내용이 함께 언급됐다.
+
 #### 시사점 (Why it matters)
-- 운영 상 “정각 브리프 → seed 반영 → Vercel 배포 갱신” 파이프라인에서 인코딩이 깨지면 전체 UX가 망가집니다.
-- seed 파일 쓰기 방식을 OpenClaw tools.write 기반으로 바꿔 재발을 차단합니다.
-🔗 https://bcnews-agent.vercel.app/
+- 원화 스테이블코인 제도화가 늦어질수록 국내 거래·결제에서 달러 스테이블코인(USDT/USDC) 의존도가 구조적으로 지속될 가능성이 커진다.
+- 감독권한(통화주권 vs 혁신/경쟁 촉진) 정리가 되지 않으면, 발행사 요건(은행 중심/비은행 허용), 준비금·보관·상환 규칙 등 핵심 설계가 뒤로 밀리면서 시장 불확실성이 길어진다.
+- 규제 공백이 길어질수록 ‘사실상 규율(거래소 내부정책, 은행 실명계좌 정책)’이 시장 규칙을 대신할 가능성이 높아져, 사업자 입장에서는 예측가능성이 낮아질 수 있다.
+
+🔗 https://www.cryptovate.io/south-korea-crypto-regulation-2026-stablecoin-delay/
 
 [Global]
-제목: (복구) Seed 인코딩 경로 수정 완료
+
+### 미국: CLARITY Act(디지털자산 포괄 프레임워크) 상원 절차 지연, 스테이블코인 보상·DeFi 책임 범위가 쟁점으로 부상
+
 #### 요약
-- seed.md를 UTF-8로 안정적으로 저장하도록 파이프라인을 변경했습니다.
+- 상원 은행위원회가 디지털자산 포괄 규제 프레임워크를 다루는 CLARITY Act의 마크업(표결 절차)을 추진하는 듯했으나, 업계 주요 참가자들이 수정안에 대한 지지를 철회하면서 절차가 연기됐다는 분석이 나왔다.
+- 쟁점으로는 (1) 스테이블코인 ‘리워드/이자’ 성격이 예금 유사 기능을 만들 수 있다는 논쟁, (2) 비수탁 개발자·DeFi 참여자의 규제 노출 범위, (3) 공직자 이해상충·윤리 조항 등이 거론됐다.
+- 법 제정이 지연될수록 ‘입법에 의한 명확성’ 대신 ‘집행(Enforcement) 중심 규율’이 이어질 가능성이 크다는 평가다.
+
 #### 시사점 (Why it matters)
-- 한국어/이모지 포함 콘텐츠의 신뢰성을 확보합니다.
-🔗 https://github.com/Jeonyomi/bcnews
+- 미국에서 스테이블코인 리워드(수익 제공) 규정이 강하게 제한될 경우, 온체인 결제·지갑 기반 상품이 은행/머니마켓과의 규제 경계에서 더 큰 마찰을 겪을 수 있다.
+- DeFi/개발자 책임 범위가 넓게 잡히면, 비수탁 인프라(프론트엔드, 라우팅, SDK)의 컴플라이언스 비용이 급증해 ‘기술은 글로벌, 영업은 로컬’ 구조가 강화될 수 있다.
+- 글로벌 사업자 관점에서는 미국의 프레임워크 확정이 늦어질수록, EU MiCA나 홍콩 라이선스 같은 ‘선제 확정된 지역’으로 상품 출시/법인 전략이 이동할 유인이 커진다.
+
+🔗 https://blockchain.bakermckenzie.com/2026/01/16/the-clarity-act-delay-and-what-it-reveals-about-u-s-crypto-regulation/
+
+### 홍콩: HKMA, 첫 스테이블코인 라이선스 발급을 ‘소수’로 시작하며 2026년 3월을 목표로 신중한 롤아웃 신호
+
+#### 요약
+- 홍콩 금융당국은 2026년 3월을 목표로 첫 스테이블코인 라이선스 발급을 추진 중이며, 초기 발급 수는 3~5개 수준의 제한적 접근이 유력하다는 시장 관측이 소개됐다.
+- HKMA는 스테이블코인을 ‘크립토 시장 확장’이 아니라 ‘금융 인프라(지급·결제 레이어)’로 다루려는 기조로 읽히며, 준비자산 구성·보관, 리스크관리, 유스케이스 등에 대한 추가 자료를 요청하는 등 엄격한 심사를 진행 중인 것으로 전해진다.
+
+#### 시사점 (Why it matters)
+- 초기 라이선스를 소수로 제한하면 ‘신뢰 확보’에는 유리하지만, 단기적으로는 발행 시장이 과점 구조로 형성될 가능성이 있다.
+- 홍콩달러(HKD) 연동 스테이블코인은 달러 페그 체계와 결합된 ‘기관형 디지털 결제수단’으로 포지셔닝될 수 있어, 아시아 역내 결제/정산에서 새로운 규제 표준(준비금·감사·상환)을 확산시키는 촉매가 될 수 있다.
+
+🔗 https://asiatimes.com/2026/02/hong-kong-signals-caution-in-stablecoin-license-rollout/
 
 [Watchlist]
-- 다음 정규 메인 브리프(09:00/21:00 KST) 실행 시 한국어 렌더링 정상 여부
-- Vercel 배포 후 /api/news 응답에 한글이 정상 포함되는지
+- 한국: 디지털자산 2단계(스테이블코인) 입법 재논의 시점, 발행 주체(은행 vs 비은행) 및 한국은행 관여 범위
+- 미국: CLARITY Act 및 스테이블코인 관련 별도 법안 논의 재개 여부(마크업 재일정), 스테이블코인 리워드 규정 방향
+- 홍콩: 2026년 3월 첫 라이선스 발급 규모와 선정 기준, 준비자산·보관·감사 요건의 구체화
 
 [One-liner]
-한국어 깨짐은 seed 파일 저장 경로 문제였고, tools.write로 변경해 재발을 막습니다.
+한국은 스테이블코인 제도화가 2026년으로 밀리며 공백이 길어지는 반면, 미국·홍콩은 ‘디테일(리워드/DeFi 책임, 소수 라이선스)’에서 규제 방향이 갈리는 국면이다.
 
 ====================================================================
 
 ## 🌍 English Version
 
 [KR]
-Title: (Recovery) Fixing Korean text rendering — will be refreshed by the next scheduled brief
+
+### Korea: Phase-2 digital asset legislation (including stablecoins) reportedly pushed to 2026 amid an FSC–BOK jurisdiction dispute
+
 #### Summary
-- We detected mojibake in the deployed seed content and patched the seed write path.
-- The next scheduled main brief (09:00/21:00 KST) will overwrite this recovery note with fresh content.
+- A report says Korea’s Phase-2 package (often described as the next step of a “Digital Asset Basic Act”), which would formalize stablecoin issuance and related rules, has been pushed into 2026.
+- The key friction point is who should control and supervise KRW-pegged stablecoin issuance, with differing views between the Financial Services Commission (FSC) and the Bank of Korea (BOK).
+- The same coverage also notes a further delay of Korea’s crypto capital gains tax to 2027.
+
 #### Why it matters
-- If seed encoding breaks, the entire UI becomes unreadable.
-- We’re switching to OpenClaw tools.write for stable UTF-8 handling.
-🔗 https://bcnews-agent.vercel.app/
+- A longer legislative gap increases the odds that USD stablecoins (USDT/USDC) remain the de facto settlement rail in Korea, especially for cross-border liquidity.
+- Until “who regulates what” is resolved, core design choices (issuer eligibility, reserve/custody rules, redemption standards) are likely to stay unsettled, extending uncertainty for builders and institutions.
+- In practice, market rules may continue to be shaped by exchange policies and bank account access decisions rather than by clear statute.
+
+🔗 https://www.cryptovate.io/south-korea-crypto-regulation-2026-stablecoin-delay/
 
 [Global]
-Title: (Recovery) Seed write path updated for stable UTF-8
+
+### United States: CLARITY Act markup delayed as stablecoin rewards and DeFi developer exposure become flashpoints
+
 #### Summary
-- seed.md is now written via a UTF-8 safe path.
+- An analysis notes that the Senate Banking Committee appeared ready to move the Digital Asset Market CLARITY Act forward, but the markup was delayed after major industry participants publicly withdrew support for revised draft text.
+- Key dispute areas include (1) whether stablecoin rewards/yield resemble deposits outside the insured banking system, (2) how far non-custodial developers and DeFi actors could be pulled into compliance regimes, and (3) ethics/conflicts-of-interest provisions.
+- The piece argues that delays keep “regulation by enforcement” dominant in the US.
+
 #### Why it matters
-- Reliable multilingual rendering (KR/emoji) on Vercel.
-🔗 https://github.com/Jeonyomi/bcnews
+- If US policy tightens around yield-bearing stablecoins, product design for wallets, payments, and consumer on-chain finance may shift toward bank-like structures or offshore offerings.
+- Broader developer/DeFi liability can raise compliance costs for non-custodial infrastructure (front-ends, SDKs, routing), accelerating jurisdictional segmentation.
+- Prolonged US uncertainty can push launches toward jurisdictions with clearer on-the-books frameworks.
+
+🔗 https://blockchain.bakermckenzie.com/2026/01/16/the-clarity-act-delay-and-what-it-reveals-about-u-s-crypto-regulation/
+
+### Hong Kong: HKMA signals a cautious first wave of stablecoin licenses, targeting March 2026 with a small initial cohort
+
+#### Summary
+- Reporting indicates Hong Kong is moving toward issuing its first stablecoin licenses, with the HKMA targeting March 2026.
+- Market expectations are being managed: the initial batch is widely expected to be limited (around 3–5 licenses), with a focus on reserves, custody, risk management, and concrete use cases.
+
+#### Why it matters
+- A small first cohort can maximize credibility and supervisory learning, but may also create early market concentration.
+- HKD-referenced stablecoins could emerge as an institution-grade settlement instrument in Asia, setting practical standards for reserves, audits, and redemption operations.
+
+🔗 https://asiatimes.com/2026/02/hong-kong-signals-caution-in-stablecoin-license-rollout/
 
 [Watchlist]
-- Confirm KR rendering on the next scheduled main brief
-- Verify /api/news returns proper UTF-8 Korean
+- Korea: timing and contours of Phase-2 legislation; issuer eligibility (banks vs non-banks) and BOK’s role
+- US: whether CLARITY Act and stablecoin bills get rescheduled for markup; direction on stablecoin rewards/yield
+- Hong Kong: the actual number of March 2026 licenses and the detailed reserve/custody/audit requirements
 
 [One-liner]
-The issue was in the seed write path; switching to tools.write should prevent recurrence.
+Korea’s stablecoin rulemaking is drifting into 2026, while the US and Hong Kong are converging on the hard details: yield treatment, DeFi scope, and tightly gated licensing.
