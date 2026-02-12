@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { NewsItem } from '@/types'
@@ -12,6 +12,18 @@ interface Props {
 
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
+  const [decodedContent, setDecodedContent] = useState(item.content)
+
+  // Decode Base64 content on mount
+  useEffect(() => {
+    try {
+      const decoded = atob(item.content)
+      setDecodedContent(decoded)
+    } catch (e) {
+      console.warn('Content is not Base64 encoded:', e)
+      setDecodedContent(item.content)
+    }
+  }, [item.content])
 
   const timeString = new Date(item.created_at_kst || item.created_at).toLocaleString('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -30,9 +42,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
         className="w-full cursor-pointer text-left"
       >
         <div className="p-4 sm:p-6">
-          {/* Header badges */}
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            {/* Region badge */}
             <span
               className={`rounded px-2 py-1 text-xs font-medium ${
                 item.region === 'KR'
@@ -43,21 +53,18 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
               {item.region}
             </span>
             
-            {/* Source badge (if backup) */}
             {item.source === 'backup' && (
               <span className="rounded bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200">
                 Backup
               </span>
             )}
             
-            {/* Score badge (if exists) */}
             {typeof item.score === 'number' && (
               <span className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-200">
                 Score: {item.score}
               </span>
             )}
 
-            {/* Topic badges */}
             {Array.isArray(item.topics) && item.topics.map((topic) => (
               <span
                 key={topic}
@@ -68,7 +75,6 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
             ))}
           </div>
 
-          {/* Title */}
           <h3
             className={`mb-2 font-medium ${
               expanded
@@ -79,18 +85,16 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
             {item.title}
           </h3>
 
-          {/* Content */}
           <div
             className={`prose prose-sm max-w-none dark:prose-invert prose-h1:text-gray-900 dark:prose-h1:text-white prose-h2:text-gray-900 dark:prose-h2:text-white prose-h3:text-gray-900 dark:prose-h3:text-white prose-h4:text-gray-800 dark:prose-h4:text-gray-100 prose-p:text-gray-800 dark:prose-p:text-white prose-strong:text-gray-900 dark:prose-strong:text-white prose-a:text-blue-600 hover:prose-a:text-blue-500 dark:prose-a:text-blue-300 dark:hover:prose-a:text-blue-200 ${
               expanded ? '' : 'line-clamp-3'
             }`}
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{decodedContent}</ReactMarkdown>
           </div>
         </div>
       </button>
 
-      {/* Footer timestamp */}
       <div className="px-4 pb-4 pt-0 text-xs text-gray-500 dark:text-gray-300 sm:px-6">
         {timeString}
       </div>

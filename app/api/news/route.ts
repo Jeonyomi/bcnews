@@ -22,16 +22,16 @@ export async function GET() {
       throw error
     }
 
-    // Set proper UTF-8 BOM header for Korean characters
-    const utf8Encoder = new TextEncoder()
-    const jsonString = JSON.stringify({ items })
-    const utf8Data = utf8Encoder.encode('\uFEFF' + jsonString)  // Add BOM
+    // Base64 encode Korean content
+    const encodedItems = items.map(item => ({
+      ...item,
+      content: Buffer.from(item.content, 'utf-8').toString('base64')
+    }))
 
-    return new Response(utf8Data, {
+    return new Response(JSON.stringify({ items: encodedItems }), {
       status: 200,
       headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Content-Language': 'ko-KR, en-US',
+        'Content-Type': 'application/json',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'Access-Control-Allow-Origin': '*'
       }
