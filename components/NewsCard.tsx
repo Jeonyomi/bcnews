@@ -34,27 +34,27 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
             <span
               className={`rounded px-2 py-1 text-xs font-medium ${
                 item.region === 'KR'
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                  : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                  : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200'
               }`}
             >
               {item.region}
             </span>
             {item.source === 'backup' && (
-              <span className="rounded bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+              <span className="rounded bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200">
                 Backup
               </span>
             )}
             {item.topics?.map((topic) => (
               <span
                 key={topic}
-                className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200"
               >
                 {topic}
               </span>
             ))}
             {item.score != null && (
-              <span className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-300">
+              <span className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-200">
                 Score: {item.score}
               </span>
             )}
@@ -64,14 +64,14 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
             className={`mb-2 font-medium ${
               expanded
                 ? 'text-gray-900 dark:text-white'
-                : 'text-gray-800 dark:text-gray-100'
+                : 'text-gray-800 dark:text-white'
             }`}
           >
             {item.title}
           </h3>
 
           <div
-            className={`prose prose-sm max-w-none dark:prose-invert prose-h1:text-gray-900 dark:prose-h1:text-white prose-h2:text-gray-900 dark:prose-h2:text-white prose-h3:text-gray-900 dark:prose-h3:text-white prose-h4:text-gray-900 dark:prose-h4:text-white prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-a:text-blue-600 dark:prose-a:text-blue-400 ${
+            className={`prose prose-sm max-w-none dark:prose-invert prose-h1:text-gray-900 dark:prose-h1:text-white prose-h2:text-gray-900 dark:prose-h2:text-white prose-h3:text-gray-900 dark:prose-h3:text-white prose-h4:text-gray-900 dark:prose-h4:text-white prose-p:text-gray-700 dark:prose-p:text-white prose-strong:text-gray-900 dark:prose-strong:text-white prose-a:text-blue-600 hover:prose-a:text-blue-500 dark:prose-a:text-blue-300 dark:hover:prose-a:text-blue-200 ${
               expanded ? '' : 'line-clamp-3'
             }`}
           >
@@ -80,7 +80,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
         </div>
       </button>
 
-      <div className="px-4 pb-4 pt-0 text-xs text-gray-500 dark:text-gray-400 sm:px-6">
+      <div className="px-4 pb-4 pt-0 text-xs text-gray-500 dark:text-gray-300 sm:px-6">
         {timeString}
       </div>
     </article>
