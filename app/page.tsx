@@ -6,8 +6,7 @@ import NewsCard from '@/components/NewsCard'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { FilterBar } from '@/components/FilterBar'
 
-// 재시도 간격 (ms)
-const RETRY_INTERVALS = [5000, 10000, 30000] // 5초, 10초, 30초
+const RETRY_INTERVALS = [5000, 10000, 30000]
 const MAX_RETRY_INDEX = RETRY_INTERVALS.length - 1
 
 export default function Home() {
@@ -24,7 +23,6 @@ export default function Home() {
       const res = await fetch('/api/news')
       if (!res.ok) throw new Error('Failed to fetch news')
       const data = await res.json()
-      
       setNews(data.items || [])
       setError(null)
       setRetryIndex(0)
@@ -46,8 +44,7 @@ export default function Home() {
   const filteredNews = useMemo(() => {
     return news.filter((item) => {
       const regionMatch = selectedRegion === 'all' || item.region === selectedRegion
-      const topicMatch =
-        selectedTopic === 'all' || item.topics?.includes(selectedTopic)
+      const topicMatch = selectedTopic === 'all' || item.topics?.includes(selectedTopic)
       return regionMatch && topicMatch
     })
   }, [news, selectedRegion, selectedTopic])
@@ -63,7 +60,6 @@ export default function Home() {
       groups[groupTitle].push(item)
     }
 
-    // Sort within each group by created_at desc
     for (const k of Object.keys(groups)) {
       groups[k].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -74,9 +70,9 @@ export default function Home() {
   }, [filteredNews])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-white dark:bg-black">
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
+      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-black/90">
         <div className="mx-auto max-w-5xl px-4 py-4">
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -84,10 +80,10 @@ export default function Home() {
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Stablecoin News Dashboard
                 </h1>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-gray-600 dark:text-gray-300">
                   EN/KR briefs • click a card to expand
                   {error && (
-                    <span className="ml-2 text-red-500">
+                    <span className="ml-2 text-red-500 dark:text-red-400">
                       (Connection error, retrying in {RETRY_INTERVALS[retryIndex] / 1000}s...)
                     </span>
                   )}
@@ -126,7 +122,7 @@ export default function Home() {
         </div>
 
         {Object.keys(groupedNews).length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
             {loading ? 'Loading news...' : error ? 'Failed to load news.' : 'No matching items found.'}
           </div>
         ) : (

@@ -13,7 +13,6 @@ interface Props {
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
-  // Format KST time
   const timeString = new Date(item.created_at_kst || item.created_at).toLocaleString('ko-KR', {
     timeZone: 'Asia/Seoul',
   })
@@ -22,8 +21,8 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
     <article
       className={`group relative overflow-hidden rounded-xl border transition-all ${
         expanded
-          ? 'border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900'
-          : 'border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900'
+          ? 'border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800'
+          : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
       }`}
     >
       <button
@@ -35,27 +34,27 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
             <span
               className={`rounded px-2 py-1 text-xs font-medium ${
                 item.region === 'KR'
-                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400'
-                  : 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                  : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
               }`}
             >
               {item.region}
             </span>
             {item.source === 'backup' && (
-              <span className="rounded bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400">
+              <span className="rounded bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
                 Backup
               </span>
             )}
             {item.topics?.map((topic) => (
               <span
                 key={topic}
-                className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
               >
                 {topic}
               </span>
             ))}
             {item.score != null && (
-              <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+              <span className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-300">
                 Score: {item.score}
               </span>
             )}
@@ -65,14 +64,14 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
             className={`mb-2 font-medium ${
               expanded
                 ? 'text-gray-900 dark:text-white'
-                : 'text-gray-800 dark:text-gray-200'
+                : 'text-gray-800 dark:text-gray-100'
             }`}
           >
             {item.title}
           </h3>
 
           <div
-            className={`prose prose-sm max-w-none dark:prose-invert prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 dark:prose-headings:text-white dark:prose-p:text-gray-300 dark:prose-a:text-blue-400 ${
+            className={`prose prose-sm max-w-none dark:prose-invert prose-h1:text-gray-900 dark:prose-h1:text-white prose-h2:text-gray-900 dark:prose-h2:text-white prose-h3:text-gray-900 dark:prose-h3:text-white prose-h4:text-gray-900 dark:prose-h4:text-white prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-a:text-blue-600 dark:prose-a:text-blue-400 ${
               expanded ? '' : 'line-clamp-3'
             }`}
           >
