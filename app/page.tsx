@@ -7,7 +7,6 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([])
-  // source filter removed
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -30,7 +29,7 @@ export default function Home() {
   const groupedNews = useMemo(() => {
     const groups: Record<string, NewsItem[]> = {}
     for (const item of filteredNews) {
-      const date = new Date(item.createdAt as any).toISOString().split('T')[0]
+      const date = new Date(item.created_at).toISOString().split('T')[0]
       const today = new Date().toISOString().split('T')[0]
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
       const groupTitle = date === today ? 'Today' : date === yesterday ? 'Yesterday' : date
@@ -38,10 +37,10 @@ export default function Home() {
       groups[groupTitle].push(item)
     }
 
-    // Sort within each group by createdAt desc
+    // Sort within each group by created_at desc
     for (const k of Object.keys(groups)) {
       groups[k].sort(
-        (a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime()
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
     }
 
@@ -63,8 +62,6 @@ export default function Home() {
               <ThemeToggle />
             </div>
           </div>
-
-          {/* Controls removed */}
         </div>
       </header>
 
@@ -75,7 +72,7 @@ export default function Home() {
 
         {Object.keys(groupedNews).length === 0 ? (
           <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-900 dark:bg-gray-950 dark:text-gray-300">
-            No items match your filters.
+            Loading news...
           </div>
         ) : (
           <div className="space-y-8">

@@ -10,8 +10,13 @@ interface Props {
   defaultExpanded?: boolean
 }
 
-export function NewsCard({ item, defaultExpanded = false }: Props) {
+export default function NewsCard({ item, defaultExpanded = false }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded)
+
+  // Format KST time
+  const timeString = new Date(item.created_at_kst || item.created_at).toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+  })
 
   return (
     <article
@@ -27,7 +32,7 @@ export function NewsCard({ item, defaultExpanded = false }: Props) {
       >
         <div className="p-4 sm:p-6">
           <div className="mb-1 flex items-center gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span
                 className={`rounded px-2 py-1 text-xs font-medium ${
                   item.region === 'KR'
@@ -50,9 +55,9 @@ export function NewsCard({ item, defaultExpanded = false }: Props) {
                   {topic}
                 </span>
               ))}
-              {item.score && (
+              {item.score != null && (
                 <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-300">
-                  {item.score}
+                  Score: {item.score}
                 </span>
               )}
             </div>
@@ -79,9 +84,7 @@ export function NewsCard({ item, defaultExpanded = false }: Props) {
       </button>
 
       <div className="px-4 pb-4 pt-0 text-xs text-gray-500 dark:text-gray-400 sm:px-6">
-        {new Date(item.created_at_kst).toLocaleString('ko-KR', {
-          timeZone: 'Asia/Seoul',
-        })}
+        {timeString}
       </div>
     </article>
   )
