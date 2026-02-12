@@ -1,48 +1,47 @@
-📰 Digital Asset & Stablecoin Regulatory Brief
+?벐 Digital Asset & Stablecoin Regulatory Brief
 
-## 🇰🇷 한국어 버전
+## ?눖?눟 ?쒓뎅??踰꾩쟾
 
 [KR]
-제목: 금감원, 가상자산 시세조종 기획조사 및 디지털자산기본법 준비반 신설…거래소 수수료 공시·스테이블코인 인가심사 매뉴얼 추진
-#### 요약
-- 금융감독원은 2026년 업무계획에서 가상자산 시장질서를 훼손하는 고위험 분야(대형고래 시세조종, 가두리, 경주마, API 주문 악용, SNS 허위사실 유포 등)를 대상으로 기획조사를 예고했다.
-- 이상 급등 가상자산을 초·분 단위로 분석해 혐의 구간·그룹 등을 자동 적출하는 기능과 AI 활용 텍스트 분석 기능 개발도 추진한다.
-- 디지털자산기본법(가상자산 2단계 법안) 도입을 대비해 준비반을 신설하고, 발행·거래지원 관련 공시체계 및 디지털자산업자·스테이블코인 발행인 인가심사 업무 매뉴얼 등을 마련할 계획이다.
-- 거래소 거래수수료의 구분 관리 및 공시 세분화 방안도 추진한다.
-#### 시사점 (Why it matters)
-- 한국의 2단계 입법(발행·공시·인가) 시행을 앞두고 감독당국이 시세조종 단속과 내부통제·공시 체계를 동시에 강화한다는 신호다.
-- 스테이블코인 발행인 인가심사 매뉴얼 언급은 ‘발행자 규율’이 운영 단계로 들어간다는 의미로, 예비 발행사 및 파트너(거래소, 커스터디, 결제/정산) 모두 선제적 컴플라이언스 구축이 필요하다.
-- 거래소 수수료 공시 세분화는 사용자 보호 및 수수료 정책 경쟁 구도에 직접적인 영향을 줄 수 있다.
-🔗 https://www.yna.co.kr/view/AKR20260209030100002
+?쒕ぉ: 湲덇컧?? 媛?곸옄???쒖꽭議곗쥌 湲고쉷議곗궗 諛??붿??몄옄?곌린蹂몃쾿 以鍮꾨컲 ?좎꽕??굅?섏냼 ?섏닔猷?怨듭떆쨌?ㅽ뀒?대툝肄붿씤 ?멸??ъ궗 留ㅻ돱??異붿쭊
+#### ?붿빟
+- 湲덉쑖媛먮룆?먯? 2026???낅Т怨꾪쉷?먯꽌 媛?곸옄???쒖옣吏덉꽌瑜??쇱넀?섎뒗 怨좎쐞??遺꾩빞(??뺢퀬???쒖꽭議곗쥌, 媛?먮━, 寃쎌＜留? API 二쇰Ц ?낆슜, SNS ?덉쐞?ъ떎 ?좏룷 ??瑜???곸쑝濡?湲고쉷議곗궗瑜??덇퀬?덈떎.
+- ?댁긽 湲됰벑 媛?곸옄?곗쓣 珥댟룸텇 ?⑥쐞濡?遺꾩꽍???먯쓽 援ш컙쨌洹몃９ ?깆쓣 ?먮룞 ?곸텧?섎뒗 湲곕뒫怨?AI ?쒖슜 ?띿뒪??遺꾩꽍 湲곕뒫 媛쒕컻??異붿쭊?쒕떎.
+- ?붿??몄옄?곌린蹂몃쾿(媛?곸옄??2?④퀎 踰뺤븞) ?꾩엯???鍮꾪빐 以鍮꾨컲???좎꽕?섍퀬, 諛쒗뻾쨌嫄곕옒吏??愿??怨듭떆泥닿퀎 諛??붿??몄옄?곗뾽?먃룹뒪?뚯씠釉붿퐫??諛쒗뻾???멸??ъ궗 ?낅Т 留ㅻ돱???깆쓣 留덈젴??怨꾪쉷?대떎.
+- 嫄곕옒??嫄곕옒?섏닔猷뚯쓽 援щ텇 愿由?諛?怨듭떆 ?몃텇??諛⑹븞??異붿쭊?쒕떎.
+#### ?쒖궗??(Why it matters)
+- ?쒓뎅??2?④퀎 ?낅쾿(諛쒗뻾쨌怨듭떆쨌?멸?) ?쒗뻾???욌몢怨?媛먮룆?밴뎅???쒖꽭議곗쥌 ?⑥냽怨??대??듭젣쨌怨듭떆 泥닿퀎瑜??숈떆??媛뺥솕?쒕떎???좏샇??
+- ?ㅽ뀒?대툝肄붿씤 諛쒗뻾???멸??ъ궗 留ㅻ돱???멸툒? ?섎컻?됱옄 洹쒖쑉?숈씠 ?댁쁺 ?④퀎濡??ㅼ뼱媛꾨떎???섎?濡? ?덈퉬 諛쒗뻾??諛??뚰듃??嫄곕옒?? 而ㅼ뒪?곕뵒, 寃곗젣/?뺤궛) 紐⑤몢 ?좎젣??而댄뵆?쇱씠?몄뒪 援ъ텞???꾩슂?섎떎.
+- 嫄곕옒???섏닔猷?怨듭떆 ?몃텇?붾뒗 ?ъ슜??蹂댄샇 諛??섏닔猷??뺤콉 寃쎌웳 援щ룄??吏곸젒?곸씤 ?곹뼢??以????덈떎.
+?뵕 https://www.yna.co.kr/view/AKR20260209030100002
 
 [Global]
-제목: 미국 CFTC, ‘결제형 스테이블코인’ 정의를 업데이트…국가 신탁은행도 허용 발행인으로 명시
-#### 요약
-- CFTC 시장참가자국(MPD)은 스태프 레터 25-40(노액션 레터)을 제한적으로 수정해 ‘payment stablecoin(결제형 스테이블코인)’ 정의를 업데이트한 버전을 재발행했다.
-- 변경 핵심은 국가 신탁은행(national trust bank)이 노액션 포지션 목적상 결제형 스테이블코인의 허용 발행인이 될 수 있음을 명시한 것이다.
-- 해당 레터는 선물중개업자(FCM)가 비증권 디지털자산(결제형 스테이블코인 포함)을 고객 마진 담보로 수취하는 경우 및 특정 자체 결제형 스테이블코인을 분리 보관 고객계정에 보유하는 경우에 적용되는 일부 요건에 대해 노액션 입장을 제시한다.
-#### 시사점 (Why it matters)
-- ‘누가 결제형 스테이블코인을 발행할 수 있는가’에 대한 규제 신호가 명확해지며, 은행형 발행 구조가 제도권 경로로 강화되는 흐름을 보여준다.
-- 마진 담보로 스테이블코인을 수취·보유하는 시장 인프라(FCM, 거래소, 커스터디) 관점에서, 허용 담보 범위와 발행인 요건은 리스크·운영모델과 직결된다.
-- 전통 금융기관(신탁은행) 기반 발행이 포함되면, 기관 수요를 겨냥한 스테이블코인(담보·결제·정산) 설계가 가속될 가능성이 있다.
-🔗 https://www.cftc.gov/PressRoom/PressReleases/9180-26
+?쒕ぉ: 誘멸뎅 CFTC, ?섍껐?쒗삎 ?ㅽ뀒?대툝肄붿씤???뺤쓽瑜??낅뜲?댄듃??뎅媛 ?좏긽??됰룄 ?덉슜 諛쒗뻾?몄쑝濡?紐낆떆
+#### ?붿빟
+- CFTC ?쒖옣李멸??먭뎅(MPD)? ?ㅽ깭???덊꽣 25-40(?몄븸???덊꽣)???쒗븳?곸쑝濡??섏젙???쁯ayment stablecoin(寃곗젣???ㅽ뀒?대툝肄붿씤)???뺤쓽瑜??낅뜲?댄듃??踰꾩쟾???щ컻?됲뻽??
+- 蹂寃??듭떖? 援?? ?좏긽???national trust bank)???몄븸???ъ???紐⑹쟻??寃곗젣???ㅽ뀒?대툝肄붿씤???덉슜 諛쒗뻾?몄씠 ?????덉쓬??紐낆떆??寃껋씠??
+- ?대떦 ?덊꽣???좊Ъ以묎컻?낆옄(FCM)媛 鍮꾩쬆沅??붿??몄옄??寃곗젣???ㅽ뀒?대툝肄붿씤 ?ы븿)??怨좉컼 留덉쭊 ?대낫濡??섏랬?섎뒗 寃쎌슦 諛??뱀젙 ?먯껜 寃곗젣???ㅽ뀒?대툝肄붿씤??遺꾨━ 蹂닿? 怨좉컼怨꾩젙??蹂댁쑀?섎뒗 寃쎌슦???곸슜?섎뒗 ?쇰? ?붽굔??????몄븸???낆옣???쒖떆?쒕떎.
+#### ?쒖궗??(Why it matters)
+- ?섎늻媛 寃곗젣???ㅽ뀒?대툝肄붿씤??諛쒗뻾?????덈뒗媛?숈뿉 ???洹쒖젣 ?좏샇媛 紐낇솗?댁?硫? ??됲삎 諛쒗뻾 援ъ“媛 ?쒕룄沅?寃쎈줈濡?媛뺥솕?섎뒗 ?먮쫫??蹂댁뿬以??
+- 留덉쭊 ?대낫濡??ㅽ뀒?대툝肄붿씤???섏랬쨌蹂댁쑀?섎뒗 ?쒖옣 ?명봽??FCM, 嫄곕옒?? 而ㅼ뒪?곕뵒) 愿?먯뿉?? ?덉슜 ?대낫 踰붿쐞? 諛쒗뻾???붽굔? 由ъ뒪??룹슫?곷え?멸낵 吏곴껐?쒕떎.
+- ?꾪넻 湲덉쑖湲곌?(?좏긽??? 湲곕컲 諛쒗뻾???ы븿?섎㈃, 湲곌? ?섏슂瑜?寃⑤깷???ㅽ뀒?대툝肄붿씤(?대낫쨌寃곗젣쨌?뺤궛) ?ㅺ퀎媛 媛?띾맆 媛?μ꽦???덈떎.
+?뵕 https://www.cftc.gov/PressRoom/PressReleases/9180-26
 
 [Watchlist]
-- 한국 가상자산 2단계 입법(디지털자산기본법)에서 스테이블코인 발행 요건(인가, 준비자산, 공시, 상환) 구체안
-- 거래소의 장부-실보유 정합성 점검 주기 및 준비자산 증명 체계 표준화 여부
-- 미국 내 ‘결제형 스테이블코인’ 발행인 범위가 은행감독·결제·소비자보호 규제와 어떻게 정합될지
+- ?쒓뎅 媛?곸옄??2?④퀎 ?낅쾿(?붿??몄옄?곌린蹂몃쾿)?먯꽌 ?ㅽ뀒?대툝肄붿씤 諛쒗뻾 ?붽굔(?멸?, 以鍮꾩옄?? 怨듭떆, ?곹솚) 援ъ껜??- 嫄곕옒?뚯쓽 ?λ?-?ㅻ낫???뺥빀???먭? 二쇨린 諛?以鍮꾩옄??利앸챸 泥닿퀎 ?쒖????щ?
+- 誘멸뎅 ???섍껐?쒗삎 ?ㅽ뀒?대툝肄붿씤??諛쒗뻾??踰붿쐞媛 ??됯컧?끒룰껐?쑣룹냼鍮꾩옄蹂댄샇 洹쒖젣? ?대뼸寃??뺥빀?좎?
 
 [One-liner]
-한국은 2단계 입법 대비 발행·공시·인가를 준비하는 동시에 시장질서 단속을 강화하고, 미국은 결제형 스테이블코인 발행인 범위를 신탁은행까지 명확히 하며 제도권 활용을 밀어주는 흐름이다.
+?쒓뎅? 2?④퀎 ?낅쾿 ?鍮?諛쒗뻾쨌怨듭떆쨌?멸?瑜?以鍮꾪븯???숈떆???쒖옣吏덉꽌 ?⑥냽??媛뺥솕?섍퀬, 誘멸뎅? 寃곗젣???ㅽ뀒?대툝肄붿씤 諛쒗뻾??踰붿쐞瑜??좏긽??됯퉴吏 紐낇솗???섎ŉ ?쒕룄沅??쒖슜??諛?댁＜???먮쫫?대떎.
 
 ====================================================================
 
-## 🌍 English Version
+## ?뙇 English Version
 
 [KR]
-Title: South Korea’s FSS to launch targeted probes into crypto price manipulation and set up a taskforce for the Digital Asset Basic Act, including stablecoin issuer licensing manuals
+Title: South Korea?셲 FSS to launch targeted probes into crypto price manipulation and set up a taskforce for the Digital Asset Basic Act, including stablecoin issuer licensing manuals
 #### Summary
-- The Financial Supervisory Service (FSS) will run targeted investigations into high-risk practices that undermine crypto market integrity (whale-driven manipulation,  corral tactics, racehorse pumps, API-order abuse, and misinformation via social media).
+- The Financial Supervisory Service (FSS) will run targeted investigations into high-risk practices that undermine crypto market integrity (whale-driven manipulation, corral tactics, racehorse pumps, API-order abuse, and misinformation via social media).
 - The FSS also plans to develop tools to flag suspicious segments/groups using minute-level analysis of abnormal price surges and AI-based text analytics.
 - To prepare for Phase 2 legislation (the Digital Asset Basic Act), the FSS will establish a dedicated taskforce to design disclosure frameworks for issuance and exchange listing-support, and to develop licensing review manuals for digital-asset businesses and stablecoin issuers.
 - It also aims to refine disclosure and segmented management of exchange trading fees.
@@ -50,24 +49,24 @@ Title: South Korea’s FSS to launch targeted probes into crypto price manipulat
 - Korea is signaling a dual track: tougher enforcement on manipulation plus forward-looking plumbing for issuance, disclosures, and licensing.
 - Mention of stablecoin-issuer licensing manuals suggests issuer-level regulation is moving from concept to operational readiness, raising the bar for compliance and partner selection.
 - More granular fee disclosures can reshape exchange competition and user-protection expectations.
-🔗 https://www.yna.co.kr/view/AKR20260209030100002
+?뵕 https://www.yna.co.kr/view/AKR20260209030100002
 
 [Global]
 Title: US CFTC staff reissues Letter 25-40 with an updated payment stablecoin definition, explicitly allowing national trust banks as permitted issuers
 #### Summary
-- The CFTC’s Market Participants Division (MPD) reissued Staff Letter 25-40 with a limited revision to the definition of payment stablecoin.
-- The key change clarifies that a national trust bank may qualify as a permitted issuer of a payment stablecoin for purposes of the staff’s no-action position.
+- The CFTC?셲 Market Participants Division (MPD) reissued Staff Letter 25-40 with a limited revision to the definition of payment stablecoin.
+- The key change clarifies that a national trust bank may qualify as a permitted issuer of a payment stablecoin for purposes of the staff?셲 no-action position.
 - The letter provides a no-action position for certain requirements affecting futures commission merchants (FCMs) that accept non-securities digital assets, including payment stablecoins, as customer margin collateral and that hold certain proprietary payment stablecoins in segregated customer accounts.
 #### Why it matters
 - This is a concrete signal on issuer eligibility for payment stablecoins, reinforcing a bank-anchored path for issuance.
 - Where stablecoins are used as margin collateral, issuer eligibility and definitions can directly affect risk management, operational design, and token acceptability.
 - Broadening eligible issuer types may accelerate institutionally oriented stablecoin designs for payments, settlement, and collateral.
-🔗 https://www.cftc.gov/PressRoom/PressReleases/9180-26
+?뵕 https://www.cftc.gov/PressRoom/PressReleases/9180-26
 
 [Watchlist]
-- Korea’s Phase 2 bill details for stablecoin issuers (licensing, reserves, disclosures, redemption)
+- Korea?셲 Phase 2 bill details for stablecoin issuers (licensing, reserves, disclosures, redemption)
 - Whether Korea standardizes ledger-to-wallet reconciliation frequency and proof of reserves style controls for exchanges
-- How the CFTC’s payment-stablecoin framing aligns with banking supervision and consumer protection in the US
+- How the CFTC?셲 payment-stablecoin framing aligns with banking supervision and consumer protection in the US
 
 [One-liner]
 Korea is tightening market-integrity enforcement while operationalizing stablecoin-issuer licensing for Phase 2 legislation, as the US CFTC clarifies payment-stablecoin issuer eligibility to support regulated institutional adoption.
