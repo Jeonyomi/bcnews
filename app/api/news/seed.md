@@ -1,72 +1,57 @@
-?벐 Digital Asset & Stablecoin Regulatory Brief
+📰 Digital Asset & Stablecoin Regulatory Brief
 
-## ?눖?눟 ?쒓뎅??踰꾩쟾
+## 🇰🇷 한국어 버전
 
 [KR]
-?쒕ぉ: 湲덇컧?? 媛?곸옄???쒖꽭議곗쥌 湲고쉷議곗궗 諛??붿??몄옄?곌린蹂몃쾿 以鍮꾨컲 ?좎꽕??굅?섏냼 ?섏닔猷?怨듭떆쨌?ㅽ뀒?대툝肄붿씤 ?멸??ъ궗 留ㅻ돱??異붿쭊
-#### ?붿빟
-- 湲덉쑖媛먮룆?먯? 2026???낅Т怨꾪쉷?먯꽌 媛?곸옄???쒖옣吏덉꽌瑜??쇱넀?섎뒗 怨좎쐞??遺꾩빞(??뺢퀬???쒖꽭議곗쥌, 媛?먮━, 寃쎌＜留? API 二쇰Ц ?낆슜, SNS ?덉쐞?ъ떎 ?좏룷 ??瑜???곸쑝濡?湲고쉷議곗궗瑜??덇퀬?덈떎.
-- ?댁긽 湲됰벑 媛?곸옄?곗쓣 珥댟룸텇 ?⑥쐞濡?遺꾩꽍???먯쓽 援ш컙쨌洹몃９ ?깆쓣 ?먮룞 ?곸텧?섎뒗 湲곕뒫怨?AI ?쒖슜 ?띿뒪??遺꾩꽍 湲곕뒫 媛쒕컻??異붿쭊?쒕떎.
-- ?붿??몄옄?곌린蹂몃쾿(媛?곸옄??2?④퀎 踰뺤븞) ?꾩엯???鍮꾪빐 以鍮꾨컲???좎꽕?섍퀬, 諛쒗뻾쨌嫄곕옒吏??愿??怨듭떆泥닿퀎 諛??붿??몄옄?곗뾽?먃룹뒪?뚯씠釉붿퐫??諛쒗뻾???멸??ъ궗 ?낅Т 留ㅻ돱???깆쓣 留덈젴??怨꾪쉷?대떎.
-- 嫄곕옒??嫄곕옒?섏닔猷뚯쓽 援щ텇 愿由?諛?怨듭떆 ?몃텇??諛⑹븞??異붿쭊?쒕떎.
-#### ?쒖궗??(Why it matters)
-- ?쒓뎅??2?④퀎 ?낅쾿(諛쒗뻾쨌怨듭떆쨌?멸?) ?쒗뻾???욌몢怨?媛먮룆?밴뎅???쒖꽭議곗쥌 ?⑥냽怨??대??듭젣쨌怨듭떆 泥닿퀎瑜??숈떆??媛뺥솕?쒕떎???좏샇??
-- ?ㅽ뀒?대툝肄붿씤 諛쒗뻾???멸??ъ궗 留ㅻ돱???멸툒? ?섎컻?됱옄 洹쒖쑉?숈씠 ?댁쁺 ?④퀎濡??ㅼ뼱媛꾨떎???섎?濡? ?덈퉬 諛쒗뻾??諛??뚰듃??嫄곕옒?? 而ㅼ뒪?곕뵒, 寃곗젣/?뺤궛) 紐⑤몢 ?좎젣??而댄뵆?쇱씠?몄뒪 援ъ텞???꾩슂?섎떎.
-- 嫄곕옒???섏닔猷?怨듭떆 ?몃텇?붾뒗 ?ъ슜??蹂댄샇 諛??섏닔猷??뺤콉 寃쎌웳 援щ룄??吏곸젒?곸씤 ?곹뼢??以????덈떎.
-?뵕 https://www.yna.co.kr/view/AKR20260209030100002
+제목: (복구) 한국어 표시 문제 수정 중 — 다음 정규 브리프에서 최신 내용으로 갱신됩니다
+#### 요약
+- 웹에서 한국어가 깨져 보이는 문제가 확인되어 seed 파일 인코딩 경로를 수정했습니다.
+- 다음 09:00/21:00 정규 메인 브리프 실행 시 최신 내용으로 자동 업데이트됩니다.
+#### 시사점 (Why it matters)
+- 운영 상 “정각 브리프 → seed 반영 → Vercel 배포 갱신” 파이프라인에서 인코딩이 깨지면 전체 UX가 망가집니다.
+- seed 파일 쓰기 방식을 OpenClaw tools.write 기반으로 바꿔 재발을 차단합니다.
+🔗 https://bcnews-agent.vercel.app/
 
 [Global]
-?쒕ぉ: 誘멸뎅 CFTC, ?섍껐?쒗삎 ?ㅽ뀒?대툝肄붿씤???뺤쓽瑜??낅뜲?댄듃??뎅媛 ?좏긽??됰룄 ?덉슜 諛쒗뻾?몄쑝濡?紐낆떆
-#### ?붿빟
-- CFTC ?쒖옣李멸??먭뎅(MPD)? ?ㅽ깭???덊꽣 25-40(?몄븸???덊꽣)???쒗븳?곸쑝濡??섏젙???쁯ayment stablecoin(寃곗젣???ㅽ뀒?대툝肄붿씤)???뺤쓽瑜??낅뜲?댄듃??踰꾩쟾???щ컻?됲뻽??
-- 蹂寃??듭떖? 援?? ?좏긽???national trust bank)???몄븸???ъ???紐⑹쟻??寃곗젣???ㅽ뀒?대툝肄붿씤???덉슜 諛쒗뻾?몄씠 ?????덉쓬??紐낆떆??寃껋씠??
-- ?대떦 ?덊꽣???좊Ъ以묎컻?낆옄(FCM)媛 鍮꾩쬆沅??붿??몄옄??寃곗젣???ㅽ뀒?대툝肄붿씤 ?ы븿)??怨좉컼 留덉쭊 ?대낫濡??섏랬?섎뒗 寃쎌슦 諛??뱀젙 ?먯껜 寃곗젣???ㅽ뀒?대툝肄붿씤??遺꾨━ 蹂닿? 怨좉컼怨꾩젙??蹂댁쑀?섎뒗 寃쎌슦???곸슜?섎뒗 ?쇰? ?붽굔??????몄븸???낆옣???쒖떆?쒕떎.
-#### ?쒖궗??(Why it matters)
-- ?섎늻媛 寃곗젣???ㅽ뀒?대툝肄붿씤??諛쒗뻾?????덈뒗媛?숈뿉 ???洹쒖젣 ?좏샇媛 紐낇솗?댁?硫? ??됲삎 諛쒗뻾 援ъ“媛 ?쒕룄沅?寃쎈줈濡?媛뺥솕?섎뒗 ?먮쫫??蹂댁뿬以??
-- 留덉쭊 ?대낫濡??ㅽ뀒?대툝肄붿씤???섏랬쨌蹂댁쑀?섎뒗 ?쒖옣 ?명봽??FCM, 嫄곕옒?? 而ㅼ뒪?곕뵒) 愿?먯뿉?? ?덉슜 ?대낫 踰붿쐞? 諛쒗뻾???붽굔? 由ъ뒪??룹슫?곷え?멸낵 吏곴껐?쒕떎.
-- ?꾪넻 湲덉쑖湲곌?(?좏긽??? 湲곕컲 諛쒗뻾???ы븿?섎㈃, 湲곌? ?섏슂瑜?寃⑤깷???ㅽ뀒?대툝肄붿씤(?대낫쨌寃곗젣쨌?뺤궛) ?ㅺ퀎媛 媛?띾맆 媛?μ꽦???덈떎.
-?뵕 https://www.cftc.gov/PressRoom/PressReleases/9180-26
+제목: (복구) Seed 인코딩 경로 수정 완료
+#### 요약
+- seed.md를 UTF-8로 안정적으로 저장하도록 파이프라인을 변경했습니다.
+#### 시사점 (Why it matters)
+- 한국어/이모지 포함 콘텐츠의 신뢰성을 확보합니다.
+🔗 https://github.com/Jeonyomi/bcnews
 
 [Watchlist]
-- ?쒓뎅 媛?곸옄??2?④퀎 ?낅쾿(?붿??몄옄?곌린蹂몃쾿)?먯꽌 ?ㅽ뀒?대툝肄붿씤 諛쒗뻾 ?붽굔(?멸?, 以鍮꾩옄?? 怨듭떆, ?곹솚) 援ъ껜??- 嫄곕옒?뚯쓽 ?λ?-?ㅻ낫???뺥빀???먭? 二쇨린 諛?以鍮꾩옄??利앸챸 泥닿퀎 ?쒖????щ?
-- 誘멸뎅 ???섍껐?쒗삎 ?ㅽ뀒?대툝肄붿씤??諛쒗뻾??踰붿쐞媛 ??됯컧?끒룰껐?쑣룹냼鍮꾩옄蹂댄샇 洹쒖젣? ?대뼸寃??뺥빀?좎?
+- 다음 정규 메인 브리프(09:00/21:00 KST) 실행 시 한국어 렌더링 정상 여부
+- Vercel 배포 후 /api/news 응답에 한글이 정상 포함되는지
 
 [One-liner]
-?쒓뎅? 2?④퀎 ?낅쾿 ?鍮?諛쒗뻾쨌怨듭떆쨌?멸?瑜?以鍮꾪븯???숈떆???쒖옣吏덉꽌 ?⑥냽??媛뺥솕?섍퀬, 誘멸뎅? 寃곗젣???ㅽ뀒?대툝肄붿씤 諛쒗뻾??踰붿쐞瑜??좏긽??됯퉴吏 紐낇솗???섎ŉ ?쒕룄沅??쒖슜??諛?댁＜???먮쫫?대떎.
+한국어 깨짐은 seed 파일 저장 경로 문제였고, tools.write로 변경해 재발을 막습니다.
 
 ====================================================================
 
-## ?뙇 English Version
+## 🌍 English Version
 
 [KR]
-Title: South Korea?셲 FSS to launch targeted probes into crypto price manipulation and set up a taskforce for the Digital Asset Basic Act, including stablecoin issuer licensing manuals
+Title: (Recovery) Fixing Korean text rendering — will be refreshed by the next scheduled brief
 #### Summary
-- The Financial Supervisory Service (FSS) will run targeted investigations into high-risk practices that undermine crypto market integrity (whale-driven manipulation, corral tactics, racehorse pumps, API-order abuse, and misinformation via social media).
-- The FSS also plans to develop tools to flag suspicious segments/groups using minute-level analysis of abnormal price surges and AI-based text analytics.
-- To prepare for Phase 2 legislation (the Digital Asset Basic Act), the FSS will establish a dedicated taskforce to design disclosure frameworks for issuance and exchange listing-support, and to develop licensing review manuals for digital-asset businesses and stablecoin issuers.
-- It also aims to refine disclosure and segmented management of exchange trading fees.
+- We detected mojibake in the deployed seed content and patched the seed write path.
+- The next scheduled main brief (09:00/21:00 KST) will overwrite this recovery note with fresh content.
 #### Why it matters
-- Korea is signaling a dual track: tougher enforcement on manipulation plus forward-looking plumbing for issuance, disclosures, and licensing.
-- Mention of stablecoin-issuer licensing manuals suggests issuer-level regulation is moving from concept to operational readiness, raising the bar for compliance and partner selection.
-- More granular fee disclosures can reshape exchange competition and user-protection expectations.
-?뵕 https://www.yna.co.kr/view/AKR20260209030100002
+- If seed encoding breaks, the entire UI becomes unreadable.
+- We’re switching to OpenClaw tools.write for stable UTF-8 handling.
+🔗 https://bcnews-agent.vercel.app/
 
 [Global]
-Title: US CFTC staff reissues Letter 25-40 with an updated payment stablecoin definition, explicitly allowing national trust banks as permitted issuers
+Title: (Recovery) Seed write path updated for stable UTF-8
 #### Summary
-- The CFTC?셲 Market Participants Division (MPD) reissued Staff Letter 25-40 with a limited revision to the definition of payment stablecoin.
-- The key change clarifies that a national trust bank may qualify as a permitted issuer of a payment stablecoin for purposes of the staff?셲 no-action position.
-- The letter provides a no-action position for certain requirements affecting futures commission merchants (FCMs) that accept non-securities digital assets, including payment stablecoins, as customer margin collateral and that hold certain proprietary payment stablecoins in segregated customer accounts.
+- seed.md is now written via a UTF-8 safe path.
 #### Why it matters
-- This is a concrete signal on issuer eligibility for payment stablecoins, reinforcing a bank-anchored path for issuance.
-- Where stablecoins are used as margin collateral, issuer eligibility and definitions can directly affect risk management, operational design, and token acceptability.
-- Broadening eligible issuer types may accelerate institutionally oriented stablecoin designs for payments, settlement, and collateral.
-?뵕 https://www.cftc.gov/PressRoom/PressReleases/9180-26
+- Reliable multilingual rendering (KR/emoji) on Vercel.
+🔗 https://github.com/Jeonyomi/bcnews
 
 [Watchlist]
-- Korea?셲 Phase 2 bill details for stablecoin issuers (licensing, reserves, disclosures, redemption)
-- Whether Korea standardizes ledger-to-wallet reconciliation frequency and proof of reserves style controls for exchanges
-- How the CFTC?셲 payment-stablecoin framing aligns with banking supervision and consumer protection in the US
+- Confirm KR rendering on the next scheduled main brief
+- Verify /api/news returns proper UTF-8 Korean
 
 [One-liner]
-Korea is tightening market-integrity enforcement while operationalizing stablecoin-issuer licensing for Phase 2 legislation, as the US CFTC clarifies payment-stablecoin issuer eligibility to support regulated institutional adoption.
+The issue was in the seed write path; switching to tools.write should prevent recurrence.
