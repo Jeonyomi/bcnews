@@ -14,16 +14,27 @@ if (!SUPABASE_SERVICE_ROLE_KEY) throw new Error('Missing env SUPABASE_SERVICE_RO
 
 function listBriefFiles() {
   if (!fs.existsSync(BRIEFS_DIR)) return []
-  return fs
-    .readdirSync(BRIEFS_DIR)
-    .filter((n) => n.toLowerCase().endsWith('.md'))
-    .sort()
-    .map((n) => path.join(BRIEFS_DIR, n))
+  
+  // Get all .md files
+  const files = fs.readdirSync(BRIEFS_DIR)
+    .filter(n => n.toLowerCase().endsWith('.md'))
+    .filter(n => !n.startsWith('_'))  // Exclude temp files
+    
+  // Sort by created time desc
+  const fullPaths = files.map(f => ({
+    path: path.join(BRIEFS_DIR, f),
+    mtime: fs.statSync(path.join(BRIEFS_DIR, f)).mtime
+  }))
+  
+  fullPaths.sort((a, b) => b.mtime - a.mtime)
+  
+  return fullPaths.map(f => f.path)
 }
 
 function parseMarkdownWithFrontmatter(content) {
   const frontMatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
   if (!frontMatterMatch) {
+    console.log('No frontmatter found')
     return {
       meta: {},
       content: content.trim()
@@ -32,6 +43,7 @@ function parseMarkdownWithFrontmatter(content) {
 
   try {
     const meta = yaml.load(frontMatterMatch[1]) || {}
+    console.log('Parsed meta:', meta)  // Debug log
     return {
       meta,
       content: frontMatterMatch[2].trim()
@@ -52,31 +64,33 @@ async function pushLatestBrief() {
     process.exit(0)
   }
 
-  const fullPath = files[files.length - 1]
-  const content = fs.readFileSync(fullPath, 'utf8')
+  const fullPath = files[0]  // Most recent file
+  console.log('Processing file:', fullPath)  // Debug log
   
+  const content = fs.readFileSync(fullPath, 'utf8')
   const { meta, content: cleanContent } = parseMarkdownWithFrontmatter(content)
   
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-  // Default title based on region
   const title = meta.region === 'Global' 
     ? 'Global Digital Asset & Stablecoin Brief'
     : 'Digital Asset & Stablecoin Regulatory Brief'
 
-  const { data, error } = await supabase
+  const data = {
+    title,
+    content: cleanContent,
+    created_at: meta.startKst || new Date().toISOString(),
+    region: meta.region || 'KR',
+    source: meta.source || 'main',
+    topics: meta.topics || [],
+    score: meta.score || null
+  }
+
+  console.log('Inserting data:', data)  // Debug log
+
+  const { data: result, error } = await supabase
     .from('news_briefs')
-    .insert([
-      {
-        title,
-        content: cleanContent,
-        created_at: new Date().toISOString(), // Use current time instead of window start
-        region: meta.region || 'KR',
-        source: meta.source || 'main',
-        topics: meta.topics || [],
-        score: meta.score || null
-      }
-    ])
+    .insert([data])
     .select('id, created_at, region, source, topics, score')
     .single()
 
@@ -85,7 +99,7 @@ async function pushLatestBrief() {
     process.exit(1)
   }
 
-  console.log('OK inserted:', data)
+  console.log('OK inserted:', result)
 }
 
 // Run if called directly
