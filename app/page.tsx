@@ -20,12 +20,17 @@ export default function Home() {
   const fetchNews = useCallback(async () => {
     try {
       setLoading(true)
-      // Add timestamp to prevent caching
       const res = await fetch(`/api/news?t=${Date.now()}`)
       if (!res.ok) throw new Error('Failed to fetch news')
       const data = await res.json()
+
+      // Decode Base64 content
+      const decodedItems = data.items.map((item: any) => ({
+        ...item,
+        content: atob(item.content)
+      }))
       
-      setNews(data.items || [])
+      setNews(decodedItems || [])
       setError(null)
       setRetryIndex(0)
     } catch (err) {

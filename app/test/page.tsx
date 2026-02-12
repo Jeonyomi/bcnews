@@ -1,60 +1,33 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import type { NewsItem } from '@/types'
-
-interface TestData {
-  direct?: NewsItem[]
-  api?: any
-}
-
-interface TestError {
-  direct?: any
-  api?: any
-}
 
 export default function TestPage() {
-  const [data, setData] = useState<TestData | null>(null)
-  const [error, setError] = useState<TestError | null>(null)
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // 1. 직접 Supabase 호출
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-
-    async function fetchDirect() {
+    async function fetchData() {
       try {
-        const { data, error } = await supabase
-          .from('news_briefs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(5)
-
-        if (error) throw error
-        setData(prev => ({ ...prev, direct: data }))
-      } catch (e) {
-        setError(prev => ({ ...prev, direct: e }))
-        console.error('Direct fetch error:', e)
-      }
-    }
-
-    // 2. API 라우트 호출
-    async function fetchApi() {
-      try {
-        const res = await fetch('/api/news')
+        // Add cache-busting parameter
+        const res = await fetch(`/api/news?t=${Date.now()}`)
         const json = await res.json()
-        setData(prev => ({ ...prev, api: json }))
+
+        // Try to decode Base64 content
+        const decodedItems = json.items.map((item: any) => ({
+          ...item,
+          content: atob(item.content)
+        }))
+
+        setData({ ...json, items: decodedItems })
       } catch (e) {
-        setError(prev => ({ ...prev, api: e }))
-        console.error('API fetch error:', e)
+        console.error('Error:', e)
+      } finally {
+        setLoading(false)
       }
     }
 
-    fetchDirect()
-    fetchApi()
+    fetchData()
   }, [])
 
   return (
@@ -63,28 +36,25 @@ export default function TestPage() {
       
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-2">Environment</h2>
-        <div className="bg-gray-100 p-4 rounded-lg">
-          <div>NEXT_PUBLIC_SUPABASE_URL: {process.env.NEXT_PUBLIC_SUPABASE_URL || 'not set'}</div>
+        <div className="bg-gray-100 p-4 rounded-lg dark:bg-gray-800 dark:text-gray-300">
+          <div>NEXT_PUBLIC_SUPABASE_URL: {process.env.NEXT_PUBLIC_SUPABASE_URL}</div>
           <div>Has NEXT_PUBLIC_SUPABASE_ANON_KEY: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'yes' : 'no'}</div>
         </div>
       </div>
 
-      {error && (
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-2 text-red-600">Errors</h2>
-          <div className="bg-red-50 p-4 rounded-lg">
-            <pre>{JSON.stringify(error, null, 2)}</pre>
-          </div>
-        </div>
-      )}
-
-      {data && (
+      {loading ? (
+        <div>Loading...</div>
+      ) : data ? (
         <div>
-          <h2 className="text-xl font-semibold mb-2">Data</h2>
-          <div className="bg-gray-100 p-4 rounded-lg">
-            <pre>{JSON.stringify(data, null, 2)}</pre>
+          <h2 className="text-xl font-semibold mb-2">Latest News</h2>
+          <div className="bg-gray-100 p-4 rounded-lg dark:bg-gray-800 dark:text-gray-300">
+            <pre className="whitespace-pre-wrap">
+              {JSON.stringify(data, null, 2)}
+            </pre>
           </div>
         </div>
+      ) : (
+        <div>No data</div>
       )}
     </div>
   )
