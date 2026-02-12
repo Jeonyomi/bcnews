@@ -10,7 +10,7 @@ interface Props {
   defaultExpanded?: boolean
 }
 
-const NewsCard = ({ item, defaultExpanded = false }: Props) => {  // export default로 변경
+const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
   // Format KST time
@@ -20,10 +20,10 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {  // export defa
 
   return (
     <article
-      className={`group relative overflow-hidden rounded-xl border bg-white transition-all dark:bg-gray-950 ${
+      className={`group relative overflow-hidden rounded-xl border transition-all ${
         expanded
-          ? 'border-gray-300 dark:border-gray-700'
-          : 'border-gray-200 dark:border-gray-900'
+          ? 'border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900'
+          : 'border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900'
       }`}
     >
       <button
@@ -31,50 +31,48 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {  // export defa
         className="w-full cursor-pointer text-left"
       >
         <div className="p-4 sm:p-6">
-          <div className="mb-1 flex items-center gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`rounded px-2 py-1 text-xs font-medium ${
-                  item.region === 'KR'
-                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                    : 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
-                }`}
-              >
-                {item.region}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded px-2 py-1 text-xs font-medium ${
+                item.region === 'KR'
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400'
+                  : 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400'
+              }`}
+            >
+              {item.region}
+            </span>
+            {item.source === 'backup' && (
+              <span className="rounded bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400">
+                Backup
               </span>
-              {item.source === 'backup' && (
-                <span className="rounded bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300">
-                  Backup
-                </span>
-              )}
-              {item.topics?.map((topic) => (
-                <span
-                  key={topic}
-                  className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-gray-900 dark:text-gray-300"
-                >
-                  {topic}
-                </span>
-              ))}
-              {item.score != null && (
-                <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-300">
-                  Score: {item.score}
-                </span>
-              )}
-            </div>
+            )}
+            {item.topics?.map((topic) => (
+              <span
+                key={topic}
+                className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              >
+                {topic}
+              </span>
+            ))}
+            {item.score != null && (
+              <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                Score: {item.score}
+              </span>
+            )}
           </div>
 
           <h3
-            className={`font-medium ${
+            className={`mb-2 font-medium ${
               expanded
-                ? 'text-gray-900 dark:text-gray-100'
-                : 'text-gray-700 dark:text-gray-300'
+                ? 'text-gray-900 dark:text-white'
+                : 'text-gray-800 dark:text-gray-200'
             }`}
           >
             {item.title}
           </h3>
 
           <div
-            className={`prose prose-sm mt-2 max-w-none dark:prose-invert ${
+            className={`prose prose-sm max-w-none dark:prose-invert prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 dark:prose-headings:text-white dark:prose-p:text-gray-300 dark:prose-a:text-blue-400 ${
               expanded ? '' : 'line-clamp-3'
             }`}
           >
