@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server'
 import { formatMarkdown } from './format'
 
-// NOTE: We do NOT translate or use a DB at runtime.
-// We serve a seed markdown body (KR then EN) from app/api/news/seed.md.
-
-// - fetch rows
-// - return safe empty list if DB/table isn't initialized (common on fresh Vercel deploy)
 import fs from 'node:fs'
 import path from 'node:path'
 
+// Optional: Supabase read (works on Vercel)
+import { createClient } from '@supabase/supabase-js'
+
 const SEED_PATH = path.join(process.cwd(), 'app', 'api', 'news', 'seed.md')
 const BRIEFS_DIR = path.join(process.cwd(), 'data', 'briefs')
+
+function getSupabaseReadClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  return createClient(url, key, { auth: { persistSession: false } })
+}
 
 function safeRead(p: string): string {
   try {
@@ -73,6 +78,37 @@ const FALLBACK_BODY = `
 `.trim()
 
 export async function GET() {
+  // 1) Try Supabase (for Vercel deployments)
+  const supabase = getSupabaseReadClient()
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('news_briefs')
+        .select('id, created_at, title, content_md')
+        .order('created_at', { ascending: false })
+        .limit(30)
+
+      if (!error && data && data.length > 0) {
+        const items = data.map((r: any) => {
+          const createdAt = r.created_at || new Date().toISOString()
+          const body = formatMarkdown(r.content_md || '', { addBlankLineAfterLink: true })
+          return {
+            id: String(r.id),
+            title: r.title || 'Digital Asset & Stablecoin Regulatory Brief',
+            source: 'supabase',
+            createdAt,
+            updatedAt: createdAt,
+            body
+          }
+        })
+        return NextResponse.json({ items })
+      }
+    } catch {
+      // ignore and fall through
+    }
+  }
+
+  // 2) Local markdown files (works in dev / local runs)
   const files = listBriefFiles()
   const items = files
     .slice(-30)
@@ -97,7 +133,7 @@ export async function GET() {
     return NextResponse.json({ items })
   }
 
-  // Fallback to seed for fresh deploys
+  // 3) Fallback to seed for fresh deploys
   const seed = getSeedBody() || FALLBACK_BODY
   const body = formatMarkdown(seed, { addBlankLineAfterLink: true })
   const now = new Date().toISOString()
