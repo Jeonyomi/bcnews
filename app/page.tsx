@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { NewsItem } from '@/types'
-import { NewsCard } from '@/components/NewsCard'
+import NewsCard from '@/components/NewsCard'  // default import로 변경
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Home() {

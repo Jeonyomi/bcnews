@@ -10,7 +10,7 @@ interface Props {
   defaultExpanded?: boolean
 }
 
-export default function NewsCard({ item, defaultExpanded = false }: Props) {
+const NewsCard = ({ item, defaultExpanded = false }: Props) => {  // export default로 변경
   const [expanded, setExpanded] = useState(defaultExpanded)
 
   // Format KST time
@@ -89,3 +89,5 @@ export default function NewsCard({ item, defaultExpanded = false }: Props) {
     </article>
   )
 }
+
+export default NewsCard
