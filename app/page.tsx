@@ -20,9 +20,11 @@ export default function Home() {
   const fetchNews = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/news')
+      // Add timestamp to prevent caching
+      const res = await fetch(`/api/news?t=${Date.now()}`)
       if (!res.ok) throw new Error('Failed to fetch news')
       const data = await res.json()
+      
       setNews(data.items || [])
       setError(null)
       setRetryIndex(0)
@@ -44,7 +46,8 @@ export default function Home() {
   const filteredNews = useMemo(() => {
     return news.filter((item) => {
       const regionMatch = selectedRegion === 'all' || item.region === selectedRegion
-      const topicMatch = selectedTopic === 'all' || item.topics?.includes(selectedTopic)
+      const topicMatch =
+        selectedTopic === 'all' || item.topics?.includes(selectedTopic)
       return regionMatch && topicMatch
     })
   }, [news, selectedRegion, selectedTopic])
