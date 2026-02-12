@@ -2,10 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import type { NewsItem } from '@/types'
+
+interface TestData {
+  direct?: NewsItem[]
+  api?: any
+}
+
+interface TestError {
+  direct?: any
+  api?: any
+}
 
 export default function TestPage() {
-  const [data, setData] = useState<any>(null)
-  const [error, setError] = useState<any>(null)
+  const [data, setData] = useState<TestData | null>(null)
+  const [error, setError] = useState<TestError | null>(null)
 
   useEffect(() => {
     // 1. 직접 Supabase 호출
@@ -23,9 +34,9 @@ export default function TestPage() {
           .limit(5)
 
         if (error) throw error
-        setData({ direct: data })
+        setData(prev => ({ ...prev, direct: data }))
       } catch (e) {
-        setError({ direct: e })
+        setError(prev => ({ ...prev, direct: e }))
         console.error('Direct fetch error:', e)
       }
     }
