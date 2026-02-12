@@ -7,11 +7,17 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "push:brief": "node scripts/pushLatestBriefToSupabase.mjs"
+    "push:brief": "node scripts/pushLatestBriefToSupabase.mjs",
+    "migrate:001": "node scripts/migrations/apply_001.mjs",
+    "log:run": "node scripts/logRun.mjs",
+    "check:news": "node scripts/checkNews.mjs",
+    "create:brief": "node scripts/createBrief.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
     "dotenv": "^16.4.5",
+    "js-yaml": "^4.1.0",
+    "postgres": "^3.4.3",
     "next": "14.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic' // no caching
 
+// Public key를 사용하는 클라이언트
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -10,22 +11,30 @@ const supabase = createClient(
 
 export async function GET() {
   try {
-    console.log('Fetching news...')
+    // Debug: 쿼리와 결과를 자세히 로깅
     console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
     
     const { data: items, error } = await supabase
       .from('news_briefs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(5)
 
     if (error) {
       console.error('Supabase error:', error)
       throw error
     }
 
-    console.log(`Found ${items?.length || 0} items`)
-    return NextResponse.json({ items })
+    // 전체 응답 구조 확인
+    return NextResponse.json({
+      env: {
+        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL
+      },
+      items,
+      serverTime: new Date().toISOString()
+    })
   } catch (error) {
     console.error('API Error:', error)
     return NextResponse.json(
