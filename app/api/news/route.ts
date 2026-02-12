@@ -17,7 +17,7 @@ function getSeedBody(): string {
   return ''
 }
 
-const SAMPLE_BODY = getSeedBody() || `
+const FALLBACK_BODY = `
 📰 Digital Asset & Stablecoin Regulatory Brief
 
 ## 🇰🇷 한국어 버전
@@ -34,7 +34,8 @@ const SAMPLE_BODY = getSeedBody() || `
 `.trim()
 
 export async function GET() {
-  const body = formatMarkdown(SAMPLE_BODY, { addBlankLineAfterLink: true })
+  const seed = getSeedBody() || FALLBACK_BODY
+  const body = formatMarkdown(seed, { addBlankLineAfterLink: true })
   const now = new Date().toISOString()
 
   return NextResponse.json({
