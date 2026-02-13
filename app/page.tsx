@@ -24,13 +24,7 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to fetch news')
       const data = await res.json()
 
-      // Decode Base64 content
-      const decodedItems = data.items.map((item: any) => ({
-        ...item,
-        content: atob(item.content)
-      }))
-      
-      setNews(decodedItems || [])
+      setNews(data.items || [])
       setError(null)
       setRetryIndex(0)
     } catch (err) {
