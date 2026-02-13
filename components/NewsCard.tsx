@@ -69,7 +69,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
           </div>
 
           <h3
-            className={`mb-2 font-medium ${
+            className={`mb-[6px] text-[15px] font-semibold tracking-[-0.01em] leading-snug ${
               expanded
                 ? 'text-gray-900 dark:text-white'
                 : 'text-gray-800 dark:text-white'
@@ -79,12 +79,16 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
           </h3>
 
           <div
-            className={`prose prose-xs max-w-none text-gray-800 dark:text-gray-100 leading-6 dark:prose-invert
-              prose-headings:font-semibold prose-headings:text-gray-900 dark:prose-headings:text-white
-              prose-p:text-gray-800 dark:prose-p:text-gray-100 prose-p:leading-6
-              prose-li:text-gray-800 dark:prose-li:text-gray-100 prose-li:leading-6
-              prose-strong:text-gray-900 dark:prose-strong:text-white
-              prose-a:text-blue-600 hover:prose-a:text-blue-500 dark:prose-a:text-blue-300 dark:hover:prose-a:text-blue-200
+            className={`text-[14px] leading-[1.55] tracking-[-0.01em] text-[#444] dark:text-gray-200
+              [&>h1]:mt-[16px] [&>h1]:mb-[8px] [&>h1]:text-[16px] [&>h1]:font-semibold [&>h1]:text-gray-900 dark:[&>h1]:text-white
+              [&>h2]:mt-[16px] [&>h2]:mb-[8px] [&>h2]:text-[15px] [&>h2]:font-semibold [&>h2]:text-gray-900 dark:[&>h2]:text-white
+              [&>h3]:mt-[12px] [&>h3]:mb-[6px] [&>h3]:text-[14px] [&>h3]:font-semibold [&>h3]:text-gray-900 dark:[&>h3]:text-white
+              [&>p]:mb-[6px] [&>p]:break-keep
+              [&>ul]:mb-[6px] [&>ul]:list-disc [&>ul]:pl-5
+              [&>ol]:mb-[6px] [&>ol]:list-decimal [&>ol]:pl-5
+              [&>li]:mb-[2px]
+              [&_a]:text-blue-600 hover:[&_a]:text-blue-500 dark:[&_a]:text-blue-400 dark:hover:[&_a]:text-blue-300 [&_a]:break-all
+              [&_strong]:font-semibold [&_strong]:text-gray-900 dark:[&_strong]:text-white
               ${expanded ? '' : 'line-clamp-3'}`}
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{decodedContent}</ReactMarkdown>
@@ -92,7 +96,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
         </div>
       </button>
 
-      <div className="px-4 pb-4 pt-0 text-xs text-gray-500 dark:text-gray-300 sm:px-6">
+      <div className="px-4 pb-4 pt-0 text-[13px] text-[#777] dark:text-gray-400 sm:px-6">
         {timeString}
       </div>
     </article>

@@ -93,17 +93,6 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={fetchNews}
-                  disabled={loading}
-                  className={`rounded px-2 py-1 text-xs ${
-                    loading
-                      ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                      : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20'
-                  }`}
-                >
-                  {loading ? 'Refreshing...' : 'Refresh'}
-                </button>
                 <ThemeToggle />
               </div>
             </div>
