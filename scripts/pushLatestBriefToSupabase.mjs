@@ -79,7 +79,7 @@ async function pushLatestBrief() {
   const data = {
     title,
     content: cleanContent,
-    created_at: meta.startKst || new Date().toISOString(),
+    created_at: new Date().toISOString(),
     region: meta.region || 'KR',
     source: meta.source || 'main',
     topics: meta.topics || [],
