@@ -79,9 +79,9 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
           </h3>
 
           <div
-            className={`prose prose-sm max-w-none text-gray-800 dark:text-gray-100 leading-relaxed dark:prose-invert
+            className={`prose prose-xs max-w-none text-gray-800 dark:text-gray-100 leading-6 dark:prose-invert
               prose-headings:font-semibold prose-headings:text-gray-900 dark:prose-headings:text-white
-              prose-p:text-gray-800 dark:prose-p:text-gray-100 prose-p:leading-7
+              prose-p:text-gray-800 dark:prose-p:text-gray-100 prose-p:leading-6
               prose-li:text-gray-800 dark:prose-li:text-gray-100 prose-li:leading-6
               prose-strong:text-gray-900 dark:prose-strong:text-white
               prose-a:text-blue-600 hover:prose-a:text-blue-500 dark:prose-a:text-blue-300 dark:hover:prose-a:text-blue-200

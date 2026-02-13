@@ -45,7 +45,7 @@ export function ThemeToggle() {
         onClick={() => setTheme('dark')}
         className={`px-3 py-1.5 text-xs font-semibold border-l border-gray-300 dark:border-gray-700 transition-all ${
           theme === 'dark'
-            ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400/50 dark:bg-white dark:text-gray-900 dark:ring-white/60'
+            ? 'bg-gray-900 text-white shadow-sm ring-1 ring-white/30 dark:bg-white dark:text-gray-900 dark:ring-white/60'
             : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-950 dark:text-gray-400 dark:hover:bg-gray-900'
         }`}
       >
