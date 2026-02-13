@@ -79,9 +79,13 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
           </h3>
 
           <div
-            className={`prose prose-sm max-w-none dark:prose-invert prose-h1:text-gray-900 dark:prose-h1:text-white prose-h2:text-gray-900 dark:prose-h2:text-white prose-h3:text-gray-900 dark:prose-h3:text-white prose-h4:text-gray-800 dark:prose-h4:text-gray-100 prose-p:text-gray-800 dark:prose-p:text-white prose-strong:text-gray-900 dark:prose-strong:text-white prose-a:text-blue-600 hover:prose-a:text-blue-500 dark:prose-a:text-blue-300 dark:hover:prose-a:text-blue-200 ${
-              expanded ? '' : 'line-clamp-3'
-            }`}
+            className={`prose prose-sm max-w-none leading-relaxed dark:prose-invert
+              prose-headings:font-semibold prose-headings:text-gray-900 dark:prose-headings:text-white
+              prose-p:text-gray-800 dark:prose-p:text-gray-100 prose-p:leading-7
+              prose-li:text-gray-800 dark:prose-li:text-gray-100 prose-li:leading-6
+              prose-strong:text-gray-900 dark:prose-strong:text-white
+              prose-a:text-blue-600 hover:prose-a:text-blue-500 dark:prose-a:text-blue-300 dark:hover:prose-a:text-blue-200
+              ${expanded ? '' : 'line-clamp-3'}`}
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{decodedContent}</ReactMarkdown>
           </div>

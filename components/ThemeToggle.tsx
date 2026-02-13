@@ -29,15 +29,25 @@ export function ThemeToggle() {
     <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">
       <button
         type="button"
+        aria-pressed={theme === 'light'}
         onClick={() => setTheme('light')}
-        className={`px-3 py-1.5 text-xs font-medium ${theme === 'light' ? 'bg-gray-100 text-gray-900' : 'bg-white text-gray-600'} dark:${theme === 'light' ? 'bg-gray-900/40 text-gray-200' : 'bg-gray-950 text-gray-400'}`}
+        className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+          theme === 'light'
+            ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+            : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-950 dark:text-gray-400 dark:hover:bg-gray-900'
+        }`}
       >
         Light
       </button>
       <button
         type="button"
+        aria-pressed={theme === 'dark'}
         onClick={() => setTheme('dark')}
-        className={`px-3 py-1.5 text-xs font-medium border-l border-gray-300 dark:border-gray-700 ${theme === 'dark' ? 'bg-gray-100 text-gray-900' : 'bg-white text-gray-600'} dark:${theme === 'dark' ? 'bg-gray-900/40 text-gray-200' : 'bg-gray-950 text-gray-400'}`}
+        className={`px-3 py-1.5 text-xs font-semibold border-l border-gray-300 dark:border-gray-700 transition-colors ${
+          theme === 'dark'
+            ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+            : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-950 dark:text-gray-400 dark:hover:bg-gray-900'
+        }`}
       >
         Dark
       </button>
