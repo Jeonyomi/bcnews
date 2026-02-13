@@ -108,10 +108,6 @@ export default function Home() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6">
-        <div className="mb-4 text-xs text-gray-600 dark:text-gray-400">
-          Auto-refreshes every {RETRY_INTERVALS[retryIndex] / 1000} seconds • Latest news first
-        </div>
-
         {Object.keys(groupedNews).length === 0 ? (
           <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
             {loading ? 'Loading news...' : error ? 'Failed to load news.' : 'No matching items found.'}
