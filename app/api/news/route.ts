@@ -9,6 +9,20 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+function safeBase64Encode(str: string): string {
+  if (!str) return ''
+  try {
+    return btoa(
+      encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_m, p1) =>
+        String.fromCharCode(parseInt(p1, 16))
+      )
+    )
+  } catch (e) {
+    console.error('Encoding failed:', e)
+    return ''
+  }
+}
+
 export async function GET() {
   try {
     const { data: items, error } = await supabase
@@ -22,16 +36,15 @@ export async function GET() {
       throw error
     }
 
-    // Base64 encode Korean content
     const encodedItems = items.map(item => ({
       ...item,
-      content: Buffer.from(item.content, 'utf-8').toString('base64')
+      content: safeBase64Encode(item.content)
     }))
 
     return new Response(JSON.stringify({ items: encodedItems }), {
       status: 200,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'Access-Control-Allow-Origin': '*'
       }
