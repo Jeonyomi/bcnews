@@ -10,27 +10,12 @@ interface Props {
   defaultExpanded?: boolean
 }
 
-function safeBase64Decode(str: string): string {
-  if (!str) return ''
-  try {
-    return decodeURIComponent(
-      atob(str)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    )
-  } catch (e) {
-    console.warn('Content decode failed:', e)
-    return ''
-  }
-}
-
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
-  const [decodedContent, setDecodedContent] = useState('')
+  const [decodedContent, setDecodedContent] = useState(item.content)
 
   useEffect(() => {
-    setDecodedContent(safeBase64Decode(item.content))
+    setDecodedContent(item.content)
   }, [item.content])
 
   const timeString = new Date(item.created_at_kst || item.created_at).toLocaleString('ko-KR', {

@@ -9,20 +9,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-function safeBase64Encode(str: string): string {
-  if (!str) return ''
-  try {
-    return btoa(
-      encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_m, p1) =>
-        String.fromCharCode(parseInt(p1, 16))
-      )
-    )
-  } catch (e) {
-    console.error('Encoding failed:', e)
-    return ''
-  }
-}
-
 export async function GET() {
   try {
     const { data: items, error } = await supabase
@@ -36,12 +22,7 @@ export async function GET() {
       throw error
     }
 
-    const encodedItems = items.map(item => ({
-      ...item,
-      content: safeBase64Encode(item.content)
-    }))
-
-    return new Response(JSON.stringify({ items: encodedItems }), {
+    return new Response(JSON.stringify({ items }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
