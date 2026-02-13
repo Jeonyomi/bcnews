@@ -22,16 +22,7 @@ export async function GET() {
       throw error
     }
 
-    return new Response(JSON.stringify({
-      items,
-      meta: {
-        serverTime: new Date().toISOString(),
-        hasServiceKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-        count: items.length,
-        topId: items[0]?.id || null,
-        topCreatedAt: items[0]?.created_at || null
-      }
-    }), {
+    return new Response(JSON.stringify({ items }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
