@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from('news_briefs')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .limit(take)
 
     if (!includeAll) {
