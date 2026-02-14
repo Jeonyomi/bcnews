@@ -4,28 +4,19 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'  // Disable caching
 export const runtime = 'edge'  // Use edge runtime for better performance
 
-// UI-facing endpoint should use public runtime env only, to match exactly what Vercel client-side expects.
-// Use service role only as a fallback when public vars are not configured.
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.SUPABASE_URL
-
-const supabaseKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+// IMPORTANT: Use only public envs for the UI endpoint.
+// This avoids accidentally connecting with a different service_role-backed project.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase config for /api/news', {
+  console.error('Missing NEXT_PUBLIC Supabase config for /api/news', {
     hasPublicUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasPublicAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    hasLegacyAnonKey: !!process.env.SUPABASE_ANON_KEY,
-    hasLegacyUrl: !!process.env.SUPABASE_URL,
-    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    hasPublicAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   })
 }
 
-const supabase = createClient(supabaseUrl!, supabaseKey!)
+const supabase = createClient(supabaseUrl ?? '', supabaseKey ?? '')
 
 export async function GET() {
   try {
@@ -55,8 +46,7 @@ export async function GET() {
         error: String(error),
         config: {
           hasUrl: !!supabaseUrl,
-          hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-          hasPublicAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          hasPublicAnonKey: !!supabaseKey
         }
       },
       { status: 500 }
