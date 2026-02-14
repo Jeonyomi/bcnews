@@ -12,12 +12,20 @@ interface Props {
 
 const REGULATORY_PREFIX = /^Digital Asset & Stablecoin\s+Regulatory Brief\b:?\s*/i
 const DAILY_PREFIX = /^Digital Asset & Stablecoin\s+Daily News Brief\b:?\s*/i
+const SECTION_HEADER = 'Daily Stablecoin News Brief'
 
 const stripBrand = (value: string) =>
   value
     .replace(REGULATORY_PREFIX, '')
     .replace(DAILY_PREFIX, '')
     .trim()
+
+const mapHeader = (value: string) => {
+  if (REGULATORY_PREFIX.test(value) || DAILY_PREFIX.test(value)) {
+    return SECTION_HEADER
+  }
+  return value
+}
 
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
@@ -26,6 +34,9 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const trimmedLines = useMemo(() => (decodedContent || '').split('\n'), [decodedContent])
 
   const displayTitle = useMemo(() => {
+    const mappedTitle = mapHeader(item.title || '')
+    if (mappedTitle !== (item.title || '')) return mappedTitle
+
     const directTitle = stripBrand(item.title || '')
     if (directTitle) return directTitle
 
@@ -37,9 +48,11 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
       if (!heading) continue
 
       const rawHeader = heading[1].trim()
+      const mapped = mapHeader(rawHeader)
+      if (mapped !== rawHeader) return mapped
+
       const cleaned = stripBrand(rawHeader)
       if (cleaned) return cleaned
-      if (/Daily News Brief/i.test(rawHeader)) return 'Daily News Brief'
     }
 
     return item.title || ''
