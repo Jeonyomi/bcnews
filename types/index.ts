@@ -18,7 +18,7 @@ export interface BriefSectionItem {
 }
 
 export interface BriefSection {
-  heading: 'KR' | 'Global'
+  heading: 'KR' | 'Global' | 'Watchlist'
   title: string
   items: BriefSectionItem[]
 }

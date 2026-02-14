@@ -46,13 +46,20 @@ const getTodayKstRange = () => {
   }
 }
 
-const normalizeSectionHeading = (line: string): 'KR' | 'Global' | null => {
+type SectionHeading = 'KR' | 'Global' | 'Watchlist'
+
+const normalizeSectionHeading = (line: string): SectionHeading | null => {
+  if (/watchlist/i.test(line)) return 'Watchlist'
   if (/korea\s*top\s*5/i.test(line)) return 'KR'
   if (/global\s*top\s*5/i.test(line)) return 'Global'
   return null
 }
 
-const stripPrefix = (text: string) => text.replace(/^[-*]\s*/, '').trim()
+const sectionTitle = (heading: SectionHeading): string => {
+  if (heading === 'KR') return '🇰🇷 Korea Top 5'
+  if (heading === 'Global') return '🌐 Global Top 5'
+  return '👀 Watchlist'
+}
 
 const getLinkFromLine = (line: string): string | undefined => {
   const plainMatch = line.match(/https?:\/\/[^\s)]+/)
@@ -72,20 +79,22 @@ const parseBriefSections = (
   const sections: BriefSection[] = []
   let currentSection: BriefSection | null = null
 
-  const openSection = (region: 'KR' | 'Global') => {
-    const existing = sections.find((s) => s.heading === region)
+  const openSection = (heading: SectionHeading) => {
+    const existing = sections.find((s) => s.heading === heading)
     if (existing) {
       currentSection = existing
       return
     }
 
     currentSection = {
-      heading: region,
-      title: region === 'KR' ? '🇰🇷 Korea Top 5' : '🌐 Global Top 5',
+      heading,
+      title: sectionTitle(heading),
       items: [],
     }
     sections.push(currentSection)
   }
+
+  const startSection = (fallbackRegion === 'Global' ? 'Global' : 'KR')
 
   for (let i = 0; i < lines.length; i += 1) {
     const rawLine = lines[i] || ''
@@ -102,6 +111,19 @@ const parseBriefSections = (
     }
 
     if (/^#\s*/.test(line)) {
+      continue
+    }
+
+    if (currentSection?.heading === 'Watchlist' && /^[-*]\s+/.test(line)) {
+      const bullet = line.replace(/^[-*]\s*/, '').trim()
+      if (bullet) {
+        currentSection.items.push({
+          title: bullet,
+          summary: '',
+          keywords: [],
+          link: getLinkFromLine(line),
+        })
+      }
       continue
     }
 
@@ -132,11 +154,11 @@ const parseBriefSections = (
           }
         }
 
-        const summaryMatch = next.match(/^-?\s*(?:핵심 요약|핵심요약|Summary|Key summary):?\s*(.+)$/i)
-        const keywordMatch = next.match(/^-?\s*(?:핵심키워드|핵심 키워드|Keywords|키워드):?\s*(.+)$/i)
+        const summaryMatch = next.match(/^-?\s*(?:핵심\s*요약|핵심요약|Summary|Key summary):?\s*(.+)$/i)
+        const keywordMatch = next.match(/^-?\s*(?:핵심\s*키워드|핵심키워드|Keywords|키워드):?\s*(.+)$/i)
 
         if (/^[-*]\s*(?:Key|키워드|LINK|링크)/i.test(next)) {
-          if (/LINK|링크|Link/i.test(next)) {
+          if (/링크|Link|LINK/i.test(next)) {
             item.link = getLinkFromLine(next)
           }
           if (keywordMatch) {
@@ -161,31 +183,23 @@ const parseBriefSections = (
           continue
         }
 
-        if (next.startsWith('-')) {
+        if (next.startsWith('-') || next.startsWith('*')) {
           const extracted = getLinkFromLine(next)
           if (extracted && !item.link) {
             item.link = extracted
             continue
           }
 
-          if (!item.summary && next.replace(/^[-*]\s*/, '').trim()) {
-            item.summary = next.replace(/^[-*]\s*/, '').trim()
+          const text = next.replace(/^[-*]\s*/, '').trim()
+          if (!item.summary && text) {
+            item.summary = text
           }
           continue
         }
 
-        // end of current item
         if (next) {
           i = j - 1
           break
-        }
-      }
-
-      if (!item.summary && item.keywords.length === 0 && i < lines.length - 1) {
-        const nextContent = lines[i + 1]?.trim() || ''
-        if (nextContent && !/^(\d+\)|##)/.test(nextContent)) {
-          item.summary = nextContent.replace(/^-\s*/, '').trim()
-          i += 1
         }
       }
 
@@ -193,9 +207,9 @@ const parseBriefSections = (
       continue
     }
 
-    // 첫번째 항목이 시작되지 않은 경우, 임시로 헤더를 기준으로 기본 섹션 생성
+    // If no section started yet, create fallback one using row region
     if (!currentSection) {
-      openSection(fallbackRegion)
+      openSection(startSection)
     }
   }
 
