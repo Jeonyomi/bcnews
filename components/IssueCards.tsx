@@ -1,6 +1,8 @@
 import Link from 'next/link'
 
 export function IssueSummaryCard({ issue }: { issue: any }) {
+  const trim = (text: string, max: number) => (text && text.length > max ? `${text.slice(0, max)}...` : text)
+
   return (
     <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -13,7 +15,9 @@ export function IssueSummaryCard({ issue }: { issue: any }) {
           {issue.importance_label || 'watch'}
         </span>
       </div>
-      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{issue.issue_summary || issue.why_it_matters}</p>
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        {trim(issue.issue_summary || issue.why_it_matters || '', 132)}
+      </p>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
         <span className="rounded bg-gray-100 px-2 py-1 dark:bg-gray-800">{issue.region}</span>
         <span className="rounded bg-gray-100 px-2 py-1 dark:bg-gray-800">{issue.topic_label}</span>

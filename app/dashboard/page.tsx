@@ -34,11 +34,11 @@ export default function DashboardPage() {
     const run = async () => {
       setLoading(true)
       try {
-        const [issuesRes, trendRes, updatesRes] = await Promise.all([
-          fetch('/api/issues?time_window=24h&limit=8&sort=importance'),
-          fetch('/api/trends?time_window=7d&limit=6'),
-          fetch('/api/issues?time_window=24h&sort=hybrid&limit=10'),
-        ])
+      const [issuesRes, trendRes, updatesRes] = await Promise.all([
+        fetch('/api/issues?time_window=24h&limit=8&sort=importance'),
+        fetch('/api/trends?time_window=7d&limit=6'),
+        fetch('/api/issues?time_window=24h&sort=hybrid&only_updates=1&limit=10'),
+      ])
 
         const issuesPayload = await issuesRes.json()
         const trendPayload = await trendRes.json()
