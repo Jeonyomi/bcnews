@@ -1,0 +1,109 @@
+import { NextResponse } from 'next/server'
+import { createPublicClient, parseJsonArray, toKstDateTime } from '@/lib/supabase'
+import { err, ok } from '@/lib/dashboardApi'
+
+export const dynamic = 'force-dynamic'
+
+const asNumber = (value: string | null) => {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : null
+}
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const issueId = asNumber(id)
+    if (!issueId) {
+      return NextResponse.json(err('invalid_issue_id'), { status: 400 })
+    }
+
+    const client = createPublicClient()
+
+    const { data: issue, error: issueErr } = await client
+      .from('issues')
+      .select(`
+        *,
+        representative_article:articles(id,title,url,published_at_utc,summary_short,issue_id)
+      `)
+      .eq('id', issueId)
+      .single()
+
+    if (issueErr || !issue) {
+      return NextResponse.json(err('issue_not_found'), { status: 404 })
+    }
+
+    const { data: issueUpdates, error: updatesErr } = await client
+      .from('issue_updates')
+      .select('*')
+      .eq('issue_id', issueId)
+      .order('update_at_utc', { ascending: false })
+
+    if (updatesErr) throw updatesErr
+
+    const evidenceIds = new Set<number>()
+    for (const update of issueUpdates || []) {
+      const ids = parseJsonArray(update.evidence_article_ids)
+      for (const raw of ids) {
+        const parsed = Number(raw)
+        if (Number.isFinite(parsed)) evidenceIds.add(parsed)
+      }
+    }
+
+    const relatedIds = Array.from(evidenceIds)
+
+    let relatedArticles = [] as any[]
+    if (relatedIds.length > 0) {
+      const { data: articlesByEvidence, error: relatedErr } = await client
+        .from('articles')
+        .select(`
+          id,title,url,canonical_url,published_at_utc,language,region,summary_short,
+          why_it_matters,confidence_label,importance_score,importance_label,status,issue_id
+        `)
+        .in('id', relatedIds)
+
+      if (relatedErr) throw relatedErr
+      relatedArticles = articlesByEvidence || []
+    }
+
+    const { data: issueTagRelated, error: issueTagErr } = await client
+      .from('articles')
+      .select('id,title,url,canonical_url,published_at_utc,summary_short,issue_id')
+      .eq('issue_id', issueId)
+      .order('published_at_utc', { ascending: false })
+      .limit(12)
+
+    if (issueTagErr) throw issueTagErr
+
+    const mergedMap = new Map<number, any>()
+    for (const article of issueTagRelated || []) {
+      mergedMap.set(article.id, article)
+    }
+    for (const article of relatedArticles) {
+      mergedMap.set(article.id, article)
+    }
+
+    const merged = Array.from(mergedMap.values()).sort(
+      (a, b) => new Date(b.published_at_utc).getTime() - new Date(a.published_at_utc).getTime(),
+    )
+
+    const timeline = (issueUpdates || []).map((update) => ({
+      ...update,
+      update_at_ks: toKstDateTime(update.update_at_utc),
+    }))
+
+    const detail = {
+      issue,
+      issue_updates: timeline,
+      related_articles: merged,
+      representative_article: issue.representative_article || null,
+    }
+
+    return NextResponse.json(ok(detail), { headers: { 'Cache-Control': 'no-store' } })
+  } catch (error) {
+    console.error('GET /api/issues/[id] failed', error)
+    return NextResponse.json(err(`issue_detail_error: ${String(error)}`), { status: 500 })
+  }
+}

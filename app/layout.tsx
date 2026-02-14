@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import SiteChrome from '@/components/SiteChrome'
 
 export const metadata: Metadata = {
   title: 'Stablecoin News Dashboard',
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+    <body>
+      <SiteChrome>{children}</SiteChrome>
+    </body>
     </html>
   )
 }
