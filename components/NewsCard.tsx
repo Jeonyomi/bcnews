@@ -53,16 +53,13 @@ const formatSectionTitle = (value: string) =>
 
 const normalizeBriefLinks = (content: string) =>
   content
-    .replace(/^([ \t]*-\s*링크:\s*)(https?:\/\/\S+)(\s*)$/gm, '$1[LINK]($2)$3')
-    .replace(/^([ \t]*-\s*LINK:\s*)\[([^)]+)\]\((https?:\/\/[^)]+)\)(\s*)$/gm, '$1[LINK]($3)$4')
+    .replace(/^([ \t]*-\s*)?링크:\s*(https?:\/\/\S+)(\s*)$/gm, '$1[LINK]($2)$3')
+    .replace(/^([ \t]*-\s*)?LINK:\s*\[([^\]]+)\]\((https?:\/\/[^)]+)\)(\s*)$/gm, '$1[LINK]($3)$4')
 
 const normalizeBriefContent = (content: string) =>
   normalizeBriefLinks(content)
-    .replace(/^##\s*KR \(KST\) Top 5\s*$/gim, '## ' + formatSectionTitle('KR (KST) Top 5'))
-    .replace(/^##\s*Global \(KST\) Top 5\s*$/gim, '## ' + formatSectionTitle('Global (KST) Top 5'))
-    .replace(/^##\s*Korea\s*Top 5\s*$/gim, '## ' + formatSectionTitle('Korea Top 5'))
-    .replace(/^##\s*KOREA\s*TOP\s*5\s*$/gim, '## ' + formatSectionTitle('Korea Top 5'))
-    .replace(/^##\s*GLOBAL\s*TOP\s*5\s*$/gim, '## ' + formatSectionTitle('Global Top 5'))
+    .replace(/^##\s*(?:KR\s*\(KST\)\s*Top 5|Korea\s*(?:\(KST\)\s*)?Top 5|KOREA\s*TOP\s*5)\s*$/gim, '## ' + formatSectionTitle('KR (KST) Top 5'))
+    .replace(/^##\s*(?:Global\s*\(KST\)\s*Top 5|GLOBAL\s*TOP\s*5)\s*$/gim, '## ' + formatSectionTitle('Global (KST) Top 5'))
 
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
