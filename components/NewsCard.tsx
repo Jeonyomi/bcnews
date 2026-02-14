@@ -5,6 +5,23 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { NewsItem } from '@/types'
 
+const looksWrongOffsetKst = (value: string | null) =>
+  !!value && /\+00:00$/.test(value)
+
+const getDisplayTime = (item: NewsItem) => {
+  const source = looksWrongOffsetKst(item.created_at_kst) ? item.created_at : item.created_at_kst
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Seoul',
+  }).format(new Date(source || item.created_at))
+}
+
 interface Props {
   item: NewsItem
   defaultExpanded?: boolean
@@ -89,16 +106,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
     setDecodedContent(item.content)
   }, [item.content])
 
-  const timeString = new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-    timeZone: 'Asia/Seoul',
-  }).format(new Date(item.created_at_kst || item.created_at))
+  const timeString = getDisplayTime(item)
 
   return (
     <article
