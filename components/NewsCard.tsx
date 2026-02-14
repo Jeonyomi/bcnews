@@ -89,9 +89,16 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
     setDecodedContent(item.content)
   }, [item.content])
 
-  const timeString = new Date(item.created_at_kst || item.created_at).toLocaleString('ko-KR', {
+  const timeString = new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
     timeZone: 'Asia/Seoul',
-  })
+  }).format(new Date(item.created_at_kst || item.created_at))
 
   return (
     <article
