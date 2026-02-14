@@ -10,6 +10,19 @@ export type Topic =
   | 'Enforcement/Crime'
   | 'Infra/Tech'
 
+export interface BriefSectionItem {
+  title: string
+  summary: string
+  keywords: string[]
+  link?: string
+}
+
+export interface BriefSection {
+  heading: 'KR' | 'Global'
+  title: string
+  items: BriefSectionItem[]
+}
+
 export interface NewsItem {
   id: string
   title: string
@@ -20,4 +33,5 @@ export interface NewsItem {
   score?: number
   created_at: string
   created_at_kst: string
+  sections?: BriefSection[]
 }

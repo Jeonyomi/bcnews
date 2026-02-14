@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import type { BriefSection } from '@/types'
 
 export const dynamic = 'force-dynamic' // no caching
 
@@ -7,6 +8,10 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
+
+type DbNewsItem = {
+  [key: string]: unknown
+}
 
 const getTodayKstRange = () => {
   const now = new Date()
@@ -41,6 +46,162 @@ const getTodayKstRange = () => {
   }
 }
 
+const normalizeSectionHeading = (line: string): 'KR' | 'Global' | null => {
+  if (/korea\s*top\s*5/i.test(line)) return 'KR'
+  if (/global\s*top\s*5/i.test(line)) return 'Global'
+  return null
+}
+
+const stripPrefix = (text: string) => text.replace(/^[-*]\s*/, '').trim()
+
+const getLinkFromLine = (line: string): string | undefined => {
+  const plainMatch = line.match(/https?:\/\/[^\s)]+/)
+  if (plainMatch) return plainMatch[0]
+
+  const mdMatch = line.match(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/)
+  if (mdMatch) return mdMatch[1]
+
+  return undefined
+}
+
+const parseBriefSections = (
+  rawContent: string,
+  fallbackRegion: 'KR' | 'Global'
+): BriefSection[] => {
+  const lines = (rawContent || '').replace(/\r\n/g, '\n').split('\n')
+  const sections: BriefSection[] = []
+  let currentSection: BriefSection | null = null
+
+  const openSection = (region: 'KR' | 'Global') => {
+    const existing = sections.find((s) => s.heading === region)
+    if (existing) {
+      currentSection = existing
+      return
+    }
+
+    currentSection = {
+      heading: region,
+      title: region === 'KR' ? '🇰🇷 Korea Top 5' : '🌐 Global Top 5',
+      items: [],
+    }
+    sections.push(currentSection)
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const rawLine = lines[i] || ''
+    const line = rawLine.trim()
+    if (!line) continue
+
+    const headingMatch = /^##\s*(.+)$/.exec(line)
+    if (headingMatch) {
+      const headingRegion = normalizeSectionHeading(headingMatch[1] || '')
+      if (headingRegion) {
+        openSection(headingRegion)
+        continue
+      }
+    }
+
+    if (/^#\s*/.test(line)) {
+      continue
+    }
+
+    if (currentSection && /^\d+\)/.test(line) && /\*\*(.*?)\*\*/.test(line)) {
+      const titleMatch = line.match(/\*\*(.*?)\*\*/)
+      const itemTitle = titleMatch?.[1]?.trim() || line
+      const item = {
+        title: itemTitle,
+        summary: '',
+        keywords: [] as string[],
+        link: undefined as string | undefined,
+      }
+
+      for (let j = i + 1; j < lines.length; j += 1) {
+        const next = (lines[j] || '').trim()
+
+        if (/^\d+\)/.test(next)) {
+          i = j - 1
+          break
+        }
+
+        const headingNext = /^##\s*(.+)$/.exec(next)
+        if (headingNext) {
+          const sectionHeading = normalizeSectionHeading(headingNext[1] || '')
+          if (sectionHeading) {
+            i = j - 1
+            break
+          }
+        }
+
+        const summaryMatch = next.match(/^-?\s*(?:핵심 요약|핵심요약|Summary|Key summary):?\s*(.+)$/i)
+        const keywordMatch = next.match(/^-?\s*(?:핵심키워드|핵심 키워드|Keywords|키워드):?\s*(.+)$/i)
+
+        if (/^[-*]\s*(?:Key|키워드|LINK|링크)/i.test(next)) {
+          if (/LINK|링크|Link/i.test(next)) {
+            item.link = getLinkFromLine(next)
+          }
+          if (keywordMatch) {
+            item.keywords = keywordMatch[1]
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean)
+          }
+          continue
+        }
+
+        if (summaryMatch) {
+          item.summary = summaryMatch[1].trim()
+          continue
+        }
+
+        if (keywordMatch) {
+          item.keywords = keywordMatch[1]
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+          continue
+        }
+
+        if (next.startsWith('-')) {
+          const extracted = getLinkFromLine(next)
+          if (extracted && !item.link) {
+            item.link = extracted
+            continue
+          }
+
+          if (!item.summary && next.replace(/^[-*]\s*/, '').trim()) {
+            item.summary = next.replace(/^[-*]\s*/, '').trim()
+          }
+          continue
+        }
+
+        // end of current item
+        if (next) {
+          i = j - 1
+          break
+        }
+      }
+
+      if (!item.summary && item.keywords.length === 0 && i < lines.length - 1) {
+        const nextContent = lines[i + 1]?.trim() || ''
+        if (nextContent && !/^(\d+\)|##)/.test(nextContent)) {
+          item.summary = nextContent.replace(/^-\s*/, '').trim()
+          i += 1
+        }
+      }
+
+      currentSection.items.push(item)
+      continue
+    }
+
+    // 첫번째 항목이 시작되지 않은 경우, 임시로 헤더를 기준으로 기본 섹션 생성
+    if (!currentSection) {
+      openSection(fallbackRegion)
+    }
+  }
+
+  return sections
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
@@ -69,7 +230,20 @@ export async function GET(request: Request) {
       throw error
     }
 
-    const payload: Record<string, any> = { items }
+    const enriched = (items || []).map((item: DbNewsItem) => {
+      const region = (item.region === 'Global' ? 'Global' : 'KR') as 'KR' | 'Global'
+      const sections = parseBriefSections(
+        String(item.content || ''),
+        region,
+      )
+
+      return {
+        ...item,
+        sections,
+      }
+    })
+
+    const payload: Record<string, any> = { items: enriched }
     if (debug) {
       payload.debug = {
         hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,

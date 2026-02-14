@@ -13,11 +13,23 @@ export default function TestPage() {
         const res = await fetch(`/api/news?t=${Date.now()}`)
         const json = await res.json()
 
-        // Try to decode Base64 content
-        const decodedItems = json.items.map((item: any) => ({
-          ...item,
-          content: atob(item.content)
-        }))
+        const decodedItems = json.items.map((item: any) => {
+          let content = item.content
+
+          try {
+            const raw = atob(item.content)
+            if (/^[\s\S]{10,}/.test(raw) && /\n|\r|#|##/.test(raw)) {
+              content = raw
+            }
+          } catch {
+            // keep original if not base64
+          }
+
+          return {
+            ...item,
+            content,
+          }
+        })
 
         setData({ ...json, items: decodedItems })
       } catch (e) {

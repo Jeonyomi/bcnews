@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { NewsItem } from '@/types'
@@ -44,130 +44,40 @@ const mapHeader = (value: string) => {
   return value
 }
 
-const formatSectionTitle = (value: string) =>
-  value
-    .replace(/^KR\s*\(KST\)\s*Top 5$/i, '🇰🇷 Korea Top 5')
-    .replace(/^Korea\s*Top 5$/i, '🇰🇷 Korea Top 5')
-    .replace(/^Global\s*\(KST\)\s*Top 5$/i, '🌐 Global Top 5')
-    .replace(/^Global\s*Top 5$/i, '🌐 Global Top 5')
-
-const normalizeBriefLinks = (content: string) =>
+const normalizeMarkdownSectionContent = (content: string) =>
   content
-    .replace(/^([ \t]*-\s*)?링크:\s*(https?:\/\/\S+)(\s*)$/gm, '$1[LINK]($2)$3')
-    .replace(/^([ \t]*-\s*)?LINK:\s*\[([^\]]+)\]\((https?:\/\/[^)]+)\)(\s*)$/gm, '$1[LINK]($3)$4')
-
-const normalizeBriefContent = (content: string) =>
-  normalizeBriefLinks(content)
-    .replace(/^##\s*(?:KR\s*\(KST\)\s*Top 5|Korea\s*(?:\(KST\)\s*)?Top 5|KOREA\s*TOP\s*5)\s*$/gim, '## ' + formatSectionTitle('KR (KST) Top 5'))
-    .replace(/^##\s*(?:Global\s*\(KST\)\s*Top 5|GLOBAL\s*TOP\s*5)\s*$/gim, '## ' + formatSectionTitle('Global (KST) Top 5'))
-
-const hasSectionHeading = (content: string) =>
-  /(^|\n)##\s*(🇰🇷\s*Korea\s*Top\s*5|Korea\s*Top\s*5|🌐\s*Global\s*Top\s*5|Global\s*Top\s*5)/im.test(content)
-
-const withExpectedSectionHeading = (item: NewsItem, content: string) => {
-  if (hasSectionHeading(content)) return content
-
-  if (item.region === 'KR') {
-    return `## ${formatSectionTitle('KR (KST) Top 5')}\n\n${content}`
-  }
-
-  return `## ${formatSectionTitle('Global (KST) Top 5')}\n\n${content}`
-}
-
-const getLeadingSectionTitle = (content: string) => {
-  const match = /^##\s*([^\n]+)\s*$/m.exec(content)
-  if (!match) return null
-
-  const raw = match[1]?.trim() || ''
-  if (/korea\s*top\s*5/i.test(raw) || /global\s*top\s*5/i.test(raw)) {
-    return raw
-  }
-
-  return null
-}
-
-const stripLeadingSectionTitle = (content: string) =>
-  content.replace(/^##\s*[^\n]+\s*\n\n?/i, '').trimStart()
+    .replace(/-\s*링크:\s*(https?:\/\/\S+)/g, '- [LINK]($1)')
+    .replace(/-\s*LINK:\s*\[LINK\]\((https?:\/\/[^)]+)\)/g, '- [LINK]($1)')
 
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
-  const [decodedContent, setDecodedContent] = useState(item.content)
-
-  const trimmedLines = useMemo(() => (decodedContent || '').split('\n'), [decodedContent])
-
-  const displayTitle = useMemo(() => {
-    const mappedTitle = mapHeader(item.title || '')
-    if (mappedTitle !== (item.title || '')) return mappedTitle
-
-    const directTitle = stripBrand(item.title || '')
-    if (directTitle) return directTitle
-
-    for (const rawLine of trimmedLines) {
-      const line = rawLine.trim()
-      if (!line) continue
-
-      const heading = /^#\s*(.+)$/.exec(line)
-      if (!heading) continue
-
-      const rawHeader = heading[1].trim()
-      const mapped = mapHeader(rawHeader)
-      if (mapped !== rawHeader) return mapped
-
-      const cleaned = stripBrand(rawHeader)
-      if (cleaned) return cleaned
-    }
-
-    return item.title || ''
-  }, [item.title, trimmedLines])
-
-  const trimmedContent = useMemo(() => {
-    const lines = [...trimmedLines]
-    let idx = 0
-
-    while (idx < lines.length) {
-      const current = lines[idx]?.trim()
-      if (!current) {
-        idx += 1
-        continue
-      }
-
-      const heading = /^#\s*(.+)$/.exec(current)
-      if (!heading) break
-
-      const rawHeader = heading[1].trim()
-      const cleaned = stripBrand(rawHeader)
-      if (cleaned || /Daily News Brief/i.test(rawHeader) || /Regulatory Brief/i.test(rawHeader)) {
-        idx += 1
-        continue
-      }
-
-      break
-    }
-
-    return withExpectedSectionHeading(item, normalizeBriefContent(lines.slice(idx).join('\n').trimStart()))
-  }, [trimmedLines, item])
-
-  const displaySectionHeader = useMemo(() => {
-    const title = getLeadingSectionTitle(trimmedContent)
-    if (!title) {
-      return item.region === 'KR' ? '🇰🇷 Korea Top 5' : '🌐 Global Top 5'
-    }
-
-    return title.startsWith('🇰🇷') || title.startsWith('🌐')
-      ? title
-      : formatSectionTitle(title)
-  }, [trimmedContent, item.region])
-
-  const visibleContent = useMemo(() => {
-    const body = stripLeadingSectionTitle(trimmedContent)
-    return body || trimmedContent
-  }, [trimmedContent])
-
-  useEffect(() => {
-    setDecodedContent(item.content)
-  }, [item.content])
 
   const timeString = getDisplayTime(item)
+  const titleFromMd = useMemo(() => {
+    const mapped = mapHeader(item.title || '')
+    if (mapped !== (item.title || '')) return mapped
+
+    const direct = stripBrand(item.title || '')
+    if (direct) return direct
+
+    return item.title || ''
+  }, [item.title])
+
+  const sections = item.sections || []
+
+  const fallbackContent = useMemo(() => {
+    const normalized = normalizeMarkdownSectionContent(item.content || '')
+    const titleRemoved = normalized
+      .split('\n')
+      .filter((line, idx) => {
+        if (idx === 0 && /^#\s*/.test(line.trim())) return false
+        return true
+      })
+      .join('\n')
+      .trimStart()
+
+    return titleRemoved
+  }, [item.content])
 
   return (
     <article
@@ -232,7 +142,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
           </button>
         </div>
 
-        {displayTitle && (
+        {titleFromMd && (
           <h3
             className={`mb-[6px] text-[15px] font-semibold tracking-[-0.01em] leading-snug ${
               expanded
@@ -240,19 +150,13 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
                 : 'text-gray-800 dark:text-white'
             }`}
           >
-            {displayTitle}
+            {titleFromMd}
           </h3>
         )}
 
-        <div className="mb-[6px] text-[14px] font-semibold text-gray-900 dark:text-white">
-          {displaySectionHeader}
-        </div>
-
         <div
           className={`select-text text-[14px] leading-[1.55] tracking-[-0.01em] text-[#444] dark:text-gray-200
-            [&>h1]:mt-[16px] [&>h1]:mb-[8px] [&>h1]:text-[16px] [&>h1]:font-semibold [&>h1]:text-gray-900 dark:[&>h1]:text-white
             [&>h2]:mt-[16px] [&>h2]:mb-[8px] [&>h2]:text-[15px] [&>h2]:font-semibold [&>h2]:text-gray-900 dark:[&>h2]:text-white
-            [&>h3]:mt-[12px] [&>h3]:mb-[6px] [&>h3]:text-[14px] [&>h3]:font-semibold [&>h3]:text-gray-900 dark:[&>h3]:text-white
             [&>p]:mb-[6px] [&>p]:break-keep
             [&>ul]:mb-[6px] [&>ul]:list-disc [&>ul]:pl-5
             [&>ol]:mb-[6px] [&>ol]:list-decimal [&>ol]:pl-5
@@ -261,7 +165,50 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
             [&_strong]:font-semibold [&_strong]:text-gray-900 dark:[&_strong]:text-white
             ${expanded ? '' : 'line-clamp-3'}`}
         >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{visibleContent}</ReactMarkdown>
+          {sections.length > 0 ? (
+            <div className="space-y-5">
+              {sections.map((section) => (
+                <section key={section.heading}>
+                  <h2 className="mb-2 text-[15px] font-semibold text-gray-900 dark:text-white">
+                    {section.title}
+                  </h2>
+                  <ol className="space-y-4">
+                    {section.items.map((entry) => (
+                      <li key={`${section.heading}-${entry.title}`} className="pl-0">
+                        <p className="font-medium text-[#111827] dark:text-gray-100">{entry.title}</p>
+                        {entry.summary && <p className="text-sm text-[#4b5563] dark:text-gray-300 mt-1">{entry.summary}</p>}
+                        {entry.keywords.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {entry.keywords.map((keyword) => (
+                              <span
+                                key={keyword}
+                                className="rounded bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                              >
+                                {keyword}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {entry.link && (
+                          <a
+                            href={entry.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 inline-flex text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            [LINK]
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{fallbackContent}</ReactMarkdown>
+          )}
         </div>
       </div>
 
