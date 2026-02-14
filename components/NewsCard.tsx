@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { NewsItem } from '@/types'
+import type { NewsItem, BriefSection } from '@/types'
 
 const looksWrongOffsetKst = (value: string | null) =>
   !!value && /\+00:00$/.test(value)
@@ -42,6 +42,41 @@ const mapHeader = (value: string) => {
     return SECTION_HEADER
   }
   return value
+}
+
+type SectionList = NonNullable<NewsItem['sections']>
+
+const orderedSections = (sections: SectionList): BriefSection[] => {
+  if (!sections || sections.length === 0) return []
+
+  const rank: Record<string, number> = {
+    KR: 0,
+    Global: 1,
+    Watchlist: 2,
+  }
+
+  return [...sections].sort((a, b) => {
+    const ra = rank[a.heading] ?? 99
+    const rb = rank[b.heading] ?? 99
+    if (ra === rb) {
+      return a.title.localeCompare(b.title)
+    }
+    return ra - rb
+  })
+}
+
+const sectionMeta = (heading: BriefSection['heading']) => {
+  if (heading === 'Watchlist') {
+    return {
+      badgeClass: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200',
+      headingClass: 'text-indigo-700 dark:text-indigo-300',
+    }
+  }
+
+  return {
+    badgeClass: 'text-gray-900 dark:text-white',
+    headingClass: 'text-gray-900 dark:text-white',
+  }
 }
 
 const normalizeMarkdownSectionContent = (content: string) =>
@@ -167,44 +202,55 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
         >
           {sections.length > 0 ? (
             <div className="space-y-5">
-              {sections.map((section) => (
+              {orderedSections((sections || []).map((section) => section) as SectionList).map((section) => {
+                const meta = sectionMeta(section.heading)
+
+                return (
                 <section key={section.heading}>
-                  <h2 className="mb-2 text-[15px] font-semibold text-gray-900 dark:text-white">
+                  <h2
+                    className={`mb-2 text-[16px] font-semibold ${meta.headingClass}`}
+                    style={{ letterSpacing: '-0.01em' }}
+                  >
                     {section.title}
                   </h2>
-                  <ol className="space-y-4">
-                    {section.items.map((entry) => (
-                      <li key={`${section.heading}-${entry.title}`} className="pl-0">
-                        <p className="font-medium text-[#111827] dark:text-gray-100">{entry.title}</p>
-                        {entry.summary && <p className="text-sm text-[#4b5563] dark:text-gray-300 mt-1">{entry.summary}</p>}
-                        {entry.keywords.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {entry.keywords.map((keyword) => (
-                              <span
-                                key={keyword}
-                                className="rounded bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-                              >
-                                {keyword}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {entry.link && (
-                          <a
-                            href={entry.link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-2 inline-flex text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            [LINK]
-                          </a>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
+                  {section.items.length > 0 ? (
+                    <ol className="space-y-4">
+                      {section.items.map((entry) => (
+                        <li key={`${section.heading}-${entry.title}`} className="pl-0">
+                          <p className="font-medium text-[#111827] dark:text-gray-100">{entry.title}</p>
+                          {entry.summary && <p className="text-sm text-[#4b5563] dark:text-gray-300 mt-1">{entry.summary}</p>}
+                          {entry.keywords.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {entry.keywords.map((keyword) => (
+                                <span
+                                  key={keyword}
+                                  className={`rounded px-2 py-1 text-[11px] font-medium ${meta.badgeClass}`}
+                                >
+                                  {keyword}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {entry.link && (
+                            <a
+                              href={entry.link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-flex text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              [LINK]
+                            </a>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <div className="text-sm text-gray-500 dark:text-gray-400">No items</div>
+                  )}
                 </section>
-              ))}
+              )}
+              )}
             </div>
           ) : (
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{fallbackContent}</ReactMarkdown>
