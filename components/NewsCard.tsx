@@ -74,6 +74,21 @@ const withExpectedSectionHeading = (item: NewsItem, content: string) => {
   return `## ${formatSectionTitle('Global (KST) Top 5')}\n\n${content}`
 }
 
+const getLeadingSectionTitle = (content: string) => {
+  const match = /^##\s*([^\n]+)\s*$/m.exec(content)
+  if (!match) return null
+
+  const raw = match[1]?.trim() || ''
+  if (/korea\s*top\s*5/i.test(raw) || /global\s*top\s*5/i.test(raw)) {
+    return raw
+  }
+
+  return null
+}
+
+const stripLeadingSectionTitle = (content: string) =>
+  content.replace(/^##\s*[^\n]+\s*\n\n?/i, '').trimStart()
+
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [decodedContent, setDecodedContent] = useState(item.content)
@@ -130,7 +145,23 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
     }
 
     return withExpectedSectionHeading(item, normalizeBriefContent(lines.slice(idx).join('\n').trimStart()))
-  }, [trimmedLines])
+  }, [trimmedLines, item])
+
+  const displaySectionHeader = useMemo(() => {
+    const title = getLeadingSectionTitle(trimmedContent)
+    if (!title) {
+      return item.region === 'KR' ? '🇰🇷 Korea Top 5' : '🌐 Global Top 5'
+    }
+
+    return title.startsWith('🇰🇷') || title.startsWith('🌐')
+      ? title
+      : formatSectionTitle(title)
+  }, [trimmedContent, item.region])
+
+  const visibleContent = useMemo(() => {
+    const body = stripLeadingSectionTitle(trimmedContent)
+    return body || trimmedContent
+  }, [trimmedContent])
 
   useEffect(() => {
     setDecodedContent(item.content)
@@ -213,6 +244,10 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
           </h3>
         )}
 
+        <div className="mb-[6px] text-[14px] font-semibold text-gray-900 dark:text-white">
+          {displaySectionHeader}
+        </div>
+
         <div
           className={`select-text text-[14px] leading-[1.55] tracking-[-0.01em] text-[#444] dark:text-gray-200
             [&>h1]:mt-[16px] [&>h1]:mb-[8px] [&>h1]:text-[16px] [&>h1]:font-semibold [&>h1]:text-gray-900 dark:[&>h1]:text-white
@@ -226,7 +261,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
             [&_strong]:font-semibold [&_strong]:text-gray-900 dark:[&_strong]:text-white
             ${expanded ? '' : 'line-clamp-3'}`}
         >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{trimmedContent}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{visibleContent}</ReactMarkdown>
         </div>
       </div>
 
