@@ -10,38 +10,67 @@ interface Props {
   defaultExpanded?: boolean
 }
 
-const BRAND_PREFIX = /^Digital Asset & Stablecoin Regulatory Brief\b:?\s*/i
+const REGULATORY_PREFIX = /^Digital Asset & Stablecoin\s+Regulatory Brief\b:?\s*/i
+const DAILY_PREFIX = /^Digital Asset & Stablecoin\s+Daily News Brief\b:?\s*/i
+
+const stripBrand = (value: string) =>
+  value
+    .replace(REGULATORY_PREFIX, '')
+    .replace(DAILY_PREFIX, '')
+    .trim()
 
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [decodedContent, setDecodedContent] = useState(item.content)
 
+  const trimmedLines = useMemo(() => (decodedContent || '').split('\n'), [decodedContent])
+
   const displayTitle = useMemo(() => {
-    const next = item.title?.replace(BRAND_PREFIX, '').trim()
-    return next && next.length > 0 ? next : item.title
-  }, [item.title])
+    const directTitle = stripBrand(item.title || '')
+    if (directTitle) return directTitle
+
+    for (const rawLine of trimmedLines) {
+      const line = rawLine.trim()
+      if (!line) continue
+
+      const heading = /^#\s*(.+)$/.exec(line)
+      if (!heading) continue
+
+      const rawHeader = heading[1].trim()
+      const cleaned = stripBrand(rawHeader)
+      if (cleaned) return cleaned
+      if (/Daily News Brief/i.test(rawHeader)) return 'Daily News Brief'
+    }
+
+    return item.title || ''
+  }, [item.title, trimmedLines])
 
   const trimmedContent = useMemo(() => {
-    const lines = (decodedContent || '').split('\n')
+    const lines = [...trimmedLines]
     let idx = 0
-    while (idx < lines.length && lines[idx].trim() === '') idx += 1
 
-    const headerText =
-      idx < lines.length && /^#\s+/.test(lines[idx].trim())
-        ? lines[idx].replace(/^#\s*/, '').trim()
-        : null
+    while (idx < lines.length) {
+      const current = lines[idx]?.trim()
+      if (!current) {
+        idx += 1
+        continue
+      }
 
-    const isDuplicateHeader =
-      headerText === item.title ||
-      (headerText === displayTitle) ||
-      (headerText === item.title.replace(BRAND_PREFIX, '').trim())
+      const heading = /^#\s*(.+)$/.exec(current)
+      if (!heading) break
 
-    if (isDuplicateHeader) {
-      idx += 1
+      const rawHeader = heading[1].trim()
+      const cleaned = stripBrand(rawHeader)
+      if (cleaned || /Daily News Brief/i.test(rawHeader) || /Regulatory Brief/i.test(rawHeader)) {
+        idx += 1
+        continue
+      }
+
+      break
     }
 
     return lines.slice(idx).join('\n').trimStart()
-  }, [decodedContent, item.title, displayTitle])
+  }, [trimmedLines])
 
   useEffect(() => {
     setDecodedContent(item.content)
@@ -114,15 +143,17 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
           </button>
         </div>
 
-        <h3
-          className={`mb-[6px] text-[15px] font-semibold tracking-[-0.01em] leading-snug ${
-            expanded
-              ? 'text-gray-900 dark:text-white'
-              : 'text-gray-800 dark:text-white'
-          }`}
-        >
-          {displayTitle}
-        </h3>
+        {displayTitle && (
+          <h3
+            className={`mb-[6px] text-[15px] font-semibold tracking-[-0.01em] leading-snug ${
+              expanded
+                ? 'text-gray-900 dark:text-white'
+                : 'text-gray-800 dark:text-white'
+            }`}
+          >
+            {displayTitle}
+          </h3>
+        )}
 
         <div
           className={`select-text text-[14px] leading-[1.55] tracking-[-0.01em] text-[#444] dark:text-gray-200
