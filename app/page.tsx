@@ -125,7 +125,11 @@ export default function Home() {
 
                 <div className="space-y-4">
                   {items.map((item, idx) => (
-                    <NewsCard key={item.id} item={item} defaultExpanded={idx === 0} />
+                    <NewsCard
+                      key={item.id}
+                      item={item}
+                      defaultExpanded={date === 'Today'}
+                    />
                   ))}
                 </div>
               </section>
