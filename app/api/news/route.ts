@@ -1,25 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-export const dynamic = 'force-dynamic'  // Disable caching
-export const runtime = 'edge'  // Use edge runtime for better performance
+export const dynamic = 'force-dynamic' // no caching
 
-// IMPORTANT: Use only public envs for the UI endpoint.
-// This avoids accidentally connecting with a different service_role-backed project.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing NEXT_PUBLIC Supabase config for /api/news', {
-    hasPublicUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasPublicAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  })
-}
-
-const supabase = createClient(supabaseUrl ?? '', supabaseKey ?? '')
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const url = new URL(request.url)
+    const debug = url.searchParams.get('debug') === '1'
+
     const { data: items, error } = await supabase
       .from('news_briefs')
       .select('*')
@@ -31,13 +24,25 @@ export async function GET() {
       throw error
     }
 
-    return new Response(JSON.stringify({ items }), {
+    const payload: Record<string, any> = { items }
+    if (debug) {
+      payload.debug = {
+        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        envSource: {
+          NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          keyPrefix: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+            ? `${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(0, 8)}...${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(-6)}`
+            : null,
+        }
+      }
+    }
+
+    return NextResponse.json(payload, {
       status: 200,
       headers: {
-        'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
-        'Access-Control-Allow-Origin': '*'
-      }
+      },
     })
   } catch (error) {
     console.error('API Error:', error)
@@ -45,9 +50,9 @@ export async function GET() {
       {
         error: String(error),
         config: {
-          hasUrl: !!supabaseUrl,
-          hasPublicAnonKey: !!supabaseKey
-        }
+          hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+          hasPublicAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        },
       },
       { status: 500 }
     )
