@@ -4,19 +4,24 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'  // Disable caching
 export const runtime = 'edge'  // Use edge runtime for better performance
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+// UI-facing endpoint should use public runtime env only, to match exactly what Vercel client-side expects.
+// Use service role only as a fallback when public vars are not configured.
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL
+
 const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Missing Supabase config for /api/news', {
-    hasSupabaseUrl: !!process.env.SUPABASE_URL,
-    hasNextPublicUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    hasPublicUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
     hasPublicAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    hasAnonKey: !!process.env.SUPABASE_ANON_KEY
+    hasLegacyAnonKey: !!process.env.SUPABASE_ANON_KEY,
+    hasLegacyUrl: !!process.env.SUPABASE_URL,
+    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
   })
 }
 
