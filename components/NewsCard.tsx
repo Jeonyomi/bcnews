@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { NewsItem } from '@/types'
@@ -13,6 +13,22 @@ interface Props {
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [decodedContent, setDecodedContent] = useState(item.content)
+
+  const trimmedContent = useMemo(() => {
+    const lines = (decodedContent || '').split('\n')
+    let idx = 0
+    while (idx < lines.length && lines[idx].trim() === '') idx += 1
+
+    // Remove duplicate top heading if it duplicates the card title (e.g. leading "# Stablecoin ...")
+    if (idx < lines.length && /^#\s+/.test(lines[idx].trim())) {
+      const headerText = lines[idx].replace(/^#\s*/, '').trim()
+      if (headerText === item.title) {
+        idx += 1
+      }
+    }
+
+    return lines.slice(idx).join('\n').trimStart()
+  }, [decodedContent, item.title])
 
   useEffect(() => {
     setDecodedContent(item.content)
@@ -91,7 +107,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
               [&_strong]:font-semibold [&_strong]:text-gray-900 dark:[&_strong]:text-white
               ${expanded ? '' : 'line-clamp-3'}`}
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{decodedContent}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{trimmedContent}</ReactMarkdown>
           </div>
         </div>
       </button>
