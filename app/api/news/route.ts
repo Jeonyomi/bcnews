@@ -1,6 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import type { BriefSection } from '@/types'
+
+type BriefSectionItem = {
+  title: string
+  summary: string
+  keywords: string[]
+  link?: string
+}
+
+type BriefSection = {
+  heading: 'KR' | 'Global' | 'Watchlist'
+  title: string
+  items: BriefSectionItem[]
+}
 
 export const dynamic = 'force-dynamic' // no caching
 
@@ -114,17 +126,20 @@ const parseBriefSections = (
       continue
     }
 
-    if (currentSection?.heading === 'Watchlist' && /^[-*]\s+/.test(line)) {
-      const bullet = line.replace(/^[-*]\s*/, '').trim()
-      if (bullet) {
-        currentSection.items.push({
-          title: bullet,
-          summary: '',
-          keywords: [],
-          link: getLinkFromLine(line),
-        })
+    if (currentSection) {
+      const sectionRef = currentSection
+      if ((sectionRef as BriefSection).heading === 'Watchlist' && /^[-*]\s+/.test(line)) {
+        const bullet = line.replace(/^[-*]\s*/, '').trim()
+        if (bullet) {
+          (sectionRef as BriefSection).items.push({
+            title: bullet,
+            summary: '',
+            keywords: [],
+            link: getLinkFromLine(line),
+          })
+        }
+        continue
       }
-      continue
     }
 
     if (currentSection && /^\d+\)/.test(line) && /\*\*(.*?)\*\*/.test(line)) {
