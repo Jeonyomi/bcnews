@@ -44,6 +44,26 @@ const mapHeader = (value: string) => {
   return value
 }
 
+const formatSectionTitle = (value: string) =>
+  value
+    .replace(/^KR\s*\(KST\)\s*Top 5$/i, '🇰🇷 Korea Top 5')
+    .replace(/^Korea\s*Top 5$/i, '🇰🇷 Korea Top 5')
+    .replace(/^Global\s*\(KST\)\s*Top 5$/i, '🌐 Global Top 5')
+    .replace(/^Global\s*Top 5$/i, '🌐 Global Top 5')
+
+const normalizeBriefLinks = (content: string) =>
+  content
+    .replace(/^([ \t]*-\s*링크:\s*)(https?:\/\/\S+)(\s*)$/gm, '$1[LINK]($2)$3')
+    .replace(/^([ \t]*-\s*LINK:\s*)\[([^)]+)\]\((https?:\/\/[^)]+)\)(\s*)$/gm, '$1[LINK]($3)$4')
+
+const normalizeBriefContent = (content: string) =>
+  normalizeBriefLinks(content)
+    .replace(/^##\s*KR \(KST\) Top 5\s*$/gim, '## ' + formatSectionTitle('KR (KST) Top 5'))
+    .replace(/^##\s*Global \(KST\) Top 5\s*$/gim, '## ' + formatSectionTitle('Global (KST) Top 5'))
+    .replace(/^##\s*Korea\s*Top 5\s*$/gim, '## ' + formatSectionTitle('Korea Top 5'))
+    .replace(/^##\s*KOREA\s*TOP\s*5\s*$/gim, '## ' + formatSectionTitle('Korea Top 5'))
+    .replace(/^##\s*GLOBAL\s*TOP\s*5\s*$/gim, '## ' + formatSectionTitle('Global Top 5'))
+
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [decodedContent, setDecodedContent] = useState(item.content)
@@ -99,7 +119,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
       break
     }
 
-    return lines.slice(idx).join('\n').trimStart()
+    return normalizeBriefContent(lines.slice(idx).join('\n').trimStart())
   }, [trimmedLines])
 
   useEffect(() => {
@@ -134,7 +154,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
                 : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200'
             }`}
           >
-            {item.region}
+            {item.region === 'KR' ? '🇰🇷 Korea' : '🌐 Global'}
           </span>
 
           {item.source === 'backup' && (
@@ -196,7 +216,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
             [&_strong]:font-semibold [&_strong]:text-gray-900 dark:[&_strong]:text-white
             ${expanded ? '' : 'line-clamp-3'}`}
         >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{trimmedContent}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{trimmedContent}</ReactMarkdown>
         </div>
       </div>
 
