@@ -9,6 +9,8 @@
     "lint": "next lint",
     "push:brief": "node scripts/pushLatestBriefToSupabase.mjs",
     "migrate:001": "node scripts/migrations/apply_001.mjs",
+    "migrate:issue": "node scripts/migrations/apply_002_003.mjs",
+    "seed:sources": "node scripts/seedSources.mjs",
     "log:run": "node scripts/logRun.mjs",
     "check:news": "node scripts/checkNews.mjs",
     "create:brief": "node scripts/createBrief.mjs"

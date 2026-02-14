@@ -72,6 +72,77 @@ const extractEntities = (text: string) => {
   return Array.from(entities)
 }
 
+const parseTierScore = (tier: string | null) => {
+  switch ((tier || '').toLowerCase()) {
+    case '1':
+    case 'tier1':
+    case 'tier 1':
+    case 'official':
+      return 35
+    case '2':
+    case 'tier2':
+    case 'tier 2':
+    case 'major':
+      return 22
+    case '3':
+    case 'tier3':
+    case 'tier 3':
+      return 14
+    default:
+      return 8
+  }
+}
+
+const keywordSignals = {
+  regulation: 32,
+  issuer: 24,
+  payments: 18,
+  macro: 16,
+  aml: 30,
+  defi: 15,
+  'macro-policy': 12,
+  unknown: 10,
+} as const
+
+const clampScore = (value: number) => Math.max(0, Math.min(100, value))
+
+const labelFromScore = (score: number) => {
+  if (score >= 72) return 'high'
+  if (score >= 44) return 'medium'
+  return 'low'
+}
+
+const topicKeywords = (title: string, summary: string) => {
+  const text = `${title}\n${summary}`.toLowerCase()
+  const tokens: string[] = []
+
+  if (/(regulation|regulatory|policy|compliance|법|규제|규정|안내|지침)/.test(text)) tokens.push('regulation')
+  if (/(issuer|발행사|reserves|reserver?|mint|reserve|자산|출자|조성)/.test(text)) tokens.push('issuer')
+  if (/(payment|wallet|transfer|bank|결제|송금|카드|결제기관)/.test(text)) tokens.push('payments')
+  if (/(macro|inflation|fed|fomc|rate|금리|통화|금융정책)/.test(text)) tokens.push('macro')
+  if (/(aml|fraud|crime|enforcement|조사|조달|사기|해킹|위반)/.test(text)) tokens.push('aml')
+  if (/(defi|liquidity|peg|depeg|mint|burn|redeem|reserve|stablecoin)/.test(text)) tokens.push('defi')
+
+  return Array.from(new Set(tokens))
+}
+
+const computeScores = (args: {
+  sourceTier: string | null
+  topic: string
+  entities: string[]
+  title: string
+  summary: string
+}) => {
+  const { sourceTier, topic, entities, title, summary } = args
+
+  const sourceScore = parseTierScore(sourceTier)
+  const topicScore = keywordSignals[topic as keyof typeof keywordSignals] || keywordSignals.unknown
+  const keywordBoost = Math.min(20, topicKeywords(title, summary).length * 6)
+  const entityBoost = Math.min(24, entities.length * 4)
+  const score = clampScore(sourceScore + topicScore + keywordBoost + entityBoost)
+  return { score, importance_label: labelFromScore(score) }
+}
+
 const regionFromSource = (value: string | null) => {
   if (value === 'KR') return 'KR'
   return 'Global'
@@ -125,6 +196,14 @@ export async function POST(request: Request) {
           const contentText = `${item.title}\n\n${item.summary}`.slice(0, 4000)
           const contentHash = hashContent(`${canonical_url}::${item.title}`)
           const topic = deriveTopic(item.title, item.summary)
+          const entities = extractEntities(`${item.title} ${item.summary}`)
+          const { score: articleScore, importance_label: articleLabel } = computeScores({
+            sourceTier: source.tier,
+            topic,
+            entities,
+            title: item.title,
+            summary: item.summary,
+          })
 
           const { data: dupes } = await client
             .from('articles')
@@ -149,9 +228,9 @@ export async function POST(request: Request) {
               summary_short: item.summary.slice(0, 280),
               why_it_matters: item.summary.slice(0, 140),
               confidence_label: 'medium',
-              importance_score: 35,
-              importance_label: 'watch',
               status: 'new',
+              importance_score: articleScore,
+              importance_label: articleLabel,
             })
             .select('id')
             .single()
@@ -184,7 +263,14 @@ export async function POST(request: Request) {
           }
 
           if (!issueId) {
-            const entities = extractEntities(`${item.title} ${item.summary}`)
+            const { score: issueScore, importance_label: issueLabel } = computeScores({
+              sourceTier: source.tier,
+              topic,
+              entities,
+              title: item.title,
+              summary: item.summary,
+            })
+
             const { data: createdIssue, error: createErr } = await client
               .from('issues')
               .insert({
@@ -196,8 +282,8 @@ export async function POST(request: Request) {
                 why_it_matters: item.summary.slice(0, 140),
                 tags: [topic],
                 key_entities: entities,
-                importance_score: 35,
-                importance_label: 'watch',
+                importance_score: issueScore,
+                importance_label: issueLabel,
                 first_seen_at_utc: now,
                 last_seen_at_utc: now,
               })
@@ -211,11 +297,20 @@ export async function POST(request: Request) {
               issueUpdatesCreated += 1
             }
           } else {
+            const { score: issueScore, importance_label: issueLabel } = computeScores({
+              sourceTier: source.tier,
+              topic,
+              entities,
+              title: item.title,
+              summary: item.summary,
+            })
             await client
               .from('issues')
               .update({
                 last_seen_at_utc: now,
                 issue_summary: item.summary.slice(0, 280),
+                importance_score: issueScore,
+                importance_label: issueLabel,
               })
               .eq('id', issueId)
           }
