@@ -58,8 +58,8 @@ export async function GET(request: Request) {
     if (!includeAll) {
       const { startIso, endIso } = getTodayKstRange()
       query = query
-        .gte('created_at_kst', startIso)
-        .lt('created_at_kst', endIso)
+        .gte('created_at', startIso)
+        .lt('created_at', endIso)
     }
 
     const { data: items, error } = await query
@@ -80,6 +80,7 @@ export async function GET(request: Request) {
             ? `${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(0, 8)}...${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(-6)}`
             : null,
           filter: includeAll ? 'all' : 'todayKstOnly',
+          filteredBy: includeAll ? 'idOnly' : 'created_at',
           kstRange: includeAll
             ? null
             : getTodayKstRange(),
