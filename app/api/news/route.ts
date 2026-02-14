@@ -23,7 +23,9 @@ const getTodayKstRange = () => {
 
   if (!year || !month || !day) {
     const fallback = new Date()
-    const start = new Date(Date.UTC(fallback.getUTCFullYear(), fallback.getUTCMonth(), fallback.getUTCDate()))
+    const start = new Date(
+      Date.UTC(fallback.getUTCFullYear(), fallback.getUTCMonth(), fallback.getUTCDate())
+    )
     const end = new Date(start)
     end.setUTCDate(end.getUTCDate() + 1)
     return { startIso: start.toISOString(), endIso: end.toISOString() }
@@ -55,7 +57,9 @@ export async function GET(request: Request) {
 
     if (!includeAll) {
       const { startIso, endIso } = getTodayKstRange()
-      query = query.gte('created_at_kst', startIso).lt('created_at_kst', endIso)
+      query = query
+        .gte('created_at_kst', startIso)
+        .lt('created_at_kst', endIso)
     }
 
     const { data: items, error } = await query
@@ -76,6 +80,9 @@ export async function GET(request: Request) {
             ? `${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(0, 8)}...${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(-6)}`
             : null,
           filter: includeAll ? 'all' : 'todayKstOnly',
+          kstRange: includeAll
+            ? null
+            : getTodayKstRange(),
         }
       }
     }

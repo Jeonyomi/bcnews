@@ -9,6 +9,24 @@ import { FilterBar } from '@/components/FilterBar'
 const RETRY_INTERVALS = [5000, 10000, 30000]
 const MAX_RETRY_INDEX = RETRY_INTERVALS.length - 1
 
+const toKstDate = (value: string) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(value))
+
+const getDateLabel = (iso: string, now = new Date()) => {
+  const date = toKstDate(iso)
+  const today = toKstDate(now.toISOString())
+  const yesterday = toKstDate(new Date(now.getTime() - 86400000).toISOString())
+
+  if (date === today) return 'Today'
+  if (date === yesterday) return 'Yesterday'
+  return date
+}
+
 export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,10 +72,8 @@ export default function Home() {
   const groupedNews = useMemo(() => {
     const groups: Record<string, NewsItem[]> = {}
     for (const item of filteredNews) {
-      const date = new Date(item.created_at).toISOString().split('T')[0]
-      const today = new Date().toISOString().split('T')[0]
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
-      const groupTitle = date === today ? 'Today' : date === yesterday ? 'Yesterday' : date
+      const sourceDate = item.created_at_kst || item.created_at
+      const groupTitle = getDateLabel(sourceDate)
       if (!groups[groupTitle]) groups[groupTitle] = []
       groups[groupTitle].push(item)
     }
