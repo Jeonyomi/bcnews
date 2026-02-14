@@ -61,6 +61,19 @@ const normalizeBriefContent = (content: string) =>
     .replace(/^##\s*(?:KR\s*\(KST\)\s*Top 5|Korea\s*(?:\(KST\)\s*)?Top 5|KOREA\s*TOP\s*5)\s*$/gim, '## ' + formatSectionTitle('KR (KST) Top 5'))
     .replace(/^##\s*(?:Global\s*\(KST\)\s*Top 5|GLOBAL\s*TOP\s*5)\s*$/gim, '## ' + formatSectionTitle('Global (KST) Top 5'))
 
+const hasSectionHeading = (content: string) =>
+  /(^|\n)##\s*(🇰🇷\s*Korea\s*Top\s*5|Korea\s*Top\s*5|🌐\s*Global\s*Top\s*5|Global\s*Top\s*5)/im.test(content)
+
+const withExpectedSectionHeading = (item: NewsItem, content: string) => {
+  if (hasSectionHeading(content)) return content
+
+  if (item.region === 'KR') {
+    return `## ${formatSectionTitle('KR (KST) Top 5')}\n\n${content}`
+  }
+
+  return `## ${formatSectionTitle('Global (KST) Top 5')}\n\n${content}`
+}
+
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [decodedContent, setDecodedContent] = useState(item.content)
@@ -116,7 +129,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
       break
     }
 
-    return normalizeBriefContent(lines.slice(idx).join('\n').trimStart())
+    return withExpectedSectionHeading(item, normalizeBriefContent(lines.slice(idx).join('\n').trimStart()))
   }, [trimmedLines])
 
   useEffect(() => {
