@@ -65,6 +65,8 @@ const orderedSections = (sections: SectionList): BriefSection[] => {
   })
 }
 
+const shouldShowSectionHeading = (heading: BriefSection['heading']) => heading !== 'KR'
+
 const sectionMeta = (heading: BriefSection['heading']) => {
   if (heading === 'Watchlist') {
     return {
@@ -207,12 +209,14 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
 
                 return (
                 <section key={section.heading}>
-                  <h2
-                    className={`mb-2 text-[16px] font-semibold ${meta.headingClass}`}
-                    style={{ letterSpacing: '-0.01em' }}
-                  >
-                    {section.title}
-                  </h2>
+                  {shouldShowSectionHeading(section.heading) && (
+                    <h2
+                      className={`mb-2 text-[16px] font-semibold ${meta.headingClass}`}
+                      style={{ letterSpacing: '-0.01em' }}
+                    >
+                      {section.title}
+                    </h2>
+                  )}
                   {section.items.length > 0 ? (
                     <ol className="space-y-4">
                       {section.items.map((entry) => (
