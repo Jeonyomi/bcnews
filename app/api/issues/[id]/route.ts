@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createPublicClient, parseJsonArray, toKstDateTime } from '@/lib/supabase'
 import { err, ok } from '@/lib/dashboardApi'
+import { stripHtml } from '@/lib/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,11 +95,37 @@ export async function GET(
       update_at_ks: toKstDateTime(update.update_at_utc),
     }))
 
+    const cleanIssue = {
+      ...issue,
+      title: stripHtml(issue.title || ''),
+      issue_summary: stripHtml(issue.issue_summary || ''),
+      why_it_matters: stripHtml(issue.why_it_matters || ''),
+    }
+
+    const cleanRepresentative = issue.representative_article
+      ? {
+          ...issue.representative_article,
+          title: stripHtml(issue.representative_article.title || ''),
+        }
+      : null
+
+    const cleanUpdates = timeline.map((update) => ({
+      ...update,
+      update_summary: stripHtml(update.update_summary || ''),
+    }))
+
+    const cleanArticles = (merged || []).map((article) => ({
+      ...article,
+      title: stripHtml(article.title || ''),
+      summary_short: stripHtml(article.summary_short || ''),
+      why_it_matters: stripHtml(article.why_it_matters || ''),
+    }))
+
     const detail = {
-      issue,
-      issue_updates: timeline,
-      related_articles: merged,
-      representative_article: issue.representative_article || null,
+      issue: cleanIssue,
+      issue_updates: cleanUpdates,
+      related_articles: cleanArticles,
+      representative_article: cleanRepresentative,
     }
 
     return NextResponse.json(ok(detail), { headers: { 'Cache-Control': 'no-store' } })

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createPublicClient } from '@/lib/supabase'
 import { err, ok } from '@/lib/dashboardApi'
+import { stripHtml } from '@/lib/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -85,10 +86,10 @@ export async function GET(request: Request) {
     const issueResults = rawIssues.map((row) => ({
       type: 'issue' as const,
       id: Number(row.id),
-      title: row.title,
+      title: stripHtml(row.title || ''),
       region: row.region,
       subtitle: `${row.topic_label}`,
-      snippet: row.issue_summary || null,
+      snippet: stripHtml(String(row.issue_summary || '')) || null,
       score: safeScore((row as any).importance_score as string),
     }))
 
@@ -103,10 +104,10 @@ export async function GET(request: Request) {
     const articleResults = articleRows.map((row: any) => ({
       type: 'article' as const,
       id: Number(row.id),
-      title: row.title,
+      title: stripHtml(row.title || ''),
       region: row.region,
       subtitle: row.issue && !Array.isArray(row.issue) ? `Issue: ${row.issue.topic_label}` : 'Article',
-      snippet: row.summary_short,
+      snippet: stripHtml(String(row.summary_short || '')),
       score: safeScore(row.importance_score || 0),
     }))
 

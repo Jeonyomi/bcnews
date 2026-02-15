@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createPublicClient, timeWindowToIso } from '@/lib/supabase'
 import { err, ok, parseSort, parseTimeWindow } from '@/lib/dashboardApi'
+import { stripHtml } from '@/lib/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,9 @@ const clampLimit = (value: string | null) => {
 const toIssueCard = (issue: any, updateCounts: Record<number, number>) => ({
   ...issue,
   recent_updates_count: updateCounts[issue.id] || 0,
+  issue_summary: stripHtml(issue.issue_summary || ''),
+  why_it_matters: stripHtml(issue.why_it_matters || ''),
+  title: stripHtml(issue.title || ''),
 })
 
 export async function GET(request: Request) {

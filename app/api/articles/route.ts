@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createPublicClient, parseJsonArray, toUtcNow, timeWindowToIso } from '@/lib/supabase'
 import { err, ok, parseSort, parseTimeWindow, type SortMode, type TimeWindow } from '@/lib/dashboardApi'
+import { stripHtml } from '@/lib/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,6 +70,9 @@ export async function GET(request: Request) {
 
     const articles = (data || []).map((item) => ({
       ...item,
+      title: stripHtml(String(item.title || '')),
+      summary_short: stripHtml(String(item.summary_short || '')),
+      why_it_matters: stripHtml(String(item.why_it_matters || '')),
       tags: [],
       key_entities: [],
       source:
