@@ -4,6 +4,25 @@ import { err, ok } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
 
+const classifyHealthStatus = (enabled: boolean, latest?: { status?: string | null; error_message?: string | null }) => {
+  if (!enabled) return 'disabled'
+  if (!latest) return 'warn'
+  if (latest.status === 'ok') return 'ok'
+  if (latest.status !== 'error') return 'warn'
+
+  const error = String(latest.error_message || '').toLowerCase()
+
+  // 1st-pass improvement: treat external-access/feed-endpoint issues as warn-ish,
+  // and reserve "down" for actual service/runtime failures.
+  if (error.includes('rss_fetch_status_404')) return 'warn'
+  if (error.includes('rss_fetch_status_401') || error.includes('rss_fetch_status_403')) return 'restricted'
+  if (error.includes('rss_fetch_status_429')) return 'throttled'
+  if (error.includes('invalid time value')) return 'warn'
+  if (error.includes('rss_fetch_status_5')) return 'down'
+
+  return 'down'
+}
+
 export async function GET() {
   try {
     const client = createAdminClient()
@@ -25,13 +44,7 @@ export async function GET() {
     const health = (sources || []).map((source) => {
       const sourceLogs = grouped[source.id] || []
       const latest = sourceLogs[0]
-      const status = source.enabled === false
-        ? 'disabled'
-        : latest?.status === 'ok'
-          ? 'ok'
-          : latest?.status === 'error'
-            ? 'down'
-            : 'warn'
+      const status = classifyHealthStatus(source.enabled !== false, latest)
 
       return {
         source_id: source.id,
