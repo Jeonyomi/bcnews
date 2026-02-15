@@ -49,7 +49,9 @@ export async function GET(request: Request) {
 
     let query = client
       .from('issues')
-      .select('*, representative_article:articles(id,title,url)', { count: 'exact' })
+      .select('*, representative_article:articles!issues_representative_article_id_fkey(id,title,url)', {
+        count: 'exact',
+      })
 
     const since = timeWindowToIso(window)
     const updateSince = since || new Date(0).toISOString()
