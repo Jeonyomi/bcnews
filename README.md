@@ -173,5 +173,3 @@ curl -X POST http://localhost:3000/api/jobs/ingest -H "x-cron-secret: <CRON_SECR
 ## Notes
 - This project intentionally prioritizes operational clarity over UI embellishment.
 - Existing legacy brief feature files are preserved under `app/api/news*` for compatibility when needed.
- 
-_Deployment test marker: 2026-02-15 quick commit verification_.
