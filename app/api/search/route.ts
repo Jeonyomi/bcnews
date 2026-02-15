@@ -68,7 +68,7 @@ export async function GET(request: Request) {
     const articleQ = await client
       .from('articles')
       .select(
-        'id,title,summary_short,region,importance_score,issue:issues(id,title,topic_label,key_entities)',
+        'id,title,summary_short,region,importance_score,issue:issues!fk_articles_issue(id,title,topic_label,key_entities)',
       )
       .or(`title.ilike.%${q}%,summary_short.ilike.%${q}%,why_it_matters.ilike.%${q}%`)
       .limit(limit)
