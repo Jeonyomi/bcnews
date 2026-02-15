@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import RefreshBar from '@/components/RefreshBar'
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
@@ -9,56 +10,69 @@ export default function SearchPage() {
   const [articles, setArticles] = useState<any[]>([])
   const [entities, setEntities] = useState<string[]>([])
   const [error, setError] = useState('')
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
+  const [autoRefresh, setAutoRefresh] = useState(false)
 
   const visibleEntities = useMemo(() => entities.slice(0, 20), [entities])
 
-  useEffect(() => {
-    const run = async () => {
-      setError('')
-      if (!query.trim()) {
-        setIssues([])
-        setArticles([])
-
-        // preload entity list so users can start filtering before search
-        const allResp = await fetch(`/api/search?q=&limit=1`)
-        const allPayload = await allResp.json()
-        if (!allResp.ok || !allPayload?.ok) {
-          throw new Error(allPayload?.error || 'Failed to load entities')
-        }
-        setEntities(allPayload.data?.entities || [])
-        return
-      }
-
-      const params = new URLSearchParams({
-        q: query,
-        limit: '20',
-      })
-      if (entity) params.set('entity', entity)
-
-      const response = await fetch(`/api/search?${params.toString()}`)
-      const payload = await response.json()
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || 'Failed to search')
-      }
-      setIssues(payload.data?.issues || [])
-      setArticles(payload.data?.articles || [])
-      setEntities(payload.data?.entities || [])
-    }
-
-    void run().catch((e) => {
-      console.error('search failed', e)
-      setError(e instanceof Error ? e.message : 'Search failed')
+  const run = useCallback(async () => {
+    setError('')
+    if (!query.trim()) {
       setIssues([])
       setArticles([])
-    })
 
-    const timer = setTimeout(run, 250)
-    return () => clearTimeout(timer)
+      const allResp = await fetch(`/api/search?q=&limit=1`)
+      const allPayload = await allResp.json()
+      if (!allResp.ok || !allPayload?.ok) {
+        throw new Error(allPayload?.error || 'Failed to load entities')
+      }
+      setEntities(allPayload.data?.entities || [])
+      setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+      return
+    }
+
+    const params = new URLSearchParams({
+      q: query,
+      limit: '20',
+    })
+    if (entity) params.set('entity', entity)
+
+    const response = await fetch(`/api/search?${params.toString()}`)
+    const payload = await response.json()
+    if (!response.ok || !payload?.ok) {
+      throw new Error(payload?.error || 'Failed to search')
+    }
+    setIssues(payload.data?.issues || [])
+    setArticles(payload.data?.articles || [])
+    setEntities(payload.data?.entities || [])
+    setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
   }, [query, entity])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void run().catch((e) => {
+        console.error('search failed', e)
+        setError(e instanceof Error ? e.message : 'Search failed')
+        setIssues([])
+        setArticles([])
+      })
+    }, 250)
+
+    return () => clearTimeout(timer)
+  }, [run])
 
   return (
     <div>
       <h1 className="mb-3 text-xl font-semibold">Search</h1>
+
+      <RefreshBar
+        label="Last updated"
+        lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
+        isAutoRefreshOn={autoRefresh}
+        onToggleAutoRefresh={setAutoRefresh}
+        onRefresh={run}
+      />
+
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
           value={query}
@@ -71,7 +85,7 @@ export default function SearchPage() {
           onChange={(e) => setEntity(e.target.value)}
           className="h-10 rounded border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-900"
         >
-        <option value="">Entity: All</option>
+          <option value="">Entity: All</option>
           {visibleEntities.map((item) => (
             <option key={item} value={item}>
               {item}
@@ -87,7 +101,11 @@ export default function SearchPage() {
         <div className="space-y-2">
           {issues.length === 0 ? <div className="text-sm text-gray-500">{query ? 'No issues matched.' : 'Type to search.'}</div> : null}
           {issues.map((item) => (
-            <a key={`i-${item.id}`} href={`/issues/${item.id}`} className="block rounded border border-gray-200 bg-white p-3 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900">
+            <a
+              key={`i-${item.id}`}
+              href={`/issues/${item.id}`}
+              className="block rounded border border-gray-200 bg-white p-3 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
+            >
               <div className="font-medium">{item.title}</div>
               <div className="text-xs text-gray-500">{item.subtitle}</div>
               <div className="text-xs text-gray-500">{item.snippet}</div>

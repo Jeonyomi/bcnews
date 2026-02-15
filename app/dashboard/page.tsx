@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { IssueSummaryCard } from '@/components/IssueCards'
+import RefreshBar from '@/components/RefreshBar'
 
 interface IssueRow {
   id: number
@@ -30,6 +31,8 @@ export default function DashboardPage() {
   const [entities, setEntities] = useState<TrendRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
+  const [autoRefresh, setAutoRefresh] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -59,6 +62,7 @@ export default function DashboardPage() {
       setTopUpdated(Array.isArray(updatePayload.data?.issues) ? updatePayload.data.issues.slice(0, 8) : [])
       setTopics(Array.isArray(trendPayload.data?.topics) ? trendPayload.data.topics : [])
       setEntities(Array.isArray(trendPayload.data?.entities) ? trendPayload.data.entities : [])
+      setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
     } catch (err) {
       console.error('dashboard load failed', err)
       setError(err instanceof Error ? err.message : 'Failed to load dashboard')
@@ -85,6 +89,14 @@ export default function DashboardPage() {
           Today’s key stablecoin and digital-asset issues at a glance.
         </p>
       </header>
+
+      <RefreshBar
+        label="Last updated"
+        lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
+        isAutoRefreshOn={autoRefresh}
+        onToggleAutoRefresh={setAutoRefresh}
+        onRefresh={load}
+      />
 
       {loading ? (
         <div className="rounded-md border border-dashed border-gray-300 p-4 text-sm text-gray-500">Loading issue intelligence...</div>

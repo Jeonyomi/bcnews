@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import RefreshBar from '@/components/RefreshBar'
 
 interface Issue {
   id: number
@@ -23,26 +24,43 @@ export default function IssueDetailPage() {
   const [updates, setUpdates] = useState<any[]>([])
   const [articles, setArticles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
+  const [autoRefresh, setAutoRefresh] = useState(false)
   const params = useParams<{ id: string }>()
   const id = params?.id
 
-  useEffect(() => {
+  const run = useCallback(async () => {
     if (!id) return
 
-    const run = async () => {
-      setLoading(true)
+    setLoading(true)
+    setError('')
+
+    try {
       const res = await fetch(`/api/issues/${id}`)
       const payload = await res.json()
       if (payload.ok) {
         setIssue(payload.data.issue)
         setUpdates(payload.data.issue_updates || [])
         setArticles(payload.data.related_articles || [])
+        setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+      } else {
+        throw new Error(payload?.error || 'Issue not found')
       }
+    } catch (e) {
+      console.error('load issue detail failed', e)
+      setError(e instanceof Error ? e.message : 'Failed to load issue')
+      setIssue(null)
+      setUpdates([])
+      setArticles([])
+    } finally {
       setLoading(false)
     }
-
-    run()
   }, [id])
+
+  useEffect(() => {
+    void run()
+  }, [run])
 
   if (loading) return <div className="text-sm text-gray-500">Loading issue...</div>
   if (!issue) return <div className="text-sm text-gray-500">Issue not found.</div>
@@ -50,6 +68,14 @@ export default function IssueDetailPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-semibold">{issue.title}</h1>
+      <RefreshBar
+        label="Last updated"
+        lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
+        isAutoRefreshOn={autoRefresh}
+        onToggleAutoRefresh={setAutoRefresh}
+        onRefresh={run}
+      />
+      {error ? <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30">{error}</div> : null}
 
       <div className="rounded border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="mb-3 flex flex-wrap gap-2 text-xs">

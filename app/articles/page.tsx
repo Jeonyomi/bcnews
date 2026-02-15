@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArticleTableRow } from '@/components/IssueCards'
 import ListFilterBar from '@/components/ListFilterBar'
+import RefreshBar from '@/components/RefreshBar'
 
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<any[]>([])
@@ -13,42 +14,53 @@ export default function ArticlesPage() {
   const [topic, setTopic] = useState('all')
   const [sort, setSort] = useState('latest')
   const [search, setSearch] = useState('')
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
+  const [autoRefresh, setAutoRefresh] = useState(false)
+
+  const run = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    const q = new URLSearchParams({
+      time_window: timeWindow,
+      region,
+      topic,
+      sort,
+      limit: '100',
+    })
+    if (search) q.set('search', search)
+
+    try {
+      const response = await fetch(`/api/articles?${q.toString()}`)
+      const payload = await response.json()
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || 'Failed to load articles')
+      }
+      setArticles(payload.data?.articles || [])
+      setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+    } catch (e) {
+      console.error('load articles failed', e)
+      setError(e instanceof Error ? e.message : 'Failed to load articles')
+      setArticles([])
+    } finally {
+      setLoading(false)
+    }
+  }, [timeWindow, region, topic, sort, search])
 
   useEffect(() => {
-    const run = async () => {
-      setLoading(true)
-      setError('')
-      const q = new URLSearchParams({
-        time_window: timeWindow,
-        region,
-        topic,
-        sort,
-        limit: '100',
-      })
-      if (search) q.set('search', search)
-
-      try {
-        const response = await fetch(`/api/articles?${q.toString()}`)
-        const payload = await response.json()
-        if (!response.ok || !payload?.ok) {
-          throw new Error(payload?.error || 'Failed to load articles')
-        }
-        setArticles(payload.data?.articles || [])
-      } catch (e) {
-        console.error('load articles failed', e)
-        setError(e instanceof Error ? e.message : 'Failed to load articles')
-        setArticles([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
     void run()
-  }, [timeWindow, region, topic, sort, search])
+  }, [run])
 
   return (
     <div>
       <h1 className="mb-3 text-xl font-semibold">Articles</h1>
+
+      <RefreshBar
+        label="Last updated"
+        lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
+        isAutoRefreshOn={autoRefresh}
+        onToggleAutoRefresh={setAutoRefresh}
+        onRefresh={run}
+      />
 
       <ListFilterBar
         timeWindow={timeWindow}

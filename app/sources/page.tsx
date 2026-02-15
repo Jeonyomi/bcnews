@@ -1,12 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import RefreshBar from '@/components/RefreshBar'
 
 export default function SourcesPage() {
   const [sources, setSources] = useState<any[]>([])
   const [health, setHealth] = useState<any[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
+  const [autoRefresh, setAutoRefresh] = useState(false)
 
   useEffect(() => {
     const run = async () => {
@@ -20,6 +23,7 @@ export default function SourcesPage() {
         }
         setSources(payload.data.sources || [])
         setHealth(payload.data.health || [])
+        setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
       } catch (e) {
         console.error('load sources failed', e)
         setError(e instanceof Error ? e.message : 'Failed to load sources')
@@ -41,6 +45,37 @@ export default function SourcesPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Sources</h1>
+      <RefreshBar
+        label="Last updated"
+        lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
+        isAutoRefreshOn={autoRefresh}
+        onToggleAutoRefresh={setAutoRefresh}
+        onRefresh={() => {
+          const run = async () => {
+            setLoading(true)
+            setError('')
+            try {
+              const response = await fetch('/api/sources')
+              const payload = await response.json()
+              if (!response.ok || !payload?.ok) {
+                throw new Error(payload?.error || 'Failed to load sources')
+              }
+              setSources(payload.data.sources || [])
+              setHealth(payload.data.health || [])
+              setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+            } catch (e) {
+              console.error('load sources failed', e)
+              setError(e instanceof Error ? e.message : 'Failed to load sources')
+              setSources([])
+              setHealth([])
+            } finally {
+              setLoading(false)
+            }
+          }
+
+          void run()
+        }}
+      />
       <p className="text-sm text-gray-500">Source tier, health, ingest failures and latest success/error state.</p>
 
       {error ? <div className="mb-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30">{error}</div> : null}

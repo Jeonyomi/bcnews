@@ -1,56 +1,69 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { IssueSummaryCard } from '@/components/IssueCards'
 import ListFilterBar from '@/components/ListFilterBar'
+import RefreshBar from '@/components/RefreshBar'
 
 export default function IssuesPage() {
   const [items, setItems] = useState<any[]>([])
   const [viewTable, setViewTable] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
+  const [autoRefresh, setAutoRefresh] = useState(false)
   const [timeWindow, setTimeWindow] = useState('24h')
   const [region, setRegion] = useState('All')
   const [topic, setTopic] = useState('all')
   const [sort, setSort] = useState('hybrid')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    const run = async () => {
-      setLoading(true)
-      setError('')
-      const q = new URLSearchParams({
-        time_window: timeWindow,
-        region,
-        topic,
-        sort,
-        limit: '50',
-      })
-      if (search) q.set('search', search)
+  const run = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    const q = new URLSearchParams({
+      time_window: timeWindow,
+      region,
+      topic,
+      sort,
+      limit: '50',
+    })
+    if (search) q.set('search', search)
 
-      try {
-        const res = await fetch(`/api/issues?${q.toString()}`)
-        const payload = await res.json()
-        if (!res.ok || !payload?.ok) {
-          throw new Error(payload?.error || 'Failed to load issues')
-        }
-        setItems(payload.data?.issues || [])
-      } catch (e) {
-        console.error('load issues failed', e)
-        setError(e instanceof Error ? e.message : 'Failed to load issues')
-        setItems([])
-      } finally {
-        setLoading(false)
+    try {
+      const res = await fetch(`/api/issues?${q.toString()}`)
+      const payload = await res.json()
+      if (!res.ok || !payload?.ok) {
+        throw new Error(payload?.error || 'Failed to load issues')
       }
+      setItems(payload.data?.issues || [])
+      setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+    } catch (e) {
+      console.error('load issues failed', e)
+      setError(e instanceof Error ? e.message : 'Failed to load issues')
+      setItems([])
+    } finally {
+      setLoading(false)
     }
-
-    void run()
   }, [timeWindow, region, topic, sort, search])
+
+  useEffect(() => {
+    void run()
+  }, [run])
+
+  const onRefresh = () => run()
 
   return (
     <div>
       <div className="mb-3 flex items-start justify-between gap-2">
         <h1 className="text-xl font-semibold">Issues</h1>
+        <RefreshBar
+          label="Last updated"
+          lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
+          isAutoRefreshOn={autoRefresh}
+          onToggleAutoRefresh={setAutoRefresh}
+          onRefresh={onRefresh}
+        />
         <button
           type="button"
           onClick={() => setViewTable((v) => !v)}
