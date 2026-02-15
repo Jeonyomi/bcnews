@@ -25,8 +25,9 @@ export async function GET() {
     const health = (sources || []).map((source) => {
       const sourceLogs = grouped[source.id] || []
       const latest = sourceLogs[0]
-      const status =
-        latest?.status === 'ok'
+      const status = source.enabled === false
+        ? 'disabled'
+        : latest?.status === 'ok'
           ? 'ok'
           : latest?.status === 'error'
             ? 'down'
@@ -38,7 +39,7 @@ export async function GET() {
         status,
         last_status: latest ? latest.status : null,
         last_items: latest ? latest.items_fetched : 0,
-        last_error: latest?.error_message || null,
+        last_error: source.enabled === false ? null : latest?.error_message || null,
         last_run_at: latest ? latest.run_at_utc : null,
       }
     })

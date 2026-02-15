@@ -25,10 +25,21 @@ export const stripHtml = (value: string): string => {
     .replace(/\s+([.,!?;:])/g, '$1')
     .replace(/\s{2,}/g, ' ')
 
-  return withEntities
+  let cleaned = withEntities
     .replace(/a�?/g, "'")
     .replace(/a�|/g, '...')
     .replace(/�/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
+
+  // Repair mojibake pattern like "...S...e...n...'...t...o...r..."
+  if (/\.{3}[A-Za-z]/.test(cleaned)) {
+    cleaned = cleaned
+      .replace(/\.{3}/g, '')
+      .replace(/([A-Za-z])'([A-Za-z])/g, '$1a$2')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  }
+
+  return cleaned
 }

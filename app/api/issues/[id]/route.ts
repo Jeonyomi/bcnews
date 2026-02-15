@@ -14,7 +14,7 @@ const normalizeEnglish = (value: string) =>
   stripHtml(value || '')
     .replace(/\.{3}/g, '')
     .replace(/([A-Za-z])'([A-Za-z])/g, '$1a$2')
-    .replace(/\b'([A-Za-z])/g, 'a$1')
+    .replace(/(^|\s)'([A-Za-z])/g, '$1a$2')
     .replace(/\b'nd\b/gi, 'and')
     .replace(/\b're\b/gi, 'are')
     .replace(/\b'll\b/gi, 'will')
