@@ -11,6 +11,7 @@ const strip = (value) => {
   const text = String(value)
   return text
     .replace(/<[^>]*>/g, ' ')
+    .replace(/<[^>\s][^>]*$/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&nbsp/gi, ' ')
     .replace(/&lt;/gi, '<')

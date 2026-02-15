@@ -3,6 +3,7 @@ export const stripHtml = (value: string): string => {
 
   const withEntities = value
     .replace(/<[^>]*>/g, ' ')
+    .replace(/<[^>\s][^>]*$/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&nbsp/gi, ' ')
     .replace(/&lt;/gi, '<')
@@ -25,4 +26,3 @@ export const stripHtml = (value: string): string => {
 
   return withEntities.trim()
 }
-
