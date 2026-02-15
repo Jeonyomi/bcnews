@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IssueSummaryCard } from '@/components/IssueCards'
-import RefreshBar from '@/components/RefreshBar'
+
+const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
+const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
 
 interface IssueRow {
   id: number
@@ -31,10 +33,8 @@ export default function DashboardPage() {
   const [entities, setEntities] = useState<TrendRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
-  const [autoRefresh, setAutoRefresh] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
@@ -62,7 +62,16 @@ export default function DashboardPage() {
       setTopUpdated(Array.isArray(updatePayload.data?.issues) ? updatePayload.data.issues.slice(0, 8) : [])
       setTopics(Array.isArray(trendPayload.data?.topics) ? trendPayload.data.topics : [])
       setEntities(Array.isArray(trendPayload.data?.entities) ? trendPayload.data.entities : [])
-      setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+
+      const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      window.dispatchEvent(
+        new CustomEvent(REFRESH_DONE_EVENT, {
+          detail: {
+            pathname: window.location.pathname,
+            lastUpdatedAt: now,
+          },
+        }),
+      )
     } catch (err) {
       console.error('dashboard load failed', err)
       setError(err instanceof Error ? err.message : 'Failed to load dashboard')
@@ -73,11 +82,23 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ pathname?: string }>
+      if (!custom.detail?.pathname || custom.detail.pathname === window.location.pathname) {
+        void load()
+      }
+    }
+
+    window.addEventListener(REFRESH_REQUEST_EVENT, handler)
+    return () => window.removeEventListener(REFRESH_REQUEST_EVENT, handler)
+  }, [load])
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [load])
 
   const hasUpdates = useMemo(() => topUpdated.length > 0, [topUpdated])
 
@@ -89,14 +110,6 @@ export default function DashboardPage() {
           Today’s key stablecoin and digital-asset issues at a glance.
         </p>
       </header>
-
-      <RefreshBar
-        label="Last updated"
-        lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
-        isAutoRefreshOn={autoRefresh}
-        onToggleAutoRefresh={setAutoRefresh}
-        onRefresh={load}
-      />
 
       {loading ? (
         <div className="rounded-md border border-dashed border-gray-300 p-4 text-sm text-gray-500">Loading issue intelligence...</div>
@@ -124,9 +137,7 @@ export default function DashboardPage() {
         <section>
           <h2 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-200">Top Updates (last 24h)</h2>
           <div className="space-y-3">
-            {hasUpdates
-              ? topUpdated.map((issue) => <IssueSummaryCard key={`upd-${issue.id}`} issue={issue} />)
-              : null}
+            {hasUpdates ? topUpdated.map((issue) => <IssueSummaryCard key={`upd-${issue.id}`} issue={issue} />) : null}
             {!hasUpdates ? <div className="text-sm text-gray-500">No new updates found.</div> : null}
           </div>
         </section>

@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ArticleTableRow } from '@/components/IssueCards'
 import ListFilterBar from '@/components/ListFilterBar'
-import RefreshBar from '@/components/RefreshBar'
+
+const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
+const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
 
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<any[]>([])
@@ -14,8 +16,6 @@ export default function ArticlesPage() {
   const [topic, setTopic] = useState('all')
   const [sort, setSort] = useState('latest')
   const [search, setSearch] = useState('')
-  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
-  const [autoRefresh, setAutoRefresh] = useState(false)
 
   const run = useCallback(async () => {
     setLoading(true)
@@ -36,7 +36,16 @@ export default function ArticlesPage() {
         throw new Error(payload?.error || 'Failed to load articles')
       }
       setArticles(payload.data?.articles || [])
-      setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+
+      const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      window.dispatchEvent(
+        new CustomEvent(REFRESH_DONE_EVENT, {
+          detail: {
+            pathname: window.location.pathname,
+            lastUpdatedAt: now,
+          },
+        }),
+      )
     } catch (e) {
       console.error('load articles failed', e)
       setError(e instanceof Error ? e.message : 'Failed to load articles')
@@ -47,20 +56,24 @@ export default function ArticlesPage() {
   }, [timeWindow, region, topic, sort, search])
 
   useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ pathname?: string }>
+      if (!custom.detail?.pathname || custom.detail.pathname === window.location.pathname) {
+        void run()
+      }
+    }
+
+    window.addEventListener(REFRESH_REQUEST_EVENT, handler)
+    return () => window.removeEventListener(REFRESH_REQUEST_EVENT, handler)
+  }, [run])
+
+  useEffect(() => {
     void run()
   }, [run])
 
   return (
     <div>
       <h1 className="mb-3 text-xl font-semibold">Articles</h1>
-
-      <RefreshBar
-        label="Last updated"
-        lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
-        isAutoRefreshOn={autoRefresh}
-        onToggleAutoRefresh={setAutoRefresh}
-        onRefresh={run}
-      />
 
       <ListFilterBar
         timeWindow={timeWindow}

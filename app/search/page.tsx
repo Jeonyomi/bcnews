@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import RefreshBar from '@/components/RefreshBar'
+
+const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
+const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
@@ -10,13 +12,12 @@ export default function SearchPage() {
   const [articles, setArticles] = useState<any[]>([])
   const [entities, setEntities] = useState<string[]>([])
   const [error, setError] = useState('')
-  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
-  const [autoRefresh, setAutoRefresh] = useState(false)
 
   const visibleEntities = useMemo(() => entities.slice(0, 20), [entities])
 
   const run = useCallback(async () => {
     setError('')
+
     if (!query.trim()) {
       setIssues([])
       setArticles([])
@@ -27,7 +28,16 @@ export default function SearchPage() {
         throw new Error(allPayload?.error || 'Failed to load entities')
       }
       setEntities(allPayload.data?.entities || [])
-      setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+
+      const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      window.dispatchEvent(
+        new CustomEvent(REFRESH_DONE_EVENT, {
+          detail: {
+            pathname: window.location.pathname,
+            lastUpdatedAt: now,
+          },
+        }),
+      )
       return
     }
 
@@ -45,10 +55,26 @@ export default function SearchPage() {
     setIssues(payload.data?.issues || [])
     setArticles(payload.data?.articles || [])
     setEntities(payload.data?.entities || [])
-    setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+
+    const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    window.dispatchEvent(
+      new CustomEvent(REFRESH_DONE_EVENT, {
+        detail: {
+          pathname: window.location.pathname,
+          lastUpdatedAt: now,
+        },
+      }),
+    )
   }, [query, entity])
 
   useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ pathname?: string }>
+      if (!custom.detail?.pathname || custom.detail.pathname === window.location.pathname) {
+        void run()
+      }
+    }
+
     const timer = setTimeout(() => {
       void run().catch((e) => {
         console.error('search failed', e)
@@ -58,20 +84,16 @@ export default function SearchPage() {
       })
     }, 250)
 
-    return () => clearTimeout(timer)
+    window.addEventListener(REFRESH_REQUEST_EVENT, handler)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener(REFRESH_REQUEST_EVENT, handler)
+    }
   }, [run])
 
   return (
     <div>
       <h1 className="mb-3 text-xl font-semibold">Search</h1>
-
-      <RefreshBar
-        label="Last updated"
-        lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
-        isAutoRefreshOn={autoRefresh}
-        onToggleAutoRefresh={setAutoRefresh}
-        onRefresh={run}
-      />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
@@ -101,11 +123,7 @@ export default function SearchPage() {
         <div className="space-y-2">
           {issues.length === 0 ? <div className="text-sm text-gray-500">{query ? 'No issues matched.' : 'Type to search.'}</div> : null}
           {issues.map((item) => (
-            <a
-              key={`i-${item.id}`}
-              href={`/issues/${item.id}`}
-              className="block rounded border border-gray-200 bg-white p-3 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
-            >
+            <a key={`i-${item.id}`} href={`/issues/${item.id}`} className="block rounded border border-gray-200 bg-white p-3 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900">
               <div className="font-medium">{item.title}</div>
               <div className="text-xs text-gray-500">{item.subtitle}</div>
               <div className="text-xs text-gray-500">{item.snippet}</div>

@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import RefreshBar from '@/components/RefreshBar'
+
+const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
+const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
 
 interface Issue {
   id: number
@@ -25,8 +27,6 @@ export default function IssueDetailPage() {
   const [articles, setArticles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
-  const [autoRefresh, setAutoRefresh] = useState(false)
   const params = useParams<{ id: string }>()
   const id = params?.id
 
@@ -43,7 +43,16 @@ export default function IssueDetailPage() {
         setIssue(payload.data.issue)
         setUpdates(payload.data.issue_updates || [])
         setArticles(payload.data.related_articles || [])
-        setLastUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+
+        const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        window.dispatchEvent(
+          new CustomEvent(REFRESH_DONE_EVENT, {
+            detail: {
+              pathname: window.location.pathname,
+              lastUpdatedAt: now,
+            },
+          }),
+        )
       } else {
         throw new Error(payload?.error || 'Issue not found')
       }
@@ -59,6 +68,18 @@ export default function IssueDetailPage() {
   }, [id])
 
   useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ pathname?: string }>
+      if (custom.detail?.pathname === window.location.pathname) {
+        void run()
+      }
+    }
+
+    window.addEventListener(REFRESH_REQUEST_EVENT, handler)
+    return () => window.removeEventListener(REFRESH_REQUEST_EVENT, handler)
+  }, [run])
+
+  useEffect(() => {
     void run()
   }, [run])
 
@@ -68,14 +89,6 @@ export default function IssueDetailPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-semibold">{issue.title}</h1>
-      <RefreshBar
-        label="Last updated"
-        lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
-        isAutoRefreshOn={autoRefresh}
-        onToggleAutoRefresh={setAutoRefresh}
-        onRefresh={run}
-      />
-      {error ? <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30">{error}</div> : null}
 
       <div className="rounded border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="mb-3 flex flex-wrap gap-2 text-xs">

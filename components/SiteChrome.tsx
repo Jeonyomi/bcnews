@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import RefreshBar from '@/components/RefreshBar'
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -12,17 +13,64 @@ const NAV = [
   { href: '/sources', label: 'Sources' },
 ]
 
+const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
+const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
+
 export default function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
+  const [autoRefresh, setAutoRefresh] = useState(false)
 
   const navItems = useMemo(() => NAV, [])
 
+  const requestRefresh = useCallback(() => {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(
+      new CustomEvent(REFRESH_REQUEST_EVENT, {
+        detail: {
+          pathname,
+        },
+      }),
+    )
+  }, [pathname])
+
+  const handleRefreshDone = useCallback((event: Event) => {
+    const custom = event as CustomEvent<{ pathname: string; lastUpdatedAt?: string }>
+    if (!custom.detail || custom.detail.pathname !== pathname) return
+    setLastUpdatedAt(custom.detail.lastUpdatedAt || new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+  }, [pathname])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    window.dispatchEvent(
+      new CustomEvent(REFRESH_REQUEST_EVENT, {
+        detail: {
+          pathname,
+        },
+      }),
+    )
+
+    window.addEventListener(REFRESH_DONE_EVENT, handleRefreshDone)
+    return () => window.removeEventListener(REFRESH_DONE_EVENT, handleRefreshDone)
+  }, [pathname, requestRefresh, handleRefreshDone])
+
   const closeMenu = () => setOpen(false)
+
+  useEffect(() => {
+    if (!autoRefresh) return
+
+    const timer = window.setInterval(() => {
+      requestRefresh()
+    }, 60 * 1000)
+
+    return () => window.clearInterval(timer)
+  }, [autoRefresh, requestRefresh])
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-black dark:text-gray-100">
-      <div className="relative mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:gap-4 md:px-6">
+      <div className="relative mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:px-6">
         <div className="w-full md:hidden">
           <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-gray-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
             <div className="flex items-center justify-between gap-2">
@@ -69,6 +117,15 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
         </aside>
 
         <main className="relative flex-1 min-w-0 rounded-xl border border-gray-200 bg-white p-4 md:p-6 dark:border-gray-800 dark:bg-gray-950">
+          <div className="mb-3">
+            <RefreshBar
+              label="Last updated"
+              lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
+              isAutoRefreshOn={autoRefresh}
+              onToggleAutoRefresh={setAutoRefresh}
+              onRefresh={requestRefresh}
+            />
+          </div>
           {children}
         </main>
 
@@ -79,7 +136,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
             open ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          <div className="px-3 pb-3 text-sm font-semibold text-gray-500 dark:text-gray-400">Menu</div>
+          <div className="px-3 pb-3 text-sm font-semibold text-gray-400">Menu</div>
           <nav className="space-y-1 px-2">
             {navItems.map((item) => {
               const active = pathname?.startsWith(item.href)
@@ -96,8 +153,8 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
                 >
                   {item.label}
                 </Link>
-              )
-            })}
+              )}
+            )}
           </nav>
         </aside>
       </div>
