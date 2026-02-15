@@ -7,6 +7,7 @@ import ListFilterBar from '@/components/ListFilterBar'
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [timeWindow, setTimeWindow] = useState('24h')
   const [region, setRegion] = useState('All')
   const [topic, setTopic] = useState('all')
@@ -16,6 +17,7 @@ export default function ArticlesPage() {
   useEffect(() => {
     const run = async () => {
       setLoading(true)
+      setError('')
       const q = new URLSearchParams({
         time_window: timeWindow,
         region,
@@ -25,13 +27,23 @@ export default function ArticlesPage() {
       })
       if (search) q.set('search', search)
 
-      const response = await fetch(`/api/articles?${q.toString()}`)
-      const payload = await response.json()
-      setArticles(payload.data?.articles || [])
-      setLoading(false)
+      try {
+        const response = await fetch(`/api/articles?${q.toString()}`)
+        const payload = await response.json()
+        if (!response.ok || !payload?.ok) {
+          throw new Error(payload?.error || 'Failed to load articles')
+        }
+        setArticles(payload.data?.articles || [])
+      } catch (e) {
+        console.error('load articles failed', e)
+        setError(e instanceof Error ? e.message : 'Failed to load articles')
+        setArticles([])
+      } finally {
+        setLoading(false)
+      }
     }
 
-    run()
+    void run()
   }, [timeWindow, region, topic, sort, search])
 
   return (
@@ -53,7 +65,8 @@ export default function ArticlesPage() {
 
       {loading ? <div className="text-sm text-gray-500">Loading articles...</div> : null}
 
-      {!loading && articles.length === 0 ? <div className="text-sm text-gray-500">No articles found.</div> : null}
+      {error ? <div className="mb-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30">{error}</div> : null}
+      {!loading && !error && articles.length === 0 ? <div className="text-sm text-gray-500">No articles found.</div> : null}
 
       {!loading ? (
         <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-800">

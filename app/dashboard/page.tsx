@@ -29,31 +29,50 @@ export default function DashboardPage() {
   const [topics, setTopics] = useState<TrendRow[]>([])
   const [entities, setEntities] = useState<TrendRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    const run = async () => {
-      setLoading(true)
-      try {
+  const load = async () => {
+    setLoading(true)
+    setError('')
+    try {
       const [issuesRes, trendRes, updatesRes] = await Promise.all([
         fetch('/api/issues?time_window=24h&limit=8&sort=importance'),
         fetch('/api/trends?time_window=7d&limit=6'),
         fetch('/api/issues?time_window=24h&sort=hybrid&only_updates=1&limit=10'),
       ])
 
-        const issuesPayload = await issuesRes.json()
-        const trendPayload = await trendRes.json()
-        const updatePayload = await updatesRes.json()
+      const issuesPayload = await issuesRes.json()
+      const trendPayload = await trendRes.json()
+      const updatePayload = await updatesRes.json()
 
-        setTopIssues(Array.isArray(issuesPayload.data?.issues) ? issuesPayload.data.issues.slice(0, 8) : [])
-        setTopUpdated(Array.isArray(updatePayload.data?.issues) ? updatePayload.data.issues.slice(0, 8) : [])
-        setTopics(Array.isArray(trendPayload.data?.topics) ? trendPayload.data.topics : [])
-        setEntities(Array.isArray(trendPayload.data?.entities) ? trendPayload.data.entities : [])
-      } finally {
-        setLoading(false)
+      if (!issuesRes.ok || !issuesPayload?.ok) {
+        throw new Error(issuesPayload?.error || 'Failed to load dashboard issues')
       }
-    }
+      if (!trendRes.ok || !trendPayload?.ok) {
+        throw new Error(trendPayload?.error || 'Failed to load dashboard trends')
+      }
+      if (!updatesRes.ok || !updatePayload?.ok) {
+        throw new Error(updatePayload?.error || 'Failed to load dashboard updates')
+      }
 
-    void run()
+      setTopIssues(Array.isArray(issuesPayload.data?.issues) ? issuesPayload.data.issues.slice(0, 8) : [])
+      setTopUpdated(Array.isArray(updatePayload.data?.issues) ? updatePayload.data.issues.slice(0, 8) : [])
+      setTopics(Array.isArray(trendPayload.data?.topics) ? trendPayload.data.topics : [])
+      setEntities(Array.isArray(trendPayload.data?.entities) ? trendPayload.data.entities : [])
+    } catch (err) {
+      console.error('dashboard load failed', err)
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard')
+      setTopIssues([])
+      setTopUpdated([])
+      setTopics([])
+      setEntities([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
   }, [])
 
   const hasUpdates = useMemo(() => topUpdated.length > 0, [topUpdated])
@@ -69,6 +88,14 @@ export default function DashboardPage() {
 
       {loading ? (
         <div className="rounded-md border border-dashed border-gray-300 p-4 text-sm text-gray-500">Loading issue intelligence...</div>
+      ) : null}
+      {error ? (
+        <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30">
+          {error}
+          <button type="button" onClick={() => void load()} className="ml-2 text-xs underline">
+            retry
+          </button>
+        </div>
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-2">

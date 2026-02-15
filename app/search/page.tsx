@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
@@ -9,11 +8,13 @@ export default function SearchPage() {
   const [issues, setIssues] = useState<any[]>([])
   const [articles, setArticles] = useState<any[]>([])
   const [entities, setEntities] = useState<string[]>([])
+  const [error, setError] = useState('')
 
   const visibleEntities = useMemo(() => entities.slice(0, 20), [entities])
 
   useEffect(() => {
     const run = async () => {
+      setError('')
       if (!query.trim()) {
         setIssues([])
         setArticles([])
@@ -21,6 +22,9 @@ export default function SearchPage() {
         // preload entity list so users can start filtering before search
         const allResp = await fetch(`/api/search?q=&limit=1`)
         const allPayload = await allResp.json()
+        if (!allResp.ok || !allPayload?.ok) {
+          throw new Error(allPayload?.error || 'Failed to load entities')
+        }
         setEntities(allPayload.data?.entities || [])
         return
       }
@@ -33,10 +37,20 @@ export default function SearchPage() {
 
       const response = await fetch(`/api/search?${params.toString()}`)
       const payload = await response.json()
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || 'Failed to search')
+      }
       setIssues(payload.data?.issues || [])
       setArticles(payload.data?.articles || [])
       setEntities(payload.data?.entities || [])
     }
+
+    void run().catch((e) => {
+      console.error('search failed', e)
+      setError(e instanceof Error ? e.message : 'Search failed')
+      setIssues([])
+      setArticles([])
+    })
 
     const timer = setTimeout(run, 250)
     return () => clearTimeout(timer)
@@ -57,7 +71,7 @@ export default function SearchPage() {
           onChange={(e) => setEntity(e.target.value)}
           className="h-10 rounded border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-900"
         >
-          <option value="">Entity: All</option>
+        <option value="">Entity: All</option>
           {visibleEntities.map((item) => (
             <option key={item} value={item}>
               {item}
@@ -65,6 +79,8 @@ export default function SearchPage() {
           ))}
         </select>
       </div>
+
+      {error ? <div className="mb-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30">{error}</div> : null}
 
       <section className="mt-6">
         <h2 className="mb-2 text-sm font-semibold">Issues</h2>

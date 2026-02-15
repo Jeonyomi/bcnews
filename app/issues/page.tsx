@@ -8,6 +8,7 @@ export default function IssuesPage() {
   const [items, setItems] = useState<any[]>([])
   const [viewTable, setViewTable] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [timeWindow, setTimeWindow] = useState('24h')
   const [region, setRegion] = useState('All')
   const [topic, setTopic] = useState('all')
@@ -17,6 +18,7 @@ export default function IssuesPage() {
   useEffect(() => {
     const run = async () => {
       setLoading(true)
+      setError('')
       const q = new URLSearchParams({
         time_window: timeWindow,
         region,
@@ -26,13 +28,23 @@ export default function IssuesPage() {
       })
       if (search) q.set('search', search)
 
-      const res = await fetch(`/api/issues?${q.toString()}`)
-      const payload = await res.json()
-      setItems(payload.data?.issues || [])
-      setLoading(false)
+      try {
+        const res = await fetch(`/api/issues?${q.toString()}`)
+        const payload = await res.json()
+        if (!res.ok || !payload?.ok) {
+          throw new Error(payload?.error || 'Failed to load issues')
+        }
+        setItems(payload.data?.issues || [])
+      } catch (e) {
+        console.error('load issues failed', e)
+        setError(e instanceof Error ? e.message : 'Failed to load issues')
+        setItems([])
+      } finally {
+        setLoading(false)
+      }
     }
 
-    run()
+    void run()
   }, [timeWindow, region, topic, sort, search])
 
   return (
@@ -63,7 +75,8 @@ export default function IssuesPage() {
 
       {loading ? <div className="text-sm text-gray-500">Loading issues...</div> : null}
 
-      {!loading && items.length === 0 ? <div className="text-sm text-gray-500">No issues found.</div> : null}
+      {error ? <div className="mb-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30">{error}</div> : null}
+      {!loading && !error && items.length === 0 ? <div className="text-sm text-gray-500">No issues found.</div> : null}
 
       {viewTable ? (
         <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-800">
