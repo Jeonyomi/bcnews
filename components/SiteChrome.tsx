@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import RefreshBar from '@/components/RefreshBar'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -117,7 +118,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
         </aside>
 
         <main className="relative flex-1 min-w-0 rounded-xl border border-gray-200 bg-white p-4 md:p-6 dark:border-gray-800 dark:bg-gray-950">
-          <div className="mb-3">
+          <div className="mb-3 flex items-center justify-between gap-3">
             <RefreshBar
               label="Last updated"
               lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
@@ -125,6 +126,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
               onToggleAutoRefresh={setAutoRefresh}
               onRefresh={requestRefresh}
             />
+            <ThemeToggle />
           </div>
           {children}
         </main>
@@ -137,6 +139,9 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
           }`}
         >
           <div className="px-3 pb-3 text-sm font-semibold text-gray-400">Menu</div>
+          <div className="px-3 pb-3">
+            <ThemeToggle />
+          </div>
           <nav className="space-y-1 px-2">
             {navItems.map((item) => {
               const active = pathname?.startsWith(item.href)
