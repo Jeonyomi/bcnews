@@ -67,4 +67,18 @@ for (const target of checks) {
   result.checks.push(await fetchJson(target, { method: 'GET' }))
 }
 
+const ingestPayload = result.ingest
+const inserted = ingestPayload?.inserted_articles ?? 0
+const updates = ingestPayload?.issue_updates_created ?? 0
+
+const checksState = result.checks.map((check) => (check?.ok === false || !check?.ok ? 'fail' : 'ok'))
+const failedEndpoint = result.checks.find((check) => check?.ok === false || !check?.ok)
+const failedName = failedEndpoint ? (failedEndpoint?.data?.window ? 'issues_or_trends' : 'unknown') : 'none'
+
+const checksText = checksState.every((s) => s === 'ok') ? 'ok' : 'fail'
+const ingestState = result?.ingest && !ingestPayload?.error ? 'ok' : 'fail'
+const errorText = ingestPayload?.error || (checksText === 'fail' ? `failed ${failedName}` : 'None')
+
+const line = `[bcnews ingest] ${ingestState} | inserted=${inserted} updates=${updates} | checks=${checksText} | error=${errorText}`
+console.log(line)
 console.log('bcnews cron ingest/update completed', JSON.stringify(result, null, 2))

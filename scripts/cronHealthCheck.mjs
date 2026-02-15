@@ -32,4 +32,17 @@ const checks = {
   articles: await jsonOrThrow(`${normBase}/api/articles?time_window=24h&limit=20`),
 }
 
+const sourceCount = checks.sources?.data?.health?.length || 0
+const issueCount = checks.issues?.data?.count || checks.issues?.data?.issues?.length || 0
+const articleCount = checks.articles?.data?.count || checks.articles?.data?.articles?.length || 0
+const downCount = checks.sources?.data?.health
+  ? checks.sources.data.health.filter((row) => row.status === 'down').length
+  : 0
+const failSource = checks.sources?.data?.health
+  ? checks.sources.data.health.find((row) => row.status === 'down' || row.status === 'restricted')?.source_name || 'none'
+  : 'none'
+
+const line = `[bcnews health] ok | sources=${sourceCount} issues=${issueCount} articles=${articleCount} | failed_endpoint=${failSource || 'none'} | error=None`
+console.log(line)
+
 console.log('bcnews cron health check', JSON.stringify(checks, null, 2))
