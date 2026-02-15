@@ -13,6 +13,20 @@ const clampLimit = (value: string | null) => {
 
 const normalizeSort = (sort: ReturnType<typeof parseSort>): SortMode => sort
 
+const normalizeEnglish = (value: string) =>
+  stripHtml(value || '')
+    .replace(/\.{3}/g, '')
+    .replace(/([A-Za-z])'([A-Za-z])/g, '$1a$2')
+    .replace(/(^|\s)'([A-Za-z])/g, '$1a$2')
+    .replace(/\b'nd\b/gi, 'and')
+    .replace(/\b're\b/gi, 'are')
+    .replace(/\b'll\b/gi, 'will')
+    .replace(/\b'ctually\b/gi, 'actually')
+    .replace(/\b\s+'s\b/g, "'s")
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
@@ -70,18 +84,24 @@ export async function GET(request: Request) {
 
     const articles = (data || []).map((item) => ({
       ...item,
-      title: stripHtml(String(item.title || '')),
-      summary_short: stripHtml(String(item.summary_short || '')),
-      why_it_matters: stripHtml(String(item.why_it_matters || '')),
+      title: normalizeEnglish(String(item.title || '')),
+      summary_short: normalizeEnglish(String(item.summary_short || '')),
+      why_it_matters: normalizeEnglish(String(item.why_it_matters || '')),
       tags: [],
       key_entities: [],
       source:
         item.source && typeof item.source === 'object' && !Array.isArray(item.source)
-          ? item.source
+          ? {
+              ...(item.source as Record<string, unknown>),
+              name: normalizeEnglish(String((item.source as any).name || '')),
+            }
           : undefined,
       issue:
         item.issue && typeof item.issue === 'object' && !Array.isArray(item.issue)
-          ? item.issue
+          ? {
+              ...(item.issue as Record<string, unknown>),
+              title: normalizeEnglish(String((item.issue as any).title || '')),
+            }
           : undefined,
     }))
 
