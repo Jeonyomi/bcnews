@@ -26,7 +26,7 @@ export async function GET(
       .from('issues')
       .select(`
         *,
-        representative_article:articles(id,title,url,published_at_utc,summary_short,issue_id)
+        representative_article:articles!issues_representative_article_id_fkey(id,title,url,published_at_utc,summary_short,issue_id)
       `)
       .eq('id', issueId)
       .single()
