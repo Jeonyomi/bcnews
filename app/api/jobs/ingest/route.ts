@@ -324,8 +324,18 @@ export async function POST(request: Request) {
       }
 
       try {
-        const targetUrl = source.rss_url || source.url
-        const response = await fetch(targetUrl)
+        const primaryUrl = source.rss_url || source.url
+        let response = await fetch(primaryUrl)
+
+        // Fallback: many sources expose broken/removed RSS endpoints (404).
+        // If RSS URL fails, try the source homepage to avoid hard-failing health.
+        if (!response.ok && source.rss_url && source.url && source.url !== source.rss_url) {
+          const fallback = await fetch(source.url)
+          if (fallback.ok) {
+            response = fallback
+          }
+        }
+
         if (!response.ok) throw new Error(`rss_fetch_status_${response.status}`)
 
         const xml = await response.text()
@@ -531,5 +541,4 @@ export async function POST(request: Request) {
     return NextResponse.json(err(`ingest_error: ${String(error)}`), { status: 500 })
   }
 }
-
 
