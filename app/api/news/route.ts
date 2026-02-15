@@ -16,10 +16,14 @@ type BriefSection = {
 
 export const dynamic = 'force-dynamic' // no caching
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+const getSupabaseClient = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+
+  if (!url || !key) return null
+
+  return createClient(url, key)
+}
 
 type DbNewsItem = {
   [key: string]: unknown
@@ -233,6 +237,14 @@ const parseBriefSections = (
 
 export async function GET(request: Request) {
   try {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json(
+        { ok: false, error: 'missing_supabase_env', message: 'Supabase env vars are not configured' },
+        { status: 500 },
+      )
+    }
+
     const url = new URL(request.url)
     const debug = url.searchParams.get('debug') === '1'
     const includeAll = url.searchParams.get('all') === '1'
