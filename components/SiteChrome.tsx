@@ -104,6 +104,18 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
                 bcnews
               </span>
             </div>
+            <div className="px-2 pb-3">
+              <RefreshBar
+                label="Menu control"
+                lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
+                isAutoRefreshOn={autoRefresh}
+                onToggleAutoRefresh={setAutoRefresh}
+                onRefresh={requestRefresh}
+              />
+              <div className="mt-2 flex justify-end">
+                <ThemeToggle />
+              </div>
+            </div>
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const active = pathname?.startsWith(item.href)
@@ -126,16 +138,6 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
         </aside>
 
         <main className="relative flex-1 min-w-0 rounded-xl border border-gray-200 bg-white p-4 md:p-6 dark:border-gray-800 dark:bg-gray-950">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <RefreshBar
-              label="Last updated"
-              lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
-              isAutoRefreshOn={autoRefresh}
-              onToggleAutoRefresh={setAutoRefresh}
-              onRefresh={requestRefresh}
-            />
-            <ThemeToggle />
-          </div>
           {children}
         </main>
 
@@ -147,8 +149,17 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
           }`}
         >
           <div className="px-3 pb-3 text-sm font-semibold text-gray-400">Menu</div>
-          <div className="px-3 pb-3">
-            <ThemeToggle />
+          <div className="px-2 pb-3">
+            <RefreshBar
+              label="Menu control"
+              lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
+              isAutoRefreshOn={autoRefresh}
+              onToggleAutoRefresh={setAutoRefresh}
+              onRefresh={requestRefresh}
+            />
+            <div className="mt-2 flex justify-end pr-1">
+              <ThemeToggle />
+            </div>
           </div>
           <nav className="space-y-1 px-2">
             {navItems.map((item) => {
