@@ -95,18 +95,18 @@ export default function ArticlesPage() {
 
       {!loading ? (
         <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-800">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full table-fixed text-sm">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
-                <th className="px-3 py-2 text-left text-xs text-gray-500">Article</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500">Region</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500">Issue chip</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500">Importance</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500">Confidence</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500">Published (KST)</th>
+                <th className="w-[42%] px-3 py-2 text-left text-xs text-gray-500">Article</th>
+                <th className="w-[12%] px-3 py-2 text-left text-xs text-gray-500">Region</th>
+                <th className="w-[12%] px-3 py-2 text-left text-xs text-gray-500">Issue chip</th>
+                <th className="w-[12%] px-3 py-2 text-left text-xs text-gray-500">Importance</th>
+                <th className="w-[10%] px-3 py-2 text-left text-xs text-gray-500">Confidence</th>
+                <th className="w-[12%] px-3 py-2 text-left text-xs text-gray-500">Published (KST)</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {articles.map((article) => (
                 <ArticleTableRow key={article.id} article={article} />
               ))}

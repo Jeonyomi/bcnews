@@ -41,30 +41,33 @@ export function IssueSummaryCard({ issue }: { issue: any }) {
 
 export function ArticleTableRow({ article }: { article: any }) {
   return (
-    <tr className="border-b border-gray-100 dark:border-gray-800">
-      <td className="px-3 py-3 align-top text-sm">
+    <tr className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
+      <td className="px-3 py-2 align-top text-sm leading-5">
         <a href={article.url} className="font-medium hover:underline" target="_blank" rel="noreferrer">
           {article.title}
         </a>
-        <div className="mt-1 text-xs text-gray-500">
+        <div className="mt-1 text-xs leading-5 text-gray-500">
           {article.summary_short ? <span>{article.summary_short}</span> : null}
         </div>
       </td>
-      <td className="px-3 py-3 align-top text-xs text-gray-500">{article.region}</td>
-      <td className="px-3 py-3 align-top text-xs">
+      <td className="px-3 py-2 align-top text-xs text-gray-500">{article.region}</td>
+      <td className="px-3 py-2 align-top text-xs">
         {article.issue_id ? (
-          <a href={`/issues/${article.issue_id}`} className="rounded bg-emerald-100 px-2 py-1 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200">
+          <a
+            href={`/issues/${article.issue_id}`}
+            className="inline-block rounded bg-emerald-100 px-2 py-1 leading-none text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200"
+          >
             ISSUE #{article.issue_id}
           </a>
         ) : null}
       </td>
-      <td className="px-3 py-3 align-top text-xs text-gray-500">
+      <td className="px-3 py-2 align-top text-xs text-gray-500">
         {article.importance_label || 'watch'}
       </td>
-      <td className="px-3 py-3 align-top text-xs text-gray-500">
+      <td className="px-3 py-2 align-top text-xs text-gray-500">
         {article.confidence_label || '-'}
       </td>
-      <td className="px-3 py-3 align-top text-xs text-gray-500">
+      <td className="px-3 py-2 align-top text-xs text-gray-500">
         {article.published_at_utc
           ? new Intl.DateTimeFormat('ko-KR', {
               timeZone: 'Asia/Seoul',
