@@ -18,6 +18,36 @@ type SourceType = {
 const getSecret = () =>
   process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET
 
+const decodeHtml = (value: string) => {
+  if (!value) return value
+
+  const numericEntity = value.replace(/&#(x?[0-9a-fA-F]+);/g, (match, p1) => {
+    if (p1.toLowerCase().startsWith('x')) {
+      const hex = p1.slice(1)
+      const code = Number.parseInt(hex, 16)
+      return Number.isFinite(code) ? String.fromCodePoint(code) : match
+    }
+
+    const code = Number.parseInt(p1, 10)
+    return Number.isFinite(code) ? String.fromCodePoint(code) : match
+  })
+
+  return numericEntity
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/gi, "'")
+}
+
+const stripHtmlTags = (value: string) =>
+  decodeHtml((value || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim())
+
 const extractItemsFromRss = (xml: string) => {
   const items = xml.match(/<item>[\s\S]*?<\/item>/gi) || []
   return items
@@ -27,9 +57,13 @@ const extractItemsFromRss = (xml: string) => {
       const descMatch = item.match(/<description>([\s\S]*?)<\/description>/i)
       const pubMatch = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)
 
-      const title = titleMatch ? titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : ''
+      const title = titleMatch
+        ? stripHtmlTags(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
+        : ''
       const link = linkMatch ? linkMatch[1].trim() : ''
-      const summary = descMatch ? descMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : ''
+      const summary = descMatch
+        ? stripHtmlTags(descMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
+        : ''
       const publishedAt = pubMatch ? new Date(pubMatch[1]).toISOString() : new Date().toISOString()
 
       return { title, link, summary, publishedAt }
