@@ -42,6 +42,23 @@ const decodeHtml = (value: string) => {
     .replace(/&apos;/gi, "'")
 }
 
+const normalizeDate = (value?: string) => {
+  if (!value) return new Date().toISOString()
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return new Date().toISOString()
+  return parsed.toISOString()
+}
+
+const extractLinkFromEntry = (entry: string) => {
+  const cdataStripped = entry.replace(/<!\[CDATA\[|\]\]>/g, '')
+  const hrefMatch = cdataStripped.match(/<link[^>]*href="([^"]+)"[^>]*>/i)
+  if (hrefMatch) return hrefMatch[1].trim()
+
+  const linkMatch = cdataStripped.match(/<link>([\s\S]*?)<\/link>/i)
+  return linkMatch ? linkMatch[1].trim() : ''
+}
+
 const stripHtmlTags = (value: string) =>
   decodeHtml((value || '')
     .replace(/<[^>]*>/g, '')
@@ -50,6 +67,34 @@ const stripHtmlTags = (value: string) =>
 
 const extractItemsFromRss = (xml: string) => {
   const items = xml.match(/<item>[\s\S]*?<\/item>/gi) || []
+  const entries = xml.match(/<entry>[\s\S]*?<\/entry>/gi) || []
+
+  const parseEntry = (entry: string, isAtom = false) => {
+    const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/i)
+    const linkText = isAtom ? extractLinkFromEntry(entry) : ''
+    const linkMatch = isAtom
+      ? null
+      : entry.match(/<link>([\s\S]*?)<\/link>/i)
+    const summaryMatch = entry.match(/<summary>([\s\S]*?)<\/summary>/i)
+    const contentMatch = entry.match(/<content[^>]*>([\s\S]*?)<\/content>/i)
+    const dateMatch =
+      entry.match(/<published>([\s\S]*?)<\/published>/i) ||
+      entry.match(/<updated>([\s\S]*?)<\/updated>/i)
+
+    const title = titleMatch
+      ? stripHtmlTags(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
+      : ''
+    const link = isAtom ? linkText : (linkMatch ? linkMatch[1].trim() : '')
+    const summarySource = summaryMatch || contentMatch
+    const summary = summarySource
+      ? stripHtmlTags(summarySource[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
+      : ''
+    const dateSource = dateMatch?.[1]
+    const publishedAt = normalizeDate(dateSource)
+
+    return { title, link, summary, publishedAt }
+  }
+
   return items
     .map((item) => {
       const titleMatch = item.match(/<title>([\s\S]*?)<\/title>/i)
@@ -64,11 +109,16 @@ const extractItemsFromRss = (xml: string) => {
       const summary = descMatch
         ? stripHtmlTags(descMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
         : ''
-      const publishedAt = pubMatch ? new Date(pubMatch[1]).toISOString() : new Date().toISOString()
+      const publishedAt = normalizeDate(pubMatch?.[1])
 
       return { title, link, summary, publishedAt }
     })
     .filter((row) => row.title && row.link)
+    .concat(
+      entries
+        .map((entry) => parseEntry(entry, true))
+        .filter((row) => row.title && row.link),
+    )
 }
 
 const canonicalizeUrl = (value: string) => {
@@ -85,6 +135,62 @@ const canonicalizeUrl = (value: string) => {
 }
 
 const hashContent = (text: string) => crypto.createHash('sha256').update(text).digest('hex')
+
+const normalizeTextForHash = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/[^a-z0-9\s]/gi, '')
+    .trim()
+
+const buildLookupHash = (canonicalUrl: string, title: string, summary: string) =>
+  hashContent(`${canonicalUrl}::${normalizeTextForHash(title)}::${normalizeTextForHash(summary)}`)
+
+const fetchWithTimeout = async (url: string, timeoutMs = 15000, options?: RequestInit) => {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        ...(options?.headers || {}),
+        'User-Agent': 'bcnews-ingest-bot/1.0 (+https://bcnews-agent.vercel.app)',
+        Accept: 'application/rss+xml, application/xml, text/xml, */*',
+      },
+    })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+const fetchWithRetry = async (url: string, tries = 3) => {
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= tries; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(url)
+      if (response.ok) return response
+
+      const shouldRetry =
+        response.status === 429 || response.status === 502 || response.status === 503 || response.status === 504
+      if (!shouldRetry || attempt === tries) {
+        throw new Error(`rss_fetch_status_${response.status}`)
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 750 * attempt))
+      continue
+    } catch (error) {
+      lastError = error
+      if (attempt === tries) break
+      await new Promise((resolve) => setTimeout(resolve, 500 * attempt))
+    }
+  }
+
+  throw new Error(`rss_fetch_status_network_${String(lastError)}`)
+}
 
 const deriveTopic = (title: string, summary: string) => {
   const text = `${title} ${summary}`.toLowerCase()
@@ -325,12 +431,12 @@ export async function POST(request: Request) {
 
       try {
         const primaryUrl = source.rss_url || source.url
-        let response = await fetch(primaryUrl)
+        let response = await fetchWithRetry(primaryUrl)
 
         // Fallback: many sources expose broken/removed RSS endpoints (404).
         // If RSS URL fails, try the source homepage to avoid hard-failing health.
         if (!response.ok && source.rss_url && source.url && source.url !== source.rss_url) {
-          const fallback = await fetch(source.url)
+          const fallback = await fetchWithRetry(source.url)
           if (fallback.ok) {
             response = fallback
           }
@@ -345,7 +451,7 @@ export async function POST(request: Request) {
         for (const item of parsed) {
           const canonical_url = canonicalizeUrl(item.link)
           const contentText = `${item.title}\n\n${item.summary}`.slice(0, 4000)
-          const contentHash = hashContent(`${canonical_url}::${item.title}`)
+        const contentHash = buildLookupHash(canonical_url, item.title, item.summary)
           const topic = deriveTopic(item.title, item.summary)
           const entities = extractEntities(`${item.title} ${item.summary}`)
           const { score: articleScore, importance_label: articleLabel } = computeScores({
@@ -356,13 +462,27 @@ export async function POST(request: Request) {
             summary: item.summary,
           })
 
-          const { data: dupes } = await client
+          const { data: dupesByUrl } = await client
             .from('articles')
             .select('id')
-            .or(`canonical_url.eq.${canonical_url},content_hash.eq.${contentHash}`)
+            .eq('source_id', source.id)
+            .eq('canonical_url', canonical_url)
             .limit(1)
 
-          if (dupes && dupes.length > 0) continue
+          if (dupesByUrl && dupesByUrl.length > 0) {
+            continue
+          }
+
+          const since = new Date(Date.now() - 24 * 60 * 60 * 1000 * 7).toISOString()
+          const { data: dupesByHash } = await client
+            .from('articles')
+            .select('id')
+            .eq('source_id', source.id)
+            .eq('content_hash', contentHash)
+            .gte('published_at_utc', since)
+            .limit(1)
+
+          if (dupesByHash && dupesByHash.length > 0) continue
 
           const { data: inserted, error: insertErr } = await client
             .from('articles')
@@ -541,4 +661,3 @@ export async function POST(request: Request) {
     return NextResponse.json(err(`ingest_error: ${String(error)}`), { status: 500 })
   }
 }
-
