@@ -13,7 +13,9 @@
     "seed:sources": "node scripts/seedSources.mjs",
     "log:run": "node scripts/logRun.mjs",
     "check:news": "node scripts/checkNews.mjs",
-    "create:brief": "node scripts/createBrief.mjs"
+    "create:brief": "node scripts/createBrief.mjs",
+    "cron:ingest-update": "node scripts/cronIngestAndUpdate.mjs",
+    "cron:health": "node scripts/cronHealthCheck.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
