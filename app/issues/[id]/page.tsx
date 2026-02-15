@@ -1,6 +1,7 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
 interface Issue {
@@ -17,14 +18,17 @@ interface Issue {
   representative_article?: { id: number; title: string; url: string }
 }
 
-export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function IssueDetailPage() {
   const [issue, setIssue] = useState<Issue | null>(null)
   const [updates, setUpdates] = useState<any[]>([])
   const [articles, setArticles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const { id } = use(params)
+  const params = useParams<{ id: string }>()
+  const id = params?.id
 
   useEffect(() => {
+    if (!id) return
+
     const run = async () => {
       setLoading(true)
       const res = await fetch(`/api/issues/${id}`)
@@ -36,6 +40,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       }
       setLoading(false)
     }
+
     run()
   }, [id])
 
