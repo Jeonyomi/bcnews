@@ -22,7 +22,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-black dark:text-gray-100">
-      <div className="relative mx-auto flex max-w-7xl gap-4 px-4 py-4 md:px-6">
+      <div className="relative mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:gap-4 md:px-6">
         <div className="w-full md:hidden">
           <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-gray-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
             <div className="flex items-center justify-between gap-2">
