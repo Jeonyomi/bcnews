@@ -4,6 +4,17 @@ import { err, ok } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
 
+const toErrorMessage = (error: unknown) => {
+  if (!error) return 'unknown_error'
+  if (error instanceof Error) return `${error.name}: ${error.message}`
+  if (typeof error === 'string') return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
 const safeScore = (value: string) => {
   const num = Number(value)
   if (Number.isFinite(num)) return num
@@ -128,6 +139,6 @@ export async function GET(request: Request) {
     )
   } catch (error) {
     console.error('GET /api/search failed', error)
-    return NextResponse.json(err(`search_api_error: ${String(error)}`), { status: 500 })
+    return NextResponse.json(err(`search_api_error: ${toErrorMessage(error)}`), { status: 500 })
   }
 }

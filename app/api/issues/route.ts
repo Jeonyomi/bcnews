@@ -4,6 +4,17 @@ import { err, ok, parseSort, parseTimeWindow } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
 
+const toErrorMessage = (error: unknown) => {
+  if (!error) return 'unknown_error'
+  if (error instanceof Error) return `${error.name}: ${error.message}`
+  if (typeof error === 'string') return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
 type UpdateAgg = {
   count: number
   latestAt: string | null
@@ -187,6 +198,6 @@ export async function GET(request: Request) {
     )
   } catch (error) {
     console.error('GET /api/issues failed', error)
-    return NextResponse.json(err(`issues_api_error: ${String(error)}`), { status: 500 })
+    return NextResponse.json(err(`issues_api_error: ${toErrorMessage(error)}`), { status: 500 })
   }
 }
