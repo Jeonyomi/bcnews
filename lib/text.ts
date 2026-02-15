@@ -2,6 +2,7 @@ export const stripHtml = (value: string): string => {
   if (!value) return ''
 
   const withEntities = value
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/<[^>\s][^>]*$/g, ' ')
     .replace(/&nbsp;/gi, ' ')
@@ -28,5 +29,6 @@ export const stripHtml = (value: string): string => {
     .replace(/a�?/g, "'")
     .replace(/a�|/g, '...')
     .replace(/�/g, '')
+    .replace(/\s{2,}/g, ' ')
     .trim()
 }
