@@ -33,7 +33,7 @@ export async function GET(request: Request) {
           summary_short,why_it_matters,confidence_label,importance_score,importance_label,status,issue_id,
           source_id, content_hash,
           source:sources(id,name,tier),
-          issue:issues(id,title,topic_label,importance_label)
+          issue:issues!fk_articles_issue(id,title,topic_label,importance_label)
         `,
         { count: 'exact' },
       )
