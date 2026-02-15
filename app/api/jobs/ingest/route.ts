@@ -54,11 +54,18 @@ const hashContent = (text: string) => crypto.createHash('sha256').update(text).d
 
 const deriveTopic = (title: string, summary: string) => {
   const text = `${title} ${summary}`.toLowerCase()
-  if (/regulation|policy|regulatory|법|규제/.test(text)) return 'regulation'
-  if (/issuer|issuer\s*reserves|발행|발행사|company/.test(text)) return 'issuer'
-  if (/pay|payment|bank|결제/.test(text)) return 'payments'
-  if (/macro|fed|inflation|금리|금통/.test(text)) return 'macro'
-  if (/aml|enforcement|crime|fraud|해킹|사기/.test(text)) return 'aml'
+  if (text.includes('regulation') || text.includes('policy') || text.includes('regulatory')) return 'regulation'
+  if (
+    text.includes('issuer') ||
+    text.includes('issuer reserves') ||
+    text.includes('reserves') ||
+    text.includes('company')
+  ) {
+    return 'issuer'
+  }
+  if (text.includes('pay') || text.includes('payment') || text.includes('bank')) return 'payments'
+  if (text.includes('macro') || text.includes('fed') || text.includes('inflation')) return 'macro'
+  if (text.includes('aml') || text.includes('enforcement') || text.includes('crime') || text.includes('fraud')) return 'aml'
   return 'defi'
 }
 
@@ -70,6 +77,106 @@ const extractEntities = (text: string) => {
     if (text.includes(token)) entities.add(token)
   }
   return Array.from(entities)
+}
+
+const normalizeText = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/&[a-z]+;/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const toTokenSet = (value: string) => {
+  const tokens = normalizeText(value)
+    .split(' ')
+    .filter(Boolean)
+    .filter((token) => token.length >= 3)
+    .map((token) => token.replace(/s$/, ''))
+
+  return new Set(tokens)
+}
+
+const readEntityArray = (value: unknown) => {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean)
+  return []
+}
+
+const jaccardRatio = (a: Set<string>, b: Set<string>) => {
+  if (a.size === 0 && b.size === 0) return 0
+  if (a.size === 0 || b.size === 0) return 0
+  let intersection = 0
+  for (const token of a) {
+    if (b.has(token)) intersection += 1
+  }
+
+  const union = a.size + b.size - intersection
+  if (union === 0) return 0
+  return intersection / union
+}
+
+const issueMatchScore = (args: {
+  candidate: {
+    id: number
+    topic_label: string
+    issue_summary: string | null
+    title: string | null
+    key_entities: unknown
+    last_seen_at_utc: string
+  }
+  topic: string
+  titleTokens: Set<string>
+  summaryTokens: Set<string>
+  entities: string[]
+  windowMinutes: number
+}) => {
+  const { candidate, topic, titleTokens, summaryTokens, entities, windowMinutes } = args
+
+  const candidateTopic = String(candidate.topic_label || '')
+  const sameTopic = candidateTopic === topic
+  const topicBonus = sameTopic ? 42 : 14
+
+  const candidateEntities = new Set(
+    readEntityArray(candidate.key_entities).map((item) => item.toLowerCase()),
+  )
+  const incomingEntities = new Set(entities.map((item) => item.toLowerCase()))
+
+  const entityOverlap = jaccardRatio(candidateEntities, incomingEntities)
+  const entityPenalty = incomingEntities.size === 0 && candidateEntities.size === 0 ? 0 : entityOverlap
+
+  const candidateTitle = String(candidate.title || '')
+  const candidateSummary = String(candidate.issue_summary || '')
+  const candidateTokens = toTokenSet(`${candidateTitle} ${candidateSummary}`)
+
+  const titleOverlap = jaccardRatio(titleTokens, candidateTokens)
+  const summaryOverlap = jaccardRatio(summaryTokens, candidateTokens)
+
+  const topicSignal = /(defi|stablecoin|peg|chain|exchange|issuer|regulat|payment|aml|fraud|macro|fed)/.test(
+    candidateTopic.toLowerCase(),
+  )
+  const topicSignalMatch = sameTopic || (topicSignal && topic === candidateTopic)
+
+  const seenAtDate = new Date(candidate.last_seen_at_utc)
+  const ageHours = Number.isNaN(seenAtDate.getTime())
+    ? windowMinutes
+    : Math.max(0, (Date.now() - seenAtDate.getTime()) / (1000 * 60 * 60))
+  const recencyBoost = Math.max(0, 16 - Math.floor(ageHours / 3))
+
+  const base =
+    topicBonus +
+    entityPenalty * 34 +
+    titleOverlap * 30 +
+    summaryOverlap * 12 +
+    recencyBoost +
+    (topicSignalMatch ? 8 : 0)
+
+  return Math.round(base * 100) / 100
+}
+
+const isBestMatch = (score: number, topic: string, candidateTopic: string, windowMinutes: number) => {
+  if (score >= 45) return true
+  if (score >= 38 && candidateTopic === topic) return true
+  return score >= 52 && windowMinutes <= 120
 }
 
 const parseTierScore = (tier: string | null) => {
@@ -116,12 +223,12 @@ const topicKeywords = (title: string, summary: string) => {
   const text = `${title}\n${summary}`.toLowerCase()
   const tokens: string[] = []
 
-  if (/(regulation|regulatory|policy|compliance|법|규제|규정|안내|지침)/.test(text)) tokens.push('regulation')
-  if (/(issuer|발행사|reserves|reserver?|mint|reserve|자산|출자|조성)/.test(text)) tokens.push('issuer')
-  if (/(payment|wallet|transfer|bank|결제|송금|카드|결제기관)/.test(text)) tokens.push('payments')
-  if (/(macro|inflation|fed|fomc|rate|금리|통화|금융정책)/.test(text)) tokens.push('macro')
-  if (/(aml|fraud|crime|enforcement|조사|조달|사기|해킹|위반)/.test(text)) tokens.push('aml')
-  if (/(defi|liquidity|peg|depeg|mint|burn|redeem|reserve|stablecoin)/.test(text)) tokens.push('defi')
+  if (/(regulation|regulatory|policy|compliance|governance|directive|legal)/.test(text)) tokens.push('regulation')
+  if (/(issuer|reserves?|mint|reserve|company|treasury|stablecoin)/.test(text)) tokens.push('issuer')
+  if (/(payment|wallet|transfer|bank|clearing|onchain|remittance)/.test(text)) tokens.push('payments')
+  if (/(macro|inflation|fed|fomc|rate|monetary|central bank)/.test(text)) tokens.push('macro')
+  if (/(aml|fraud|crime|enforcement|investigation|compliance|hack|security|investigation)/.test(text)) tokens.push('aml')
+  if (/(defi|liquidity|peg|depeg|redeem|burn|mint|stablecoin|reserves)/.test(text)) tokens.push('defi')
 
   return Array.from(new Set(tokens))
 }
@@ -242,11 +349,14 @@ export async function POST(request: Request) {
           const now = new Date().toISOString()
           const region = regionFromSource(source.region)
 
+          const lookbackWindowMinutes = 72 * 60
+          const activeWindowSince = new Date(Date.now() - lookbackWindowMinutes * 60 * 1000).toISOString()
+
           const { data: activeIssues, error: issuesErr } = await client
             .from('issues')
-            .select('id,topic_label,key_entities,importance_score')
+            .select('id,topic_label,title,issue_summary,key_entities,last_seen_at_utc,importance_score')
             .eq('region', region)
-            .gte('last_seen_at_utc', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
+            .gte('last_seen_at_utc', activeWindowSince)
             .order('last_seen_at_utc', { ascending: false })
 
           if (issuesErr) {
@@ -255,11 +365,46 @@ export async function POST(request: Request) {
 
           let issueId: number | null = null
 
+          let bestMatch = {
+            id: null as number | null,
+            score: 0,
+            seenAt: '',
+          }
+
+          const titleTokens = toTokenSet(item.title)
+          const summaryTokens = toTokenSet(item.summary)
+
           for (const candidate of activeIssues || []) {
-            if (String(candidate.topic_label) === topic) {
-              issueId = candidate.id
-              break
+            const score = issueMatchScore({
+              candidate: {
+                id: candidate.id,
+                topic_label: String(candidate.topic_label || ''),
+                issue_summary: candidate.issue_summary || null,
+                title: String(candidate.title || ''),
+                key_entities: candidate.key_entities,
+                last_seen_at_utc: String(candidate.last_seen_at_utc),
+              },
+              topic,
+              titleTokens,
+              summaryTokens,
+              entities,
+              windowMinutes: lookbackWindowMinutes,
+            })
+
+            if (score > bestMatch.score) {
+              bestMatch = {
+                id: candidate.id,
+                score,
+                seenAt: candidate.last_seen_at_utc,
+              }
             }
+          }
+
+          const bestCandidateTopic =
+            activeIssues?.find((row) => row.id === bestMatch.id)?.topic_label || ''
+
+          if (bestMatch.id && isBestMatch(bestMatch.score, topic, String(bestCandidateTopic), lookbackWindowMinutes / 60)) {
+            issueId = bestMatch.id
           }
 
           if (!issueId) {
@@ -352,3 +497,5 @@ export async function POST(request: Request) {
     return NextResponse.json(err(`ingest_error: ${String(error)}`), { status: 500 })
   }
 }
+
+
