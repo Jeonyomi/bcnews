@@ -27,12 +27,20 @@ const clampLimit = (value: string | null) => {
   return Math.max(5, Math.min(200, parsed))
 }
 
+const normalizeEnglish = (value: string) =>
+  stripHtml(value || '')
+    .replace(/\.{3}/g, '')
+    .replace(/([A-Za-z])'([A-Za-z])/g, '$1a$2')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
 const toIssueCard = (issue: any, updateCounts: Record<number, number>) => ({
   ...issue,
   recent_updates_count: updateCounts[issue.id] || 0,
-  issue_summary: stripHtml(issue.issue_summary || ''),
-  why_it_matters: stripHtml(issue.why_it_matters || ''),
-  title: stripHtml(issue.title || ''),
+  issue_summary: normalizeEnglish(issue.issue_summary || ''),
+  why_it_matters: normalizeEnglish(issue.why_it_matters || ''),
+  title: normalizeEnglish(issue.title || ''),
 })
 
 export async function GET(request: Request) {

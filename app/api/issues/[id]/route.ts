@@ -10,6 +10,14 @@ const asNumber = (value: string | null) => {
   return Number.isFinite(num) ? num : null
 }
 
+const normalizeEnglish = (value: string) =>
+  stripHtml(value || '')
+    .replace(/\.{3}/g, '')
+    .replace(/([A-Za-z])'([A-Za-z])/g, '$1a$2')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -97,28 +105,28 @@ export async function GET(
 
     const cleanIssue = {
       ...issue,
-      title: stripHtml(issue.title || ''),
-      issue_summary: stripHtml(issue.issue_summary || ''),
-      why_it_matters: stripHtml(issue.why_it_matters || ''),
+      title: normalizeEnglish(issue.title || ''),
+      issue_summary: normalizeEnglish(issue.issue_summary || ''),
+      why_it_matters: normalizeEnglish(issue.why_it_matters || ''),
     }
 
     const cleanRepresentative = issue.representative_article
       ? {
           ...issue.representative_article,
-          title: stripHtml(issue.representative_article.title || ''),
+          title: normalizeEnglish(issue.representative_article.title || ''),
         }
       : null
 
     const cleanUpdates = timeline.map((update) => ({
       ...update,
-      update_summary: stripHtml(update.update_summary || ''),
+      update_summary: normalizeEnglish(update.update_summary || ''),
     }))
 
     const cleanArticles = (merged || []).map((article) => ({
       ...article,
-      title: stripHtml(article.title || ''),
-      summary_short: stripHtml(article.summary_short || ''),
-      why_it_matters: stripHtml(article.why_it_matters || ''),
+      title: normalizeEnglish(article.title || ''),
+      summary_short: normalizeEnglish(article.summary_short || ''),
+      why_it_matters: normalizeEnglish(article.why_it_matters || ''),
     }))
 
     const detail = {
