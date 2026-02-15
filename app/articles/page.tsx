@@ -37,7 +37,7 @@ export default function ArticlesPage() {
       }
       setArticles(payload.data?.articles || [])
 
-      const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       window.dispatchEvent(
         new CustomEvent(REFRESH_DONE_EVENT, {
           detail: {
@@ -117,3 +117,4 @@ export default function ArticlesPage() {
     </div>
   )
 }
+

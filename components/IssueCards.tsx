@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { formatSeoulDateTime } from '@/lib/datetime'
 
 export function IssueSummaryCard({ issue }: { issue: any }) {
   const trim = (text: string, max: number) => (text && text.length > max ? `${text.slice(0, max)}...` : text)
@@ -27,13 +28,7 @@ export function IssueSummaryCard({ issue }: { issue: any }) {
         ) : null}
       </div>
       <div className="mt-2 text-xs text-gray-500">
-        {issue.last_seen_at_utc ? new Intl.DateTimeFormat('ko-KR', {
-          timeZone: 'Asia/Seoul',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        }).format(new Date(issue.last_seen_at_utc)) : ''}
+        {issue.last_seen_at_utc ? formatSeoulDateTime(issue.last_seen_at_utc) : ''}
       </div>
     </article>
   )
@@ -68,16 +63,9 @@ export function ArticleTableRow({ article }: { article: any }) {
         {article.confidence_label || '-'}
       </td>
       <td className="px-3 py-2 align-top text-xs text-gray-500">
-        {article.published_at_utc
-          ? new Intl.DateTimeFormat('ko-KR', {
-              timeZone: 'Asia/Seoul',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-            }).format(new Date(article.published_at_utc))
-          : '-'}
+        {article.published_at_utc ? formatSeoulDateTime(article.published_at_utc) : '-'}
       </td>
     </tr>
   )
 }
+

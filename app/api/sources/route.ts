@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createPublicClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase'
 import { err, ok } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const client = createPublicClient()
+    const client = createAdminClient()
     const { data: sources, error } = await client.from('sources').select('*').order('id', { ascending: true })
     if (error) throw error
 

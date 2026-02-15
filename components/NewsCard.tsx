@@ -4,22 +4,14 @@ import { useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { NewsItem, BriefSection } from '@/types'
+import { formatSeoulDateTime } from '@/lib/datetime'
 
 const looksWrongOffsetKst = (value: string | null) =>
   !!value && /\+00:00$/.test(value)
 
 const getDisplayTime = (item: NewsItem) => {
   const source = looksWrongOffsetKst(item.created_at_kst) ? item.created_at : item.created_at_kst
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-    timeZone: 'Asia/Seoul',
-  }).format(new Date(source || item.created_at))
+  return formatSeoulDateTime(source || item.created_at)
 }
 
 interface Props {
@@ -142,7 +134,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
                 : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200'
             }`}
           >
-            {item.region === 'KR' ? '🇰🇷 Korea' : '🌐 Global'}
+            {item.region === 'KR' ? '?��?�� Korea' : '?�� Global'}
           </span>
 
           {item.source === 'backup' && (
@@ -270,3 +262,4 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
 }
 
 export default NewsCard
+

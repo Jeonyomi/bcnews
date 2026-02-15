@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { IssueSummaryCard } from '@/components/IssueCards'
 import ListFilterBar from '@/components/ListFilterBar'
+import { formatSeoulDateTime } from '@/lib/datetime'
 
 const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
 const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
@@ -38,7 +39,7 @@ export default function IssuesPage() {
       }
       setItems(payload.data?.issues || [])
 
-      const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       window.dispatchEvent(
         new CustomEvent(REFRESH_DONE_EVENT, {
           detail: {
@@ -127,13 +128,7 @@ export default function IssuesPage() {
                   <td className="px-3 py-2">{issue.topic_label}</td>
                   <td className="px-3 py-2">{issue.importance_label}</td>
                   <td className="px-3 py-2">
-                    {new Intl.DateTimeFormat('ko-KR', {
-                      timeZone: 'Asia/Seoul',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }).format(new Date(issue.last_seen_at_utc))}
+                    {formatSeoulDateTime(issue.last_seen_at_utc)}
                   </td>
                 </tr>
               ))}
@@ -146,3 +141,4 @@ export default function IssuesPage() {
     </div>
   )
 }
+

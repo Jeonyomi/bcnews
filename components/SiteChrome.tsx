@@ -38,7 +38,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
   const handleRefreshDone = useCallback((event: Event) => {
     const custom = event as CustomEvent<{ pathname: string; lastUpdatedAt?: string }>
     if (!custom.detail || custom.detail.pathname !== pathname) return
-    setLastUpdatedAt(custom.detail.lastUpdatedAt || new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+    setLastUpdatedAt(custom.detail.lastUpdatedAt || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
   }, [pathname])
 
   useEffect(() => {

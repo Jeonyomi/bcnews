@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { formatSeoulDateTime } from '@/lib/datetime'
 
 const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
 const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
@@ -44,7 +45,7 @@ export default function IssueDetailPage() {
         setUpdates(payload.data.issue_updates || [])
         setArticles(payload.data.related_articles || [])
 
-        const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         window.dispatchEvent(
           new CustomEvent(REFRESH_DONE_EVENT, {
             detail: {
@@ -99,9 +100,9 @@ export default function IssueDetailPage() {
         <p className="text-sm text-gray-600 dark:text-gray-300">{issue.issue_summary}</p>
         {issue.why_it_matters ? <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{issue.why_it_matters}</p> : null}
         <div className="mt-2 text-xs text-gray-500">
-          first seen {new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' }).format(new Date(issue.first_seen_at_utc))}
+          first seen {formatSeoulDateTime(issue.first_seen_at_utc)}
           {' · '}
-          last seen {new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' }).format(new Date(issue.last_seen_at_utc))}
+          last seen {formatSeoulDateTime(issue.last_seen_at_utc)}
         </div>
         {issue.representative_article ? (
           <a href={issue.representative_article.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-blue-600 hover:underline">
@@ -118,13 +119,7 @@ export default function IssueDetailPage() {
             <div key={update.id} className="rounded border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
               <div className="text-sm font-medium">{update.update_summary}</div>
               <div className="text-xs text-gray-500">
-                {new Intl.DateTimeFormat('ko-KR', {
-                  timeZone: 'Asia/Seoul',
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }).format(new Date(update.update_at_utc))}
+                {formatSeoulDateTime(update.update_at_utc)}
                 {' · '}
                 confidence: {update.confidence_label || 'medium'}
               </div>
@@ -153,3 +148,4 @@ export default function IssueDetailPage() {
     </div>
   )
 }
+

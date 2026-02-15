@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { formatSeoulDateTime } from '@/lib/datetime'
 
 const getEnv = (keys: string[]) => {
   for (const key of keys) {
@@ -56,16 +57,7 @@ export const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value))
 
 export const toKstDateTime = (value: string) => {
-  return new Intl.DateTimeFormat('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(new Date(value))
+  return formatSeoulDateTime(value)
 }
 
 export const toUtcNow = () => new Date().toISOString()
@@ -81,3 +73,4 @@ export const timeWindowToIso = (window: '6h' | '12h' | '24h' | '7d' | 'all' = '2
 }
 
 export const sanitizeSqlText = (value: string) => value.trim()
+
