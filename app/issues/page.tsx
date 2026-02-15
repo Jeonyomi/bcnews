@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { IssueSummaryCard } from '@/components/IssueCards'
@@ -141,4 +141,5 @@ export default function IssuesPage() {
     </div>
   )
 }
+
 

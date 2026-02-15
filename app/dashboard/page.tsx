@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IssueSummaryCard } from '@/components/IssueCards'
@@ -107,7 +107,7 @@ export default function DashboardPage() {
       <header className="mb-4">
         <h1 className="text-xl font-semibold">Issue-first Dashboard</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Today?�s key stablecoin and digital-asset issues at a glance.
+          Today?셲 key stablecoin and digital-asset issues at a glance.
         </p>
       </header>
 
@@ -175,4 +175,5 @@ export default function DashboardPage() {
     </div>
   )
 }
+
 

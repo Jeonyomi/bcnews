@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+﻿import { createClient } from '@supabase/supabase-js'
 import { formatSeoulDateTime } from '@/lib/datetime'
 
 const getEnv = (keys: string[]) => {
@@ -73,4 +73,5 @@ export const timeWindowToIso = (window: '6h' | '12h' | '24h' | '7d' | 'all' = '2
 }
 
 export const sanitizeSqlText = (value: string) => value.trim()
+
 

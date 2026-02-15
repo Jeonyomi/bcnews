@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { formatSeoulDateTime } from '@/lib/datetime'
 
 export function IssueSummaryCard({ issue }: { issue: any }) {
@@ -68,4 +68,5 @@ export function ArticleTableRow({ article }: { article: any }) {
     </tr>
   )
 }
+
 

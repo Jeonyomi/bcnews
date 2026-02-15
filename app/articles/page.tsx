@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { ArticleTableRow } from '@/components/IssueCards'
@@ -117,4 +117,5 @@ export default function ArticlesPage() {
     </div>
   )
 }
+
 

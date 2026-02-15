@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -75,7 +75,7 @@ const sectionMeta = (heading: BriefSection['heading']) => {
 
 const normalizeMarkdownSectionContent = (content: string) =>
   content
-    .replace(/-\s*링크:\s*(https?:\/\/\S+)/g, '- [LINK]($1)')
+    .replace(/-\s*留곹겕:\s*(https?:\/\/\S+)/g, '- [LINK]($1)')
     .replace(/-\s*LINK:\s*\[LINK\]\((https?:\/\/[^)]+)\)/g, '- [LINK]($1)')
 
 const NewsCard = ({ item, defaultExpanded = false }: Props) => {
@@ -134,7 +134,7 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
                 : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200'
             }`}
           >
-            {item.region === 'KR' ? '?��?�� Korea' : '?�� Global'}
+            {item.region === 'KR' ? '?占쏙옙?占쏙옙 Korea' : '?占쏙옙 Global'}
           </span>
 
           {item.source === 'backup' && (
@@ -262,4 +262,5 @@ const NewsCard = ({ item, defaultExpanded = false }: Props) => {
 }
 
 export default NewsCard
+
 

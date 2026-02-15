@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -101,7 +101,7 @@ export default function IssueDetailPage() {
         {issue.why_it_matters ? <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{issue.why_it_matters}</p> : null}
         <div className="mt-2 text-xs text-gray-500">
           first seen {formatSeoulDateTime(issue.first_seen_at_utc)}
-          {' · '}
+          {' 쨌 '}
           last seen {formatSeoulDateTime(issue.last_seen_at_utc)}
         </div>
         {issue.representative_article ? (
@@ -120,7 +120,7 @@ export default function IssueDetailPage() {
               <div className="text-sm font-medium">{update.update_summary}</div>
               <div className="text-xs text-gray-500">
                 {formatSeoulDateTime(update.update_at_utc)}
-                {' · '}
+                {' 쨌 '}
                 confidence: {update.confidence_label || 'medium'}
               </div>
             </div>
@@ -148,4 +148,5 @@ export default function IssueDetailPage() {
     </div>
   )
 }
+
 
