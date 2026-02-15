@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { useCallback, useEffect, useState } from 'react'
+import { formatSeoulDateTime } from '@/lib/datetime'
 
 const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
 const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
@@ -60,6 +61,17 @@ export default function SourcesPage() {
 
   const healthMap = new Map<number, any>(health.map((row) => [row.source_id, row]))
 
+  const renderLastRun = (value?: string | null) => {
+    if (!value) return '-'
+    try {
+      const date = new Date(value)
+      if (Number.isNaN(date.getTime())) return value
+      return `${formatSeoulDateTime(date)} KST`
+    } catch {
+      return value
+    }
+  }
+
   if (loading) {
     return <div className="text-sm text-gray-500">Loading sources...</div>
   }
@@ -93,7 +105,7 @@ export default function SourcesPage() {
                   <td className="px-3 py-2">{source.region || 'All'}</td>
                   <td className="px-3 py-2">{source.tier || '-'}</td>
                   <td className="px-3 py-2">{healthRow.status || 'warn'}</td>
-                  <td className="px-3 py-2">{healthRow.last_run_at || '-'}</td>
+                  <td className="px-3 py-2" title={healthRow.last_run_at || ''}>{renderLastRun(healthRow.last_run_at)}</td>
                   <td className="px-3 py-2">{healthRow.last_items || 0}</td>
                   <td className="px-3 py-2 text-xs text-red-500">{healthRow.last_error || '-'}</td>
                 </tr>
