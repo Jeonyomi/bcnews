@@ -75,7 +75,11 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
         <div className="w-full md:hidden">
           <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-gray-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">bcnews</div>
+              <div className="select-none text-sm font-black uppercase tracking-[0.22em] text-gray-900 dark:text-gray-100">
+                <span className="bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 bg-clip-text text-transparent dark:from-sky-400 dark:via-indigo-400 dark:to-violet-400">
+                  bcnews
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => setOpen((prev) => !prev)}
@@ -95,7 +99,11 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
 
         <aside className="w-52 shrink-0 hidden md:block">
           <div className="sticky top-4 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-950">
-            <div className="px-2 pb-3 text-sm font-semibold text-gray-500 dark:text-gray-400">bcnews</div>
+            <div className="px-2 pb-3 select-none text-base font-black uppercase tracking-[0.24em] text-gray-900 dark:text-gray-100">
+              <span className="bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 bg-clip-text text-transparent dark:from-sky-400 dark:via-indigo-400 dark:to-violet-400">
+                bcnews
+              </span>
+            </div>
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const active = pathname?.startsWith(item.href)
