@@ -24,5 +24,9 @@ export const stripHtml = (value: string): string => {
     .replace(/\s+([.,!?;:])/g, '$1')
     .replace(/\s{2,}/g, ' ')
 
-  return withEntities.trim()
+  return withEntities
+    .replace(/a�?/g, "'")
+    .replace(/a�|/g, '...')
+    .replace(/�/g, '')
+    .trim()
 }

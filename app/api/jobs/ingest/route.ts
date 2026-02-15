@@ -499,7 +499,7 @@ export async function POST(request: Request) {
             await client.from('issue_updates').insert({
               issue_id: issueId,
               update_at_utc: now,
-              update_summary: `New article coverage: ${item.title}`,
+              update_summary: 'New article coverage update.',
               evidence_article_ids: [inserted.id],
               confidence_label: 'medium',
             })
