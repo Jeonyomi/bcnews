@@ -5,6 +5,8 @@ import { err } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
 
+const RUN_BUDGET_MS = Number.parseInt(process.env.CRON_RUN_BUDGET_MS || '28000', 10) || 28000
+
 type SourceType = {
   id: number
   name: string
@@ -397,6 +399,10 @@ const regionFromSource = (value: string | null) => {
 
 export async function POST(request: Request) {
   try {
+    const runStart = Date.now()
+
+    const shouldStop = () => Date.now() - runStart > RUN_BUDGET_MS - 1500
+
     const secret = getSecret()
     const header = request.headers.get('x-cron-secret')
     if (!secret || !header || header !== secret) {
@@ -417,9 +423,16 @@ export async function POST(request: Request) {
 
     let insertedArticles = 0
     let issueUpdatesCreated = 0
+    let sourcesProcessed = 0
+    let stoppedEarly = false
     const runAt = new Date().toISOString()
 
     for (const source of sources as SourceType[]) {
+      if (shouldStop()) {
+        stoppedEarly = true
+        break
+      }
+
       const runLog: any = {
         source_id: source.id,
         run_at_utc: runAt,
@@ -428,6 +441,7 @@ export async function POST(request: Request) {
         items_fetched: 0,
         items_saved: 0,
       }
+      sourcesProcessed += 1
 
       try {
         const primaryUrl = source.rss_url || source.url
@@ -448,10 +462,27 @@ export async function POST(request: Request) {
         const parsed = extractItemsFromRss(xml)
         runLog.items_fetched = parsed.length
 
+        // PERF: prefetch active issues once per source to avoid per-article DB queries.
+        const region = regionFromSource(source.region)
+        const lookbackWindowMinutes = 72 * 60
+        const activeWindowSince = new Date(Date.now() - lookbackWindowMinutes * 60 * 1000).toISOString()
+        const { data: activeIssues, error: issuesErr } = await client
+          .from('issues')
+          .select('id,topic_label,title,issue_summary,key_entities,last_seen_at_utc,importance_score')
+          .eq('region', region)
+          .gte('last_seen_at_utc', activeWindowSince)
+          .order('last_seen_at_utc', { ascending: false })
+        if (issuesErr) throw issuesErr
+
         for (const item of parsed) {
+          if (shouldStop()) {
+            stoppedEarly = true
+            break
+          }
+
           const canonical_url = canonicalizeUrl(item.link)
           const contentText = `${item.title}\n\n${item.summary}`.slice(0, 4000)
-        const contentHash = buildLookupHash(canonical_url, item.title, item.summary)
+          const contentHash = buildLookupHash(canonical_url, item.title, item.summary)
           const topic = deriveTopic(item.title, item.summary)
           const entities = extractEntities(`${item.title} ${item.summary}`)
           const { score: articleScore, importance_label: articleLabel } = computeScores({
@@ -511,21 +542,6 @@ export async function POST(request: Request) {
           runLog.items_saved += 1
 
           const now = new Date().toISOString()
-          const region = regionFromSource(source.region)
-
-          const lookbackWindowMinutes = 72 * 60
-          const activeWindowSince = new Date(Date.now() - lookbackWindowMinutes * 60 * 1000).toISOString()
-
-          const { data: activeIssues, error: issuesErr } = await client
-            .from('issues')
-            .select('id,topic_label,title,issue_summary,key_entities,last_seen_at_utc,importance_score')
-            .eq('region', region)
-            .gte('last_seen_at_utc', activeWindowSince)
-            .order('last_seen_at_utc', { ascending: false })
-
-          if (issuesErr) {
-            throw issuesErr
-          }
 
           let issueId: number | null = null
 
@@ -655,6 +671,8 @@ export async function POST(request: Request) {
       ok: true,
       inserted_articles: insertedArticles,
       issue_updates_created: issueUpdatesCreated,
+      sources_processed: sourcesProcessed,
+      stopped_early: stoppedEarly,
     })
   } catch (error) {
     console.error('POST /api/jobs/ingest failed', error)
