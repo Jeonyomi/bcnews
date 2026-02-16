@@ -461,6 +461,9 @@ export async function POST(request: Request) {
         const xml = await response.text()
         const parsed = extractItemsFromRss(xml)
         runLog.items_fetched = parsed.length
+        runLog.items_skipped_url = 0
+        runLog.items_skipped_hash = 0
+        runLog.items_insert_errors = 0
 
         // PERF: prefetch active issues once per source to avoid per-article DB queries.
         const region = regionFromSource(source.region)
@@ -474,6 +477,21 @@ export async function POST(request: Request) {
           .order('last_seen_at_utc', { ascending: false })
         if (issuesErr) throw issuesErr
 
+        // PERF: batch URL dedupe upfront to avoid per-item queries when feeds are mostly repeats.
+        const canonicalUrls = parsed.map((item) => canonicalizeUrl(item.link))
+        const urlDedupeSet = new Set<string>()
+        if (canonicalUrls.length > 0) {
+          const { data: existingUrls } = await client
+            .from('articles')
+            .select('canonical_url')
+            .eq('source_id', source.id)
+            .in('canonical_url', canonicalUrls.slice(0, 80))
+
+          for (const row of existingUrls || []) {
+            if (row?.canonical_url) urlDedupeSet.add(String(row.canonical_url))
+          }
+        }
+
         for (const item of parsed) {
           if (shouldStop()) {
             stoppedEarly = true
@@ -481,6 +499,12 @@ export async function POST(request: Request) {
           }
 
           const canonical_url = canonicalizeUrl(item.link)
+
+          if (urlDedupeSet.has(canonical_url)) {
+            runLog.items_skipped_url += 1
+            continue
+          }
+
           const contentText = `${item.title}\n\n${item.summary}`.slice(0, 4000)
           const contentHash = buildLookupHash(canonical_url, item.title, item.summary)
           const topic = deriveTopic(item.title, item.summary)
@@ -493,17 +517,6 @@ export async function POST(request: Request) {
             summary: item.summary,
           })
 
-          const { data: dupesByUrl } = await client
-            .from('articles')
-            .select('id')
-            .eq('source_id', source.id)
-            .eq('canonical_url', canonical_url)
-            .limit(1)
-
-          if (dupesByUrl && dupesByUrl.length > 0) {
-            continue
-          }
-
           const since = new Date(Date.now() - 24 * 60 * 60 * 1000 * 7).toISOString()
           const { data: dupesByHash } = await client
             .from('articles')
@@ -513,7 +526,10 @@ export async function POST(request: Request) {
             .gte('published_at_utc', since)
             .limit(1)
 
-          if (dupesByHash && dupesByHash.length > 0) continue
+          if (dupesByHash && dupesByHash.length > 0) {
+            runLog.items_skipped_hash += 1
+            continue
+          }
 
           const { data: inserted, error: insertErr } = await client
             .from('articles')
@@ -537,7 +553,10 @@ export async function POST(request: Request) {
             .select('id')
             .single()
 
-          if (insertErr || !inserted) continue
+          if (insertErr || !inserted) {
+            runLog.items_insert_errors += 1
+            continue
+          }
           insertedArticles += 1
           runLog.items_saved += 1
 
