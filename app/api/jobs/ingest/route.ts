@@ -149,7 +149,7 @@ const normalizeTextForHash = (value: string) =>
 const buildLookupHash = (canonicalUrl: string, title: string, summary: string) =>
   hashContent(`${canonicalUrl}::${normalizeTextForHash(title)}::${normalizeTextForHash(summary)}`)
 
-const fetchWithTimeout = async (url: string, timeoutMs = 15000, options?: RequestInit) => {
+const fetchWithTimeout = async (url: string, timeoutMs = 8000, options?: RequestInit) => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
@@ -168,7 +168,7 @@ const fetchWithTimeout = async (url: string, timeoutMs = 15000, options?: Reques
   }
 }
 
-const fetchWithRetry = async (url: string, tries = 3) => {
+const fetchWithRetry = async (url: string, tries = 2) => {
   let lastError: unknown
 
   for (let attempt = 1; attempt <= tries; attempt += 1) {
