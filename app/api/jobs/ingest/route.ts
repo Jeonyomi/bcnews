@@ -413,8 +413,10 @@ export async function POST(request: Request) {
 
     const { data: sources, error: sourceError } = await client
       .from('sources')
-      .select('id,name,type,tier,url,rss_url,region')
+      .select('id,name,type,tier,url,rss_url,region,last_success_at,last_error_at')
       .eq('enabled', true)
+      // PERF: process sources with recent success first so we reach productive feeds within time budget.
+      .order('last_success_at', { ascending: false, nullsFirst: false })
     if (sourceError) throw sourceError
 
     if (!sources || sources.length === 0) {
