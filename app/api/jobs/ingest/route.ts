@@ -54,8 +54,12 @@ const normalizeDate = (value?: string) => {
 
 const extractLinkFromEntry = (entry: string) => {
   const cdataStripped = entry.replace(/<!\[CDATA\[|\]\]>/g, '')
-  const hrefMatch = cdataStripped.match(/<link[^>]*href="([^"]+)"[^>]*>/i)
-  if (hrefMatch) return hrefMatch[1].trim()
+  // Atom feeds frequently use href with either single/double quotes and arbitrary
+  // attribute order. Support both forms before falling back to <link>text</link>.
+  const hrefMatch =
+    cdataStripped.match(/<link[^>]*\shref\s*=\s*"([^"]+)"[^>]*>/i) ||
+    cdataStripped.match(/<link[^>]*\shref\s*=\s*'([^']+)'[^>]*>/i)
+  if (hrefMatch) return decodeHtml(hrefMatch[1]).trim()
 
   const linkMatch = cdataStripped.match(/<link>([\s\S]*?)<\/link>/i)
   return linkMatch ? linkMatch[1].trim() : ''
@@ -447,18 +451,22 @@ export async function POST(request: Request) {
 
       try {
         const primaryUrl = source.rss_url || source.url
-        let response = await fetchWithRetry(primaryUrl)
-
-        // Fallback: many sources expose broken/removed RSS endpoints (404).
-        // If RSS URL fails, try the source homepage to avoid hard-failing health.
-        if (!response.ok && source.rss_url && source.url && source.url !== source.rss_url) {
-          const fallback = await fetchWithRetry(source.url)
-          if (fallback.ok) {
-            response = fallback
+        let response
+        try {
+          response = await fetchWithRetry(primaryUrl)
+        } catch (primaryError) {
+          // Fallback: many sources expose broken/removed RSS endpoints.
+          // If RSS URL fails, try the source URL once before marking source error.
+          if (source.rss_url && source.url && source.url !== source.rss_url) {
+            try {
+              response = await fetchWithRetry(source.url)
+            } catch {
+              throw primaryError
+            }
+          } else {
+            throw primaryError
           }
         }
-
-        if (!response.ok) throw new Error(`rss_fetch_status_${response.status}`)
 
         const xml = await response.text()
         const parsed = extractItemsFromRss(xml)
@@ -466,6 +474,15 @@ export async function POST(request: Request) {
         runLog.items_skipped_url = 0
         runLog.items_skipped_hash = 0
         runLog.items_insert_errors = 0
+
+        // If we successfully fetched but couldn't extract any RSS/Atom items, treat as a warning.
+        // This prevents HTML pages (or broken feeds) from being marked as successful and starving real feeds.
+        if (parsed.length === 0) {
+          runLog.status = 'warn'
+          runLog.error_message = 'Error: rss_parse_no_items'
+          await client.from('ingest_logs').insert(runLog)
+          continue
+        }
 
         // PERF: prefetch active issues once per source to avoid per-article DB queries.
         const region = regionFromSource(source.region)
@@ -681,10 +698,9 @@ export async function POST(request: Request) {
       await client.from('ingest_logs').insert(runLog)
 
       if (runLog.status === 'ok') {
-        await client
-          .from('sources')
-          .update({ last_success_at: runAt })
-          .eq('id', source.id)
+        await client.from('sources').update({ last_success_at: runAt, last_error_at: null }).eq('id', source.id)
+      } else {
+        await client.from('sources').update({ last_error_at: runAt }).eq('id', source.id)
       }
     }
 
