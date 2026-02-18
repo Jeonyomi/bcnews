@@ -419,7 +419,8 @@ export async function POST(request: Request) {
       .from('sources')
       .select('id,name,type,tier,url,rss_url,region,last_success_at,last_error_at')
       .eq('enabled', true)
-      // PERF: process sources with recent success first so we reach productive feeds within time budget.
+      // PERF: process non-erroring sources first, then those with recent success.
+      .order('last_error_at', { ascending: true, nullsFirst: true })
       .order('last_success_at', { ascending: false, nullsFirst: false })
     if (sourceError) throw sourceError
 
