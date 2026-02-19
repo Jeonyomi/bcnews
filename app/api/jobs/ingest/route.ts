@@ -6,6 +6,10 @@ import { err } from '@/lib/dashboardApi'
 export const dynamic = 'force-dynamic'
 
 const RUN_BUDGET_MS = Number.parseInt(process.env.CRON_RUN_BUDGET_MS || '28000', 10) || 28000
+const MAX_SOURCES_PER_RUN = Number.parseInt(process.env.CRON_MAX_SOURCES_PER_RUN || '12', 10) || 12
+const MAX_ITEMS_PER_SOURCE = Number.parseInt(process.env.CRON_MAX_ITEMS_PER_SOURCE || '30', 10) || 30
+const FETCH_TIMEOUT_MS = Number.parseInt(process.env.CRON_FETCH_TIMEOUT_MS || '15000', 10) || 15000
+const FETCH_TRIES = Number.parseInt(process.env.CRON_FETCH_TRIES || '3', 10) || 3
 
 type SourceType = {
   id: number
@@ -153,7 +157,7 @@ const normalizeTextForHash = (value: string) =>
 const buildLookupHash = (canonicalUrl: string, title: string, summary: string) =>
   hashContent(`${canonicalUrl}::${normalizeTextForHash(title)}::${normalizeTextForHash(summary)}`)
 
-const fetchWithTimeout = async (url: string, timeoutMs = 8000, options?: RequestInit) => {
+const fetchWithTimeout = async (url: string, timeoutMs = FETCH_TIMEOUT_MS, options?: RequestInit) => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
@@ -172,7 +176,7 @@ const fetchWithTimeout = async (url: string, timeoutMs = 8000, options?: Request
   }
 }
 
-const fetchWithRetry = async (url: string, tries = 2) => {
+const fetchWithRetry = async (url: string, tries = FETCH_TRIES) => {
   let lastError: unknown
 
   for (let attempt = 1; attempt <= tries; attempt += 1) {
@@ -434,7 +438,24 @@ export async function POST(request: Request) {
     let stoppedEarly = false
     const runAt = new Date().toISOString()
 
-    for (const source of sources as SourceType[]) {
+    // Shuffle sources deterministically per run to avoid starvation when runs stop early.
+    const shuffled = [...(sources as SourceType[])]
+    const seed = Number.parseInt(crypto.createHash('sha256').update(runAt).digest('hex').slice(0, 8), 16)
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = (seed + i * 1103515245) % (i + 1)
+      const tmp = shuffled[i]
+      shuffled[i] = shuffled[j]
+      shuffled[j] = tmp
+    }
+
+    let processedCount = 0
+
+    for (const source of shuffled) {
+      if (processedCount >= MAX_SOURCES_PER_RUN) {
+        stoppedEarly = true
+        break
+      }
+
       if (shouldStop()) {
         stoppedEarly = true
         break
@@ -449,6 +470,7 @@ export async function POST(request: Request) {
         items_saved: 0,
       }
       sourcesProcessed += 1
+      processedCount += 1
 
       try {
         const primaryUrl = source.rss_url || source.url
@@ -512,7 +534,7 @@ export async function POST(request: Request) {
           }
         }
 
-        for (const item of parsed) {
+        for (const item of parsed.slice(0, MAX_ITEMS_PER_SOURCE)) {
           if (shouldStop()) {
             stoppedEarly = true
             break

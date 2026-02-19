@@ -11,7 +11,14 @@ if (!BASE_URL) {
   throw new Error('BCNEWS_APP_URL (or BCNEWS_APP_ORIGIN) is required')
 }
 
-const normBase = BASE_URL.replace(/\/$/, '')
+const normalizeBaseUrl = (value) => {
+  const trimmed = String(value || '').trim().replace(/\/$/, '')
+  if (!trimmed) return trimmed
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
+const normBase = normalizeBaseUrl(BASE_URL)
 
 async function jsonOrThrow(url) {
   const res = await fetch(url, {
@@ -39,10 +46,12 @@ const downCount = checks.sources?.data?.health
   ? checks.sources.data.health.filter((row) => row.status === 'down').length
   : 0
 const failSource = checks.sources?.data?.health
-  ? checks.sources.data.health.find((row) => row.status === 'down' || row.status === 'restricted')?.source_name || 'none'
+  ? checks.sources.data.health.find((row) => (row.status === 'down' || row.status === 'restricted') && row.status !== 'disabled')?.source_name || 'none'
   : 'none'
+const state = downCount > 0 || failSource !== 'none' ? 'fail' : 'ok'
+const errorText = failSource !== 'none' ? `source_degraded:${failSource}` : 'None'
 
-const line = `[bcnews health] ok | sources=${sourceCount} issues=${issueCount} articles=${articleCount} | failed_endpoint=${failSource || 'none'} | error=None`
+const line = `[bcnews health] ${state} | sources=${sourceCount} issues=${issueCount} articles=${articleCount} | failed_endpoint=${failSource || 'none'} | error=${errorText}`
 console.log(line)
 
 console.log('bcnews cron health check', JSON.stringify(checks, null, 2))
