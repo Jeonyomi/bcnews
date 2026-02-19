@@ -273,10 +273,7 @@ export async function GET(request: Request) {
 
     const enriched = (items || []).map((item: DbNewsItem) => {
       const region = (item.region === 'Global' ? 'Global' : 'KR') as 'KR' | 'Global'
-      const sections = parseBriefSections(
-        String(item.content || ''),
-        region,
-      )
+      const sections = parseBriefSections(String(item.content || ''), region)
 
       return {
         ...item,
@@ -284,7 +281,42 @@ export async function GET(request: Request) {
       }
     })
 
-    const payload: Record<string, any> = { items: enriched }
+    // Fallback: if there are no briefs for today, return recent raw articles so UI is not empty.
+    // This keeps the product usable while the brief-generation pipeline is being improved.
+    let fallbackArticles: any[] = []
+    if ((enriched || []).length === 0) {
+      const { startIso } = getTodayKstRange()
+      const { data: articles } = await supabase
+        .from('articles')
+        .select('id,title,url,published_at_utc,source_id')
+        .gte('published_at_utc', startIso)
+        .order('published_at_utc', { ascending: false })
+        .limit(30)
+
+      fallbackArticles = (articles || []).map((a: any) => ({
+        id: `article_${a.id}`,
+        region: 'Global',
+        created_at: a.published_at_utc,
+        content: `## Global Top 5\n\n1) **${a.title}**\n- Link: ${a.url}\n`,
+        sections: [
+          {
+            heading: 'Global',
+            title: sectionTitle('Global'),
+            items: [
+              {
+                title: a.title,
+                summary: '',
+                keywords: [],
+                link: a.url,
+              },
+            ],
+          },
+        ],
+        _kind: 'article_fallback',
+      }))
+    }
+
+    const payload: Record<string, any> = { items: enriched.length ? enriched : fallbackArticles }
     if (debug) {
       payload.debug = {
         hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
