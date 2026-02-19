@@ -4,7 +4,13 @@ import { err, ok } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
 
-const classifyHealthStatus = (enabled: boolean, latest?: { status?: string | null; error_message?: string | null }) => {
+const classifyHealthStatus = (
+  enabled: boolean,
+  sourceName?: string,
+  latest?: { status?: string | null; error_message?: string | null },
+) => {
+  // Ops override: FATF feed is frequently restricted; do not page on it.
+  if (String(sourceName || '').toLowerCase() === 'fatf') return 'disabled'
   if (!enabled) return 'disabled'
   if (!latest) return 'warn'
   if (latest.status === 'ok') return 'ok'
@@ -44,7 +50,7 @@ export async function GET() {
     const health = (sources || []).map((source) => {
       const sourceLogs = grouped[source.id] || []
       const latest = sourceLogs[0]
-      const status = classifyHealthStatus(source.enabled !== false, latest)
+      const status = classifyHealthStatus(source.enabled !== false, source.name, latest)
 
       return {
         source_id: source.id,
