@@ -40,4 +40,8 @@ prisma/*.db
 
 # local tmp
 /tmp
+build.log
+*tsbuildinfo
+scripts/temp_*
+temp_*
 *.md

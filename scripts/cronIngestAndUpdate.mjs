@@ -17,7 +17,14 @@ if (!CRON_SECRET) {
   throw new Error('CRON secret is required (BCNEWS_CRON_SECRET/X_CRON_SECRET/CRON_SECRET)')
 }
 
-const normBase = BASE_URL.replace(/\/$/, '')
+const normalizeBaseUrl = (value) => {
+  const trimmed = String(value || '').trim().replace(/\/$/, '')
+  if (!trimmed) return trimmed
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
+const normBase = normalizeBaseUrl(BASE_URL)
 
 async function fetchJson(url, options) {
   const res = await fetch(url, {
