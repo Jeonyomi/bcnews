@@ -37,8 +37,26 @@ export async function GET() {
     ) || null
 
     const client = createAdminClient()
-    const { data: sources, error } = await client.from('sources').select('*').order('id', { ascending: true })
-    if (error) throw error
+    // Supabase PostgREST may enforce a per-request max row limit.
+    // To reliably fetch all sources, paginate in ranges.
+    const pageSize = 200
+    let from = 0
+    const sources: any[] = []
+
+    while (true) {
+      const { data: page, error } = await client
+        .from('sources')
+        .select('*')
+        .order('id', { ascending: true })
+        .range(from, from + pageSize - 1)
+
+      if (error) throw error
+      if (!page || page.length === 0) break
+
+      sources.push(...page)
+      if (page.length < pageSize) break
+      from += pageSize
+    }
 
     // Debug probe: check whether recently-seeded ids exist in the DB this runtime is actually reading.
     const { data: probe140 } = await client.from('sources').select('id,enabled').eq('id', 140).maybeSingle()
