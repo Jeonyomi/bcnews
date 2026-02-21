@@ -26,11 +26,17 @@ export async function GET() {
     }
 
     // 전체 응답 구조 확인
+    const { createHash } = await import('node:crypto')
+    const cronSecret = process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET || ''
+    const fp = (v: string) => createHash('sha256').update(v, 'utf8').digest('hex').slice(0, 10)
+
     return NextResponse.json({
       env: {
         hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
         hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        url: process.env.NEXT_PUBLIC_SUPABASE_URL
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        cronSecretLen: cronSecret.length,
+        cronSecretFp: fp(cronSecret),
       },
       items,
       serverTime: new Date().toISOString()
