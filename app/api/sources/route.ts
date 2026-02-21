@@ -40,6 +40,9 @@ export async function GET() {
     const { data: sources, error } = await client.from('sources').select('*').order('id', { ascending: true })
     if (error) throw error
 
+    // Debug probe: check whether recently-seeded ids exist in the DB this runtime is actually reading.
+    const { data: probe140 } = await client.from('sources').select('id,enabled').eq('id', 140).maybeSingle()
+
     const { data: logs } = await client
       .from('ingest_logs')
       .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message')
@@ -74,6 +77,7 @@ export async function GET() {
         health,
         meta: {
           sourcesCount: (sources || []).length,
+          probe140: probe140 || null,
           supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || null,
           supabaseKeyLen: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').length,
           anonKeyLen: (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').length,
