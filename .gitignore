@@ -43,5 +43,7 @@ prisma/*.db
 build.log
 *tsbuildinfo
 scripts/temp_*
+scripts/_*
 temp_*
+.vercel.env.*
 *.md
