@@ -534,7 +534,13 @@ export async function POST(request: Request) {
           }
         }
 
+        const recentCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000 * 14).toISOString()
+
         for (const item of parsed.slice(0, MAX_ITEMS_PER_SOURCE)) {
+          // Skip very old posts to keep dashboard fresh.
+          if (item.publishedAt && item.publishedAt < recentCutoff) {
+            continue
+          }
           if (shouldStop()) {
             stoppedEarly = true
             break
@@ -559,7 +565,8 @@ export async function POST(request: Request) {
             summary: item.summary,
           })
 
-          const since = new Date(Date.now() - 24 * 60 * 60 * 1000 * 7).toISOString()
+          // Dedupe window: only consider recent articles so old backfills don't block.
+          const since = new Date(Date.now() - 24 * 60 * 60 * 1000 * 14).toISOString()
           const { data: dupesByHash } = await client
             .from('articles')
             .select('id')
