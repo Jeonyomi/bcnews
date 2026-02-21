@@ -710,14 +710,26 @@ export async function POST(request: Request) {
 
           if (issueId) {
             await client.from('articles').update({ issue_id: issueId }).eq('id', inserted.id)
-            await client.from('issue_updates').insert({
-              issue_id: issueId,
-              update_at_utc: now,
-              update_summary: 'New article coverage update.',
-              evidence_article_ids: [inserted.id],
-              confidence_label: 'medium',
-            })
-            issueUpdatesCreated += 1
+
+            // Avoid spamming duplicate timeline entries: skip if an update already references this article.
+            const { data: existingUpdate } = await client
+              .from('issue_updates')
+              .select('id')
+              .eq('issue_id', issueId)
+              .contains('evidence_article_ids', [inserted.id])
+              .limit(1)
+              .maybeSingle()
+
+            if (!existingUpdate) {
+              await client.from('issue_updates').insert({
+                issue_id: issueId,
+                update_at_utc: now,
+                update_summary: 'New article coverage update.',
+                evidence_article_ids: [inserted.id],
+                confidence_label: 'medium',
+              })
+              issueUpdatesCreated += 1
+            }
           }
         }
       } catch (sourceError) {

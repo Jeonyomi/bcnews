@@ -132,12 +132,20 @@ export async function GET(
         .sort((a, b) => a - b),
     }))
 
-    // Deduplicate noisy timeline entries (same summary + same evidence list).
-    const seen = new Set<string>()
+    // Deduplicate noisy timeline entries.
+    // Primary: same summary + same evidence list.
+    // Secondary: collapse identical summaries (common when update_summary is generic).
+    const seenExact = new Set<string>()
+    const seenSummary = new Set<string>()
     const cleanUpdates = cleanUpdatesRaw.filter((update) => {
-      const key = `${update.update_summary}::${(update.evidence_article_ids || []).join(',')}`
-      if (seen.has(key)) return false
-      seen.add(key)
+      const evidenceKey = (update.evidence_article_ids || []).join(',')
+      const exactKey = `${update.update_summary}::${evidenceKey}`
+      if (seenExact.has(exactKey)) return false
+      seenExact.add(exactKey)
+
+      if (seenSummary.has(update.update_summary)) return false
+      seenSummary.add(update.update_summary)
+
       return true
     })
 
