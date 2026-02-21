@@ -31,6 +31,11 @@ const classifyHealthStatus = (
 
 export async function GET() {
   try {
+    const urlEnvKey = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'].find((k) => !!process.env[k]) || null
+    const adminKeyEnvKey = ['SUPABASE_SERVICE_ROLE_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY'].find(
+      (k) => !!process.env[k],
+    ) || null
+
     const client = createAdminClient()
     const { data: sources, error } = await client.from('sources').select('*').order('id', { ascending: true })
     if (error) throw error
@@ -83,6 +88,8 @@ export async function GET() {
             const h = (v: string) => createHash('sha256').update(v, 'utf8').digest('hex').slice(0, 10)
             return { url: h(url), anon: h(anon), svc: h(svc) }
           })(),
+          urlEnvKey,
+          adminKeyEnvKey,
         },
       }),
     )
