@@ -74,9 +74,9 @@ export default function ListFilterBar({
 
         <Link
           href="/dashboard"
-          className="h-9 rounded border border-gray-300 px-3 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900"
+          className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
         >
-          ← dashboard
+          Dashboard
         </Link>
       </div>
     </section>
