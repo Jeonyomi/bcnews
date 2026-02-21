@@ -3,49 +3,65 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic' // no caching
 
-// Public key를 사용하는 클라이언트
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 export async function GET() {
+  const { createHash } = await import('node:crypto')
+  const cronSecret = process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET || ''
+  const fp = (v: string) => createHash('sha256').update(v, 'utf8').digest('hex').slice(0, 10)
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  // IMPORTANT: do not require env vars at module-load time; it breaks Vercel builds.
+  if (!supabaseUrl || !supabaseAnon) {
+    return NextResponse.json({
+      env: {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseAnon,
+        url: supabaseUrl || null,
+        cronSecretLen: cronSecret.length,
+        cronSecretFp: fp(cronSecret),
+      },
+      items: [],
+      serverTime: new Date().toISOString(),
+      warning: 'Missing NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY at runtime.',
+    })
+  }
+
   try {
-    // Debug: 쿼리와 결과를 자세히 로깅
-    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-    
+    const supabase = createClient(supabaseUrl, supabaseAnon)
+
     const { data: items, error } = await supabase
       .from('news_briefs')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(5)
 
-    if (error) {
-      console.error('Supabase error:', error)
-      throw error
-    }
-
-    // 전체 응답 구조 확인
-    const { createHash } = await import('node:crypto')
-    const cronSecret = process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET || ''
-    const fp = (v: string) => createHash('sha256').update(v, 'utf8').digest('hex').slice(0, 10)
+    if (error) throw error
 
     return NextResponse.json({
       env: {
-        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasUrl: true,
+        hasKey: true,
+        url: supabaseUrl,
         cronSecretLen: cronSecret.length,
         cronSecretFp: fp(cronSecret),
       },
       items,
-      serverTime: new Date().toISOString()
+      serverTime: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('API Error:', error)
     return NextResponse.json(
-      { error: String(error) }, 
-      { status: 500 }
+      {
+        env: {
+          hasUrl: true,
+          hasKey: true,
+          url: supabaseUrl,
+          cronSecretLen: cronSecret.length,
+          cronSecretFp: fp(cronSecret),
+        },
+        error: String(error),
+      },
+      { status: 500 },
     )
   }
 }
