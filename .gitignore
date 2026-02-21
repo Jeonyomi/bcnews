@@ -46,4 +46,6 @@ scripts/temp_*
 scripts/_*
 temp_*
 .vercel.env.*
+.env
+.env.*
 *.md
