@@ -73,6 +73,11 @@ export default function ArticlesPage() {
 
   return (
     <div>
+      <div className="mb-2">
+        <a href="/dashboard" className="text-sm text-blue-600 hover:underline">
+          ← Back to Dashboard
+        </a>
+      </div>
       <h1 className="mb-3 text-xl font-semibold">Articles</h1>
 
       <ListFilterBar

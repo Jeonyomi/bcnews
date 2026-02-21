@@ -123,10 +123,23 @@ export async function GET(
         }
       : null
 
-    const cleanUpdates = timeline.map((update) => ({
+    const cleanUpdatesRaw = timeline.map((update) => ({
       ...update,
       update_summary: normalizeEnglish(update.update_summary || ''),
+      evidence_article_ids: parseJsonArray(update.evidence_article_ids)
+        .map((v) => Number(v))
+        .filter((n) => Number.isFinite(n))
+        .sort((a, b) => a - b),
     }))
+
+    // Deduplicate noisy timeline entries (same summary + same evidence list).
+    const seen = new Set<string>()
+    const cleanUpdates = cleanUpdatesRaw.filter((update) => {
+      const key = `${update.update_summary}::${(update.evidence_article_ids || []).join(',')}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
 
     const cleanArticles = (merged || []).map((article) => ({
       ...article,
