@@ -22,12 +22,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# local env files
+# local env files / secrets
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
+.vercel.env.*
+.tmp_cron_secret
 
 # turbo
 .turbo
@@ -44,8 +47,5 @@ build.log
 *tsbuildinfo
 scripts/temp_*
 scripts/_*
+scripts/trigger_ingest*.ps1
 temp_*
-.vercel.env.*
-.env
-.env.*
-*.md
