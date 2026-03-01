@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -8,9 +8,6 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/issues', label: 'Issues' },
-  { href: '/articles', label: 'Articles' },
-  { href: '/search', label: 'Search' },
   { href: '/sources', label: 'Sources' },
 ]
 
@@ -97,7 +94,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
           </div>
         </div>
 
-        <aside className="w-52 shrink-0 hidden md:block">
+        <aside className="hidden w-52 shrink-0 md:block">
           <div className="sticky top-4 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-950">
             <div className="px-2 pb-3 select-none text-base font-black uppercase tracking-[0.24em] text-gray-900 dark:text-gray-100">
               <span className="bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 bg-clip-text text-transparent dark:from-sky-400 dark:via-indigo-400 dark:to-violet-400">
@@ -106,7 +103,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
             </div>
             <div className="px-2 pb-3">
               <RefreshBar
-                label="Menu control"
+                label="Feed control"
                 lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
                 isAutoRefreshOn={autoRefresh}
                 onToggleAutoRefresh={setAutoRefresh}
@@ -137,7 +134,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
           </div>
         </aside>
 
-        <main className="relative flex-1 min-w-0 rounded-xl border border-gray-200 bg-white p-4 md:p-6 dark:border-gray-800 dark:bg-gray-950">
+        <main className="relative min-w-0 flex-1 rounded-xl border border-gray-200 bg-white p-4 md:p-6 dark:border-gray-800 dark:bg-gray-950">
           {children}
         </main>
 
@@ -151,7 +148,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
           <div className="px-3 pb-3 text-sm font-semibold text-gray-400">Menu</div>
           <div className="px-2 pb-3">
             <RefreshBar
-              label="Menu control"
+              label="Feed control"
               lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
               isAutoRefreshOn={autoRefresh}
               onToggleAutoRefresh={setAutoRefresh}
@@ -177,12 +174,11 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
                 >
                   {item.label}
                 </Link>
-              )}
-            )}
+              )
+            })}
           </nav>
         </aside>
       </div>
     </div>
   )
 }
-
