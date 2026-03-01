@@ -89,12 +89,13 @@ export interface SourcesResponseData {
     runs: number
     warn_runs: number
     error_runs: number
-    success_rate: number
-    error_rate: number
+    success_rate: number | null
+    error_rate: number | null
     total_fetched: number
     total_saved: number
   }>
   summary: { total: number; ok: number; warn: number; stale: number; down: number; disabled: number }
+  meta: { health_window_runs: number; stale_hours: number }
 }
 
 export type SourcesResponse = APIEnvelope<SourcesResponseData>
@@ -105,5 +106,6 @@ export type IssueDetailResponse = APIEnvelope<{
   related_articles: ArticleRecord[]
   representative_article: ArticleRecord | null
 }>
+
 
 

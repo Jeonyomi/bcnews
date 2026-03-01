@@ -78,8 +78,8 @@ export async function GET() {
       const warnRuns = sourceLogs.filter((r) => r.status === 'warn').length
       const fetched = sourceLogs.reduce((sum, r) => sum + Number(r.items_fetched || 0), 0)
       const saved = sourceLogs.reduce((sum, r) => sum + Number(r.items_saved || 0), 0)
-      const successRate = runs > 0 ? Math.round(((runs - errorRuns) / runs) * 100) : 0
-      const errorRate = runs > 0 ? Math.round((errorRuns / runs) * 100) : 0
+      const successRate = runs > 0 ? Math.round(((runs - errorRuns) / runs) * 100) : null
+      const errorRate = runs > 0 ? Math.round((errorRuns / runs) * 100) : null
 
       return {
         source_id: source.id,
@@ -118,6 +118,7 @@ export async function GET() {
         sources,
         health,
         summary: healthCounts,
+        meta: { health_window_runs: HEALTH_WINDOW, stale_hours: STALE_HOURS },
       }),
     )
   } catch (error) {
@@ -125,3 +126,4 @@ export async function GET() {
     return NextResponse.json(err(`sources_error: ${String(error)}`), { status: 500 })
   }
 }
+

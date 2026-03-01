@@ -18,13 +18,14 @@ type HealthRow = {
   runs: number
   warn_runs: number
   error_runs: number
-  success_rate: number
-  error_rate: number
+  success_rate: number | null
+  error_rate: number | null
   total_fetched: number
   total_saved: number
 }
 
 type Summary = { total: number; ok: number; warn: number; stale: number; down: number; disabled: number }
+type Meta = { health_window_runs: number; stale_hours: number }
 
 const statusClass: Record<HealthRow['status'], string> = {
   ok: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -40,6 +41,7 @@ export default function SourcesPage() {
   const [sources, setSources] = useState<any[]>([])
   const [health, setHealth] = useState<HealthRow[]>([])
   const [summary, setSummary] = useState<Summary>({ total: 0, ok: 0, warn: 0, stale: 0, down: 0, disabled: 0 })
+  const [meta, setMeta] = useState<Meta>({ health_window_runs: 20, stale_hours: 6 })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -54,6 +56,7 @@ export default function SourcesPage() {
       setSources(payload.data.sources || [])
       setHealth(payload.data.health || [])
       setSummary(payload.data.summary || { total: 0, ok: 0, warn: 0, stale: 0, down: 0, disabled: 0 })
+      setMeta(payload.data.meta || { health_window_runs: 20, stale_hours: 6 })
 
       const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       window.dispatchEvent(new CustomEvent(REFRESH_DONE_EVENT, { detail: { pathname: window.location.pathname, lastUpdatedAt: now } }))
@@ -63,6 +66,7 @@ export default function SourcesPage() {
       setSources([])
       setHealth([])
       setSummary({ total: 0, ok: 0, warn: 0, stale: 0, down: 0, disabled: 0 })
+      setMeta({ health_window_runs: 20, stale_hours: 6 })
     } finally {
       setLoading(false)
     }
@@ -100,6 +104,7 @@ export default function SourcesPage() {
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Sources Health</h1>
       <p className="text-sm text-gray-500">Ingest reliability overview with stale/down detection and recent success/error ratios.</p>
+      <p className="text-xs text-gray-500">Window: last {meta.health_window_runs} runs per source ¡¤ stale if no run for {meta.stale_hours}h.</p>
 
       <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {[
@@ -149,7 +154,7 @@ export default function SourcesPage() {
                   </td>
                   <td className="px-3 py-2 text-xs">{renderDate(row?.last_run_at)}</td>
                   <td className="px-3 py-2 text-xs">{row?.last_items || 0} / {row?.last_saved || 0}</td>
-                  <td className="px-3 py-2 text-xs">{row?.success_rate || 0}% / {row?.error_rate || 0}%</td>
+                  <td className="px-3 py-2 text-xs">{row?.success_rate == null ? '?' : `${row.success_rate}%`} / {row?.error_rate == null ? '?' : `${row.error_rate}%`}</td>
                   <td className="px-3 py-2 text-xs">{row?.total_fetched || 0} / {row?.total_saved || 0}</td>
                   <td className="max-w-[340px] truncate px-3 py-2 text-xs text-red-500" title={row?.last_error || ''}>{row?.last_error || '-'}</td>
                 </tr>
