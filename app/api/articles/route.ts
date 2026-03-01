@@ -112,10 +112,32 @@ export async function GET(request: Request) {
         window,
       }),
     )
-  } catch (error) {
-    console.error('GET /api/articles failed', error)
+  } catch (error: any) {
+    const message = error?.message || String(error)
+    const stack = typeof error?.stack === 'string' ? error.stack : null
+    const code = error?.code || null
+    const details = error?.details || null
+    const hint = error?.hint || null
+
+    console.error('GET /api/articles failed', {
+      message,
+      code,
+      details,
+      hint,
+      stack,
+      raw: error,
+    })
+
     return NextResponse.json(
-      err(`articles_api_error: ${String(error)}`),
+      {
+        ok: false,
+        error: `articles_api_error: ${message}`,
+        message,
+        code,
+        details,
+        hint,
+        stack,
+      },
       { status: 500 },
     )
   }
