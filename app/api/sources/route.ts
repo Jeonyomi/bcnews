@@ -4,67 +4,62 @@ import { err, ok } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
 
+type HealthStatus = 'ok' | 'warn' | 'down' | 'disabled' | 'restricted' | 'throttled' | 'stale'
+
+const STALE_HOURS = Number.parseInt(process.env.SOURCE_STALE_HOURS || '6', 10) || 6
+const HEALTH_WINDOW = Number.parseInt(process.env.SOURCE_HEALTH_LOG_WINDOW || '20', 10) || 20
+
+const toDate = (value?: string | null) => {
+  if (!value) return null
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
 const classifyHealthStatus = (
   enabled: boolean,
-  sourceName?: string,
-  latest?: { status?: string | null; error_message?: string | null },
-) => {
-  // Ops override: FATF feed is frequently restricted; do not page on it.
-  if (String(sourceName || '').toLowerCase() === 'fatf') return 'disabled'
+  sourceName: string,
+  latest?: { status?: string | null; error_message?: string | null; run_at_utc?: string | null },
+): HealthStatus => {
+  if (sourceName.toLowerCase() === 'fatf') return 'disabled'
   if (!enabled) return 'disabled'
   if (!latest) return 'warn'
+
+  const latestDate = toDate(latest.run_at_utc)
+  if (latestDate) {
+    const staleCutoff = Date.now() - STALE_HOURS * 60 * 60 * 1000
+    if (latestDate.getTime() < staleCutoff) return 'stale'
+  }
+
   if (latest.status === 'ok') return 'ok'
   if (latest.status !== 'error') return 'warn'
 
   const error = String(latest.error_message || '').toLowerCase()
-
-  // 1st-pass improvement: treat external-access/feed-endpoint issues as warn-ish,
-  // and reserve "down" for actual service/runtime failures.
   if (error.includes('rss_fetch_status_404')) return 'warn'
   if (error.includes('rss_fetch_status_401') || error.includes('rss_fetch_status_403')) return 'restricted'
   if (error.includes('rss_fetch_status_429')) return 'throttled'
   if (error.includes('invalid time value')) return 'warn'
   if (error.includes('rss_fetch_status_5')) return 'down'
-
   return 'down'
 }
 
 export async function GET() {
   try {
-    const urlEnvKey = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'].find((k) => !!process.env[k]) || null
-    const adminKeyEnvKey = ['SUPABASE_SERVICE_ROLE_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY'].find(
-      (k) => !!process.env[k],
-    ) || null
-
     const client = createAdminClient()
-    // Supabase PostgREST may enforce a per-request max row limit.
-    // To reliably fetch all sources, paginate in ranges.
-    const pageSize = 200
-    let from = 0
-    const sources: any[] = []
 
-    while (true) {
-      const { data: page, error } = await client
-        .from('sources')
-        .select('*')
-        .order('id', { ascending: true })
-        .range(from, from + pageSize - 1)
+    const { data: sources, error: sourceError } = await client
+      .from('sources')
+      .select('id,name,type,tier,region,enabled,last_success_at,last_error_at')
+      .order('id', { ascending: true })
 
-      if (error) throw error
-      if (!page || page.length === 0) break
+    if (sourceError) throw sourceError
 
-      sources.push(...page)
-      if (page.length < pageSize) break
-      from += pageSize
-    }
-
-    // Debug probe: check whether recently-seeded ids exist in the DB this runtime is actually reading.
-    const { data: probe140 } = await client.from('sources').select('id,enabled').eq('id', 140).maybeSingle()
-
-    const { data: logs } = await client
+    const { data: logs, error: logsError } = await client
       .from('ingest_logs')
       .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message')
       .order('run_at_utc', { ascending: false })
+      .limit(5000)
+
+    if (logsError) throw logsError
 
     const grouped: Record<number, any[]> = {}
     for (const row of logs || []) {
@@ -74,45 +69,55 @@ export async function GET() {
     }
 
     const health = (sources || []).map((source) => {
-      const sourceLogs = grouped[source.id] || []
+      const sourceLogs = (grouped[source.id] || []).slice(0, HEALTH_WINDOW)
       const latest = sourceLogs[0]
-      const status = classifyHealthStatus(source.enabled !== false, source.name, latest)
+      const status = classifyHealthStatus(source.enabled !== false, String(source.name || ''), latest)
+
+      const runs = sourceLogs.length
+      const errorRuns = sourceLogs.filter((r) => r.status === 'error').length
+      const warnRuns = sourceLogs.filter((r) => r.status === 'warn').length
+      const fetched = sourceLogs.reduce((sum, r) => sum + Number(r.items_fetched || 0), 0)
+      const saved = sourceLogs.reduce((sum, r) => sum + Number(r.items_saved || 0), 0)
+      const successRate = runs > 0 ? Math.round(((runs - errorRuns) / runs) * 100) : 0
+      const errorRate = runs > 0 ? Math.round((errorRuns / runs) * 100) : 0
 
       return {
         source_id: source.id,
         source_name: source.name,
         status,
-        last_status: latest ? latest.status : null,
-        last_items: latest ? latest.items_fetched : 0,
+        last_status: latest?.status || null,
+        last_items: latest?.items_fetched || 0,
+        last_saved: latest?.items_saved || 0,
         last_error: source.enabled === false ? null : latest?.error_message || null,
-        last_run_at: latest ? latest.run_at_utc : null,
+        last_run_at: latest?.run_at_utc || null,
+        runs,
+        warn_runs: warnRuns,
+        error_runs: errorRuns,
+        success_rate: successRate,
+        error_rate: errorRate,
+        total_fetched: fetched,
+        total_saved: saved,
       }
     })
+
+    const healthCounts = health.reduce(
+      (acc, row) => {
+        acc.total += 1
+        if (row.status === 'ok') acc.ok += 1
+        else if (row.status === 'warn' || row.status === 'throttled' || row.status === 'restricted') acc.warn += 1
+        else if (row.status === 'stale') acc.stale += 1
+        else if (row.status === 'disabled') acc.disabled += 1
+        else acc.down += 1
+        return acc
+      },
+      { total: 0, ok: 0, warn: 0, stale: 0, down: 0, disabled: 0 },
+    )
 
     return NextResponse.json(
       ok({
         sources,
         health,
-        meta: {
-          sourcesCount: (sources || []).length,
-          probe140: probe140 || null,
-          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || null,
-          supabaseKeyLen: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').length,
-          anonKeyLen: (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').length,
-          hasUrlWhitespace: /\s$/.test(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''),
-          hasKeyWhitespace: /\s$/.test(process.env.SUPABASE_SERVICE_ROLE_KEY || ''),
-          // Safe fingerprints to detect mismatched env keys across environments (non-reversible)
-          envFp: await (async () => {
-            const { createHash } = await import('node:crypto')
-            const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''
-            const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
-            const svc = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-            const h = (v: string) => createHash('sha256').update(v, 'utf8').digest('hex').slice(0, 10)
-            return { url: h(url), anon: h(anon), svc: h(svc) }
-          })(),
-          urlEnvKey,
-          adminKeyEnvKey,
-        },
+        summary: healthCounts,
       }),
     )
   } catch (error) {

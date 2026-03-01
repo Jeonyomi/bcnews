@@ -80,12 +80,21 @@ export interface SourcesResponseData {
   health: Array<{
     source_id: number
     source_name: string
-    status: 'ok' | 'warn' | 'down'
-    last_status: string
+    status: 'ok' | 'warn' | 'down' | 'disabled' | 'restricted' | 'throttled' | 'stale'
+    last_status: string | null
     last_items: number
+    last_saved: number
     last_error: string | null
     last_run_at: string | null
+    runs: number
+    warn_runs: number
+    error_runs: number
+    success_rate: number
+    error_rate: number
+    total_fetched: number
+    total_saved: number
   }>
+  summary: { total: number; ok: number; warn: number; stale: number; down: number; disabled: number }
 }
 
 export type SourcesResponse = APIEnvelope<SourcesResponseData>
@@ -96,3 +105,5 @@ export type IssueDetailResponse = APIEnvelope<{
   related_articles: ArticleRecord[]
   representative_article: ArticleRecord | null
 }>
+
+
