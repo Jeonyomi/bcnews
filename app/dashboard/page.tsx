@@ -1,67 +1,83 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { IssueSummaryCard } from '@/components/IssueCards'
+import {
+  ANALYSIS_KEYWORDS,
+  BREAKING_KEYWORDS,
+  FEED_FILTERS,
+  SOURCE_TABS,
+  type FeedFilterKey,
+  type SourceTabKey,
+} from '@/lib/dashboardFeedConfig'
+import { formatSeoulDateTime } from '@/lib/datetime'
 
 const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
 const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
 
-interface IssueRow {
+interface ArticleRow {
   id: number
   title: string
-  issue_summary: string
+  url: string
+  published_at_utc: string
+  summary_short: string | null
   why_it_matters: string | null
-  region: 'KR' | 'Global'
-  topic_label: string
-  importance_score: number
-  importance_label: string
-  last_seen_at_utc: string
-  recent_updates_count: number
-  confidence_label?: string
+  importance_label: string | null
+  source?: { name?: string | null }
 }
 
-interface TrendRow {
-  name: string
-  score: number
-  bucket: string
+const minutesAgo = (value: string) => {
+  const ts = new Date(value).getTime()
+  if (!Number.isFinite(ts)) return '-'
+  const diffMs = Date.now() - ts
+  const mins = Math.max(0, Math.floor(diffMs / 60000))
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
 }
+
+const classifyArticle = (article: ArticleRow): FeedFilterKey => {
+  const text = `${article.title || ''} ${article.summary_short || ''} ${article.why_it_matters || ''}`.toLowerCase()
+  const importance = (article.importance_label || '').toUpperCase()
+
+  if (importance === 'HIGH' || BREAKING_KEYWORDS.some((k) => text.includes(k))) {
+    return 'breaking'
+  }
+  if (ANALYSIS_KEYWORDS.some((k) => text.includes(k))) {
+    return 'analysis'
+  }
+  return 'all'
+}
+
+const sourceName = (article: ArticleRow) => (article.source?.name || 'Unknown').trim()
 
 export default function DashboardPage() {
-  const [topIssues, setTopIssues] = useState<IssueRow[]>([])
-  const [topUpdated, setTopUpdated] = useState<IssueRow[]>([])
-  const [topics, setTopics] = useState<TrendRow[]>([])
-  const [entities, setEntities] = useState<TrendRow[]>([])
+  const [articles, setArticles] = useState<ArticleRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const [activeSourceTab, setActiveSourceTab] = useState<SourceTabKey>('all')
+  const [activeFilter, setActiveFilter] = useState<FeedFilterKey>('all')
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const [issuesRes, trendRes, updatesRes] = await Promise.all([
-        fetch('/api/issues?time_window=24h&limit=8&sort=importance'),
-        fetch('/api/trends?time_window=7d&limit=6'),
-        fetch('/api/issues?time_window=24h&sort=hybrid&only_updates=1&limit=10'),
-      ])
+      const q = new URLSearchParams({
+        time_window: '24h',
+        sort: 'latest',
+        limit: '150',
+      })
 
-      const issuesPayload = await issuesRes.json()
-      const trendPayload = await trendRes.json()
-      const updatePayload = await updatesRes.json()
+      const response = await fetch(`/api/articles?${q.toString()}`)
+      const payload = await response.json()
 
-      if (!issuesRes.ok || !issuesPayload?.ok) {
-        throw new Error(issuesPayload?.error || 'Failed to load dashboard issues')
-      }
-      if (!trendRes.ok || !trendPayload?.ok) {
-        throw new Error(trendPayload?.error || 'Failed to load dashboard trends')
-      }
-      if (!updatesRes.ok || !updatePayload?.ok) {
-        throw new Error(updatePayload?.error || 'Failed to load dashboard updates')
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || 'Failed to load dashboard feed')
       }
 
-      setTopIssues(Array.isArray(issuesPayload.data?.issues) ? issuesPayload.data.issues.slice(0, 8) : [])
-      setTopUpdated(Array.isArray(updatePayload.data?.issues) ? updatePayload.data.issues.slice(0, 8) : [])
-      setTopics(Array.isArray(trendPayload.data?.topics) ? trendPayload.data.topics : [])
-      setEntities(Array.isArray(trendPayload.data?.entities) ? trendPayload.data.entities : [])
+      setArticles(Array.isArray(payload.data?.articles) ? payload.data.articles : [])
 
       const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       window.dispatchEvent(
@@ -73,12 +89,9 @@ export default function DashboardPage() {
         }),
       )
     } catch (err) {
-      console.error('dashboard load failed', err)
+      console.error('dashboard feed load failed', err)
       setError(err instanceof Error ? err.message : 'Failed to load dashboard')
-      setTopIssues([])
-      setTopUpdated([])
-      setTopics([])
-      setEntities([])
+      setArticles([])
     } finally {
       setLoading(false)
     }
@@ -100,20 +113,69 @@ export default function DashboardPage() {
     void load()
   }, [load])
 
-  const hasUpdates = useMemo(() => topUpdated.length > 0, [topUpdated])
+  const visibleArticles = useMemo(() => {
+    const sourceMatcher = SOURCE_TABS.find((tab) => tab.key === activeSourceTab)?.matcher || (() => true)
+
+    return articles.filter((article) => {
+      const source = sourceName(article).toLowerCase()
+      const sourceMatched = sourceMatcher(source)
+      if (!sourceMatched) return false
+
+      if (activeFilter === 'all') return true
+      return classifyArticle(article) === activeFilter
+    })
+  }, [articles, activeFilter, activeSourceTab])
 
   return (
     <div>
       <header className="mb-4">
-        <h1 className="text-xl font-semibold">Issue-first Dashboard</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Today&apos;s key stablecoin and digital-asset issues at a glance.
-        </p>
+        <h1 className="text-xl font-semibold">Crypto News Dashboard</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Dense breaking-news feed, source tabs, and latest-first ranking.</p>
       </header>
 
-      {loading ? (
-        <div className="rounded-md border border-dashed border-gray-300 p-4 text-sm text-gray-500">Loading issue intelligence...</div>
-      ) : null}
+      <section className="mb-3 flex flex-wrap gap-2">
+        {SOURCE_TABS.map((tab) => {
+          const active = tab.key === activeSourceTab
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveSourceTab(tab.key)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                active
+                  ? 'border-emerald-600 bg-emerald-600 text-white'
+                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </section>
+
+      <section className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Filter</span>
+        {FEED_FILTERS.map((filter) => {
+          const active = filter.key === activeFilter
+          return (
+            <button
+              key={filter.key}
+              type="button"
+              onClick={() => setActiveFilter(filter.key)}
+              className={`rounded border px-2.5 py-1 text-xs transition ${
+                active
+                  ? 'border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900'
+                  : 'border-gray-300 text-gray-600 hover:border-gray-500 dark:border-gray-700 dark:text-gray-300'
+              }`}
+            >
+              {filter.label}
+            </button>
+          )
+        })}
+        <span className="ml-auto text-xs text-gray-500">Sort: Latest</span>
+      </section>
+
+      {loading ? <div className="rounded border border-dashed border-gray-300 p-3 text-sm text-gray-500">Loading feed...</div> : null}
       {error ? (
         <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30">
           {error}
@@ -123,55 +185,52 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-200">Top Issues (Today)</h2>
-          <div className="space-y-3">
-            {topIssues.map((issue) => (
-              <IssueSummaryCard key={issue.id} issue={issue} />
-            ))}
-            {topIssues.length === 0 ? <div className="text-sm text-gray-500">No issues for this window.</div> : null}
-          </div>
-        </section>
+      {!loading && !error && visibleArticles.length === 0 ? <div className="text-sm text-gray-500">No matching feed items.</div> : null}
 
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-200">Top Updates (last 24h)</h2>
-          <div className="space-y-3">
-            {hasUpdates ? topUpdated.map((issue) => <IssueSummaryCard key={`upd-${issue.id}`} issue={issue} />) : null}
-            {!hasUpdates ? <div className="text-sm text-gray-500">No new updates found.</div> : null}
-          </div>
-        </section>
-      </section>
+      {!loading && visibleArticles.length > 0 ? (
+        <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950">
+          {visibleArticles.map((article) => {
+            const type = classifyArticle(article)
+            const typeLabel = type === 'breaking' ? 'Breaking' : type === 'analysis' ? 'Analysis' : 'News'
+            const importance = (article.importance_label || '').toUpperCase() || 'LOW'
 
-      <section className="mt-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-2 text-sm font-semibold">Trends (7d topics)</h2>
-          <ul className="space-y-2">
-            {topics.map((item, idx) => (
-              <li key={`${item.name}-${idx}`} className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500">#{idx + 1}</span>
-                <span className="font-medium">{item.name}</span>
-                <span className="ml-auto rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">{item.score}</span>
+            return (
+              <li key={article.id} className="px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-900">
+                <div className="flex items-start gap-2">
+                  <span
+                    className={`mt-0.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                      importance === 'HIGH'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                        : importance === 'MED'
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                    }`}
+                  >
+                    {importance}
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <a href={article.url} target="_blank" rel="noreferrer" className="line-clamp-2 text-sm font-semibold leading-5 hover:underline">
+                      {article.title}
+                    </a>
+
+                    <div className="mt-1 line-clamp-1 text-xs text-gray-600 dark:text-gray-400">{article.why_it_matters || article.summary_short || 'No summary yet.'}</div>
+
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                      <span className="font-medium text-gray-700 dark:text-gray-300">{sourceName(article)}</span>
+                      <span>?</span>
+                      <span>{minutesAgo(article.published_at_utc)}</span>
+                      <span>({formatSeoulDateTime(article.published_at_utc)} KST)</span>
+                      <span>?</span>
+                      <span>{typeLabel}</span>
+                    </div>
+                  </div>
+                </div>
               </li>
-            ))}
-            {topics.length === 0 ? <li className="text-sm text-gray-500">No trend data yet.</li> : null}
-          </ul>
-        </div>
-
-        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-2 text-sm font-semibold">Entity Momentum</h2>
-          <ul className="space-y-2">
-            {entities.map((item, idx) => (
-              <li key={`${item.name}-${idx}`} className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500">#{idx + 1}</span>
-                <span className="font-medium">{item.name}</span>
-                <span className="ml-auto rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">{item.score}</span>
-              </li>
-            ))}
-            {entities.length === 0 ? <li className="text-sm text-gray-500">No entity data yet.</li> : null}
-          </ul>
-        </div>
-      </section>
+            )
+          })}
+        </ul>
+      ) : null}
     </div>
   )
 }
