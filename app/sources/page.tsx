@@ -25,7 +25,14 @@ type HealthRow = {
 }
 
 type Summary = { total: number; ok: number; warn: number; stale: number; down: number; disabled: number }
-type Meta = { health_window_runs: number; stale_hours: number }
+type Meta = {
+  health_window_runs: number
+  stale_hours: number
+  min_runs_for_rate?: number
+  down_consecutive_errors?: number
+  down_error_rate_pct?: number
+  warn_error_rate_pct?: number
+}
 
 const statusClass: Record<HealthRow['status'], string> = {
   ok: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -104,7 +111,9 @@ export default function SourcesPage() {
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Sources Health</h1>
       <p className="text-sm text-gray-500">Ingest reliability overview with stale/down detection and recent success/error ratios.</p>
-      <p className="text-xs text-gray-500">Window: last {meta.health_window_runs} runs per source ¡¤ stale if no run for {meta.stale_hours}h.</p>
+      <p className="text-xs text-gray-500">
+        Window: last {meta.health_window_runs} runs per source ¡¤ stale if no run for {meta.stale_hours}h ¡¤ warn if error_rate ¡Ã {meta.warn_error_rate_pct ?? 20}% (runs ¡Ã {meta.min_runs_for_rate ?? 10}) ¡¤ down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate ¡Ã {meta.down_error_rate_pct ?? 80}%.
+      </p>
 
       <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {[
