@@ -10,6 +10,21 @@ const MAX_SOURCES_PER_RUN = Number.parseInt(process.env.CRON_MAX_SOURCES_PER_RUN
 const MAX_ITEMS_PER_SOURCE = Number.parseInt(process.env.CRON_MAX_ITEMS_PER_SOURCE || '30', 10) || 30
 const FETCH_TIMEOUT_MS = Number.parseInt(process.env.CRON_FETCH_TIMEOUT_MS || '15000', 10) || 15000
 const FETCH_TRIES = Number.parseInt(process.env.CRON_FETCH_TRIES || '3', 10) || 3
+const TITLE_SIMILARITY_THRESHOLD = Number.parseFloat(process.env.INGEST_TITLE_SIM_THRESHOLD || '0.82') || 0.82
+const TITLE_DEDUPE_WINDOW_HOURS = Number.parseInt(process.env.INGEST_TITLE_DEDUPE_WINDOW_HOURS || '36', 10) || 36
+
+const CRYPTO_RELEVANCE_KEYWORDS = [
+  'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'xrp', 'doge', 'bnb',
+  'crypto', 'cryptocurrency', 'token', 'blockchain', 'onchain', 'wallet',
+  'stablecoin', 'usdt', 'usdc', 'depeg', 'defi', 'cex', 'exchange', 'binance',
+  'coinbase', 'etf', 'sec', 'cftc', 'fomc', 'rate cut', 'listing', 'liquidation',
+  'hack', 'exploit', 'bridge', 'staking', 'airdrop', 'mainnet', 'l2',
+]
+
+const NON_CRYPTO_NOISE_KEYWORDS = [
+  'nba', 'nfl', 'mlb', 'celebrity', 'fashion', 'movie', 'box office', 'recipe',
+  'travel', 'iphone review', 'real estate tips', 'gossip',
+]
 
 type SourceType = {
   id: number
@@ -364,9 +379,29 @@ const keywordSignals = {
 const clampScore = (value: number) => Math.max(0, Math.min(100, value))
 
 const labelFromScore = (score: number) => {
-  if (score >= 72) return 'high'
-  if (score >= 44) return 'medium'
-  return 'low'
+  if (score >= 72) return 'HIGH'
+  if (score >= 44) return 'MED'
+  return 'LOW'
+}
+
+const titleSimilarity = (a: string, b: string) => {
+  const aTokens = toTokenSet(a)
+  const bTokens = toTokenSet(b)
+  return jaccardRatio(aTokens, bTokens)
+}
+
+const isCryptoRelevant = (title: string, summary: string) => {
+  const text = `${title} ${summary}`.toLowerCase()
+
+  if (NON_CRYPTO_NOISE_KEYWORDS.some((k) => text.includes(k))) return false
+
+  let hit = 0
+  for (const keyword of CRYPTO_RELEVANCE_KEYWORDS) {
+    if (text.includes(keyword)) hit += 1
+  }
+
+  const strongSignal = /(stablecoin|depeg|crypto|bitcoin|ethereum|etf|exploit|hack|binance|coinbase|defi)/.test(text)
+  return strongSignal || hit >= 2
 }
 
 const topicKeywords = (title: string, summary: string) => {
@@ -535,6 +570,14 @@ export async function POST(request: Request) {
         }
 
         const recentCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000 * 14).toISOString()
+        const titleWindowSince = new Date(Date.now() - TITLE_DEDUPE_WINDOW_HOURS * 60 * 60 * 1000).toISOString()
+        const { data: recentSourceRows } = await client
+          .from('articles')
+          .select('title,published_at_utc')
+          .eq('source_id', source.id)
+          .gte('published_at_utc', titleWindowSince)
+          .order('published_at_utc', { ascending: false })
+          .limit(200)
 
         for (const item of parsed.slice(0, MAX_ITEMS_PER_SOURCE)) {
           // Skip very old posts to keep dashboard fresh.
@@ -546,6 +589,11 @@ export async function POST(request: Request) {
             break
           }
 
+          if (!isCryptoRelevant(item.title, item.summary)) {
+            runLog.items_skipped_hash += 1
+            continue
+          }
+
           const canonical_url = canonicalizeUrl(item.link)
 
           if (urlDedupeSet.has(canonical_url)) {
@@ -553,7 +601,20 @@ export async function POST(request: Request) {
             continue
           }
 
-          const contentText = `${item.title}\n\n${item.summary}`.slice(0, 4000)
+          const dupeByTitle = (recentSourceRows || []).some((row) => {
+            const existingTitle = String((row as any).title || '')
+            if (!existingTitle) return false
+            return titleSimilarity(existingTitle, item.title) >= TITLE_SIMILARITY_THRESHOLD
+          })
+
+          if (dupeByTitle) {
+            runLog.items_skipped_hash += 1
+            continue
+          }
+
+          const contentText = `${item.title}
+
+${item.summary}`.slice(0, 4000)
           const contentHash = buildLookupHash(canonical_url, item.title, item.summary)
           const topic = deriveTopic(item.title, item.summary)
           const entities = extractEntities(`${item.title} ${item.summary}`)
@@ -758,3 +819,9 @@ export async function POST(request: Request) {
     return NextResponse.json(err(`ingest_error: ${String(error)}`), { status: 500 })
   }
 }
+
+
+
+
+
+
