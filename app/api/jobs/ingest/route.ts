@@ -581,7 +581,7 @@ const autoPostBreaking = async (client: any, payload: {
   if (inTierB && importance !== 'HIGH') return { posted: false, reason: 'tier_b_high_only' }
 
   const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
-  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\\n\\n?怨쀫츋?? \n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
+  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\\n\\n??⑥レ툔?? \n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
   const dedupeBase = hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())
   const dedupeSince = new Date(Date.now() - AUTO_POST_DEDUPE_HOURS * 60 * 60 * 1000).toISOString()
 
