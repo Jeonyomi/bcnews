@@ -21,7 +21,45 @@ const CRYPTO_RELEVANCE_KEYWORDS = [
   'hack', 'exploit', 'bridge', 'staking', 'airdrop', 'mainnet', 'l2',
 ]
 
-const ALWAYS_ALLOW_SOURCES = ['FinancialJuice','Binance Announcements','Coinbase Announcements']
+const AUTO_POST_DAILY_CAP = Number.parseInt(process.env.AUTO_POST_DAILY_CAP || '12', 10) || 12
+const AUTO_POST_DEDUPE_HOURS = Number.parseInt(process.env.AUTO_POST_DEDUPE_HOURS || '12', 10) || 12
+const TELEGRAM_BOT_TOKEN = process.env.TG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ''
+const TELEGRAM_BREAKING_CHANNEL = process.env.TG_BREAKING_CHANNEL || '@Krypto_breaking'
+const BREAKING_SOURCE_ALLOWLIST = [
+  'Reuters',
+  'FinancialJuice',
+  'Binance Announcements',
+  'Coinbase Announcements',
+  'Coinbase Blog',
+  'SEC',
+  'CFTC',
+  'Federal Reserve',
+  'U.S. Treasury',
+]
+
+const TAG_RULES: Array<{ tag: string; keywords: string[] }> = [
+  { tag: '#BTC', keywords: ['bitcoin', 'btc'] },
+  { tag: '#ETH', keywords: ['ethereum', 'eth'] },
+  { tag: '#ALT', keywords: ['solana', 'xrp', 'altcoin', 'token'] },
+  { tag: '#REGULATION', keywords: ['sec', 'cftc', 'regulation', 'treasury', 'law'] },
+  { tag: '#EXCHANGE', keywords: ['binance', 'coinbase', 'exchange', 'listing', 'delisting'] },
+  { tag: '#HACK', keywords: ['hack', 'exploit', 'breach'] },
+  { tag: '#STABLECOIN', keywords: ['stablecoin', 'usdt', 'usdc', 'depeg'] },
+  { tag: '#ETF', keywords: ['etf'] },
+  { tag: '#ONCHAIN', keywords: ['onchain', 'wallet', 'validator', 'bridge'] },
+]
+
+const deriveBreakingTags = (text: string) => {
+  const lower = String(text || '').toLowerCase()
+  const tags: string[] = []
+  for (const rule of TAG_RULES) {
+    if (rule.keywords.some((k) => lower.includes(k))) tags.push(rule.tag)
+    if (tags.length >= 3) break
+  }
+  return tags
+}
+
+const ALWAYS_ALLOW_SOURCES = ['FinancialJuice','Binance Announcements','Coinbase Announcements','Coinbase Blog']
 
 const NON_CRYPTO_NOISE_KEYWORDS = [
   'nba', 'nfl', 'mlb', 'celebrity', 'fashion', 'movie', 'box office', 'recipe',
@@ -444,6 +482,94 @@ const regionFromSource = (value: string | null) => {
 }
 
 
+
+const sendTelegramMessage = async (text: string) => {
+  if (!TELEGRAM_BOT_TOKEN) throw new Error('missing_telegram_bot_token')
+
+  const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: TELEGRAM_BREAKING_CHANNEL,
+      text,
+      disable_web_page_preview: false,
+    }),
+  })
+
+  const payload = await response.json().catch(() => ({} as any))
+  if (!response.ok || !payload?.ok) {
+    throw new Error(`telegram_send_failed: ${payload?.description || response.statusText}`)
+  }
+
+  return {
+    messageId: Number(payload.result?.message_id || 0),
+    chatId: String(payload.result?.chat?.id || TELEGRAM_BREAKING_CHANNEL),
+  }
+}
+
+const autoPostBreaking = async (client: any, payload: {
+  articleId: number
+  sourceName: string
+  headline: string
+  articleUrl: string
+  summary: string
+  importanceLabel: string
+}) => {
+  const importance = String(payload.importanceLabel || '').toUpperCase()
+  if (importance !== 'HIGH') return
+  if (!BREAKING_SOURCE_ALLOWLIST.includes(payload.sourceName)) return
+
+  const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
+  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\n\nSource: ${payload.sourceName}\n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
+  const dedupeBase = hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())
+  const dedupeSince = new Date(Date.now() - AUTO_POST_DEDUPE_HOURS * 60 * 60 * 1000).toISOString()
+
+  const { data: recentDuplicate } = await client
+    .from('channel_posts')
+    .select('id')
+    .eq('lane', 'breaking')
+    .eq('status', 'posted')
+    .gte('created_at', dedupeSince)
+    .like('dedupe_key', `breaking:${dedupeBase}:%`)
+    .limit(1)
+    .maybeSingle()
+
+  if (recentDuplicate?.id) return
+
+  const dayStart = new Date()
+  dayStart.setUTCHours(0, 0, 0, 0)
+
+  const { count: postedToday } = await client
+    .from('channel_posts')
+    .select('id', { count: 'exact', head: true })
+    .eq('lane', 'breaking')
+    .eq('status', 'posted')
+    .gte('posted_at', dayStart.toISOString())
+
+  if ((postedToday || 0) >= AUTO_POST_DAILY_CAP) return
+
+  const sent = await sendTelegramMessage(postText)
+
+  await client.from('channel_posts').insert({
+    status: 'posted',
+    lane: 'breaking',
+    article_id: payload.articleId,
+    source_name: payload.sourceName,
+    headline: payload.headline,
+    headline_ko: payload.headline,
+    article_url: payload.articleUrl,
+    tags,
+    post_text: postText,
+    target_channel: TELEGRAM_BREAKING_CHANNEL,
+    target_admin: '@master_billybot',
+    dedupe_key: `breaking:${dedupeBase}:${Date.now()}`,
+    posted_at: new Date().toISOString(),
+    approved_by: 'auto',
+    telegram_message_id: sent.messageId,
+    telegram_chat_id: sent.chatId,
+  })
+}
+
 const insertSourceRunLog = async (client: any, runLog: any) => {
   if (!client || !runLog) return
 
@@ -723,6 +849,19 @@ ${item.summary}`.slice(0, 4000)
           }
           insertedArticles += 1
           runLog.items_saved += 1
+
+          try {
+            await autoPostBreaking(client, {
+              articleId: inserted.id,
+              sourceName: String(source.name || 'Unknown'),
+              headline: item.title,
+              articleUrl: item.link,
+              summary: item.summary,
+              importanceLabel: articleLabel,
+            })
+          } catch (autoPostErr) {
+            console.error('autoPostBreaking failed', autoPostErr)
+          }
 
           const now = new Date().toISOString()
 
