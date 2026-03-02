@@ -85,11 +85,18 @@ const sources = [
   { name: 'The Verge', type: 'rss', tier: '3', url: 'https://www.theverge.com', rss_url: 'https://www.theverge.com/rss/index.xml', region: 'Global', enabled: true },
   { name: 'Ars Technica', type: 'rss', tier: '3', url: 'https://arstechnica.com', rss_url: 'https://feeds.arstechnica.com/arstechnica/index', region: 'Global', enabled: true },
 
-  // Optional ???낅슢??Pulse??
+  // Optional ???????⑹른??Pulse??
   { name: 'Hacker News (frontpage)', type: 'rss', tier: '3', url: 'https://news.ycombinator.com', rss_url: 'https://hnrss.org/frontpage', region: 'Global', enabled: true },
   { name: 'GitHub Trending', type: 'web', tier: '3', url: 'https://github.com/trending', rss_url: null, region: 'Global', enabled: false },
 
   // ------------------------------------------------------------
+  // ------------------------------------------------------------
+  // Korea (crypto media) ??Tier 1
+  // ------------------------------------------------------------
+  { name: 'Blockmedia', type: 'rss', tier: '1', url: 'https://www.blockmedia.co.kr', rss_url: 'https://www.blockmedia.co.kr/feed', region: 'KR', enabled: true },
+  { name: 'Tokenpost', type: 'rss', tier: '1', url: 'https://www.tokenpost.kr', rss_url: 'https://www.tokenpost.kr/rss', region: 'KR', enabled: true },
+  { name: 'Coinness', type: 'rss', tier: '1', url: 'https://coinness.com', rss_url: 'https://news.google.com/rss/search?q=site:coinness.com%20(%EB%B9%84%ED%8A%B8%EC%BD%94%EC%9D%B8%20OR%20%EC%9D%B4%EB%8D%94%EB%A6%AC%EC%9B%80%20OR%20%EA%B0%80%EC%83%81%EC%9E%90%EC%82%B0)&hl=ko&gl=KR&ceid=KR:ko', region: 'KR', enabled: true },
+
   // Korea (official) ??Tier 1
   // ------------------------------------------------------------
   { name: 'Financial Services Commission (KR)', type: 'official', tier: '1', url: 'https://www.fsc.go.kr', rss_url: 'https://www.fsc.go.kr/eng/rss.xml', region: 'KR', enabled: true },
@@ -123,4 +130,3 @@ main().catch((error) => {
   console.error(error)
   process.exit(1)
 })
-

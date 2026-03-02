@@ -444,6 +444,22 @@ const regionFromSource = (value: string | null) => {
 }
 
 
+const insertSourceRunLog = async (client: any, runLog: any) => {
+  if (!client || !runLog) return
+
+  const row: any = {
+    source_id: runLog.source_id || null,
+    run_at_utc: runLog.run_at_utc || new Date().toISOString(),
+    status: runLog.status || 'ok',
+    error_message: runLog.error_message || null,
+    items_fetched: runLog.items_fetched || 0,
+    items_saved: runLog.items_saved || 0,
+  }
+
+  const { error } = await client.from('ingest_logs').insert(row)
+  if (error) console.error('ingest_log_insert_failed', { source_id: row.source_id, error })
+}
+
 const insertGlobalIngestLog = async (client: any, payload: {
   runAtUtc: string
   status: string
@@ -576,7 +592,7 @@ export async function POST(request: Request) {
         if (parsed.length === 0) {
           runLog.status = 'warn'
           runLog.error_message = 'Error: rss_parse_no_items'
-          { const { error: logErr } = await client.from('ingest_logs').insert(runLog)
+          { const { error: logErr } = await insertSourceRunLog(client, runLog)
             if (logErr) console.error('ingest_log_insert_failed', { source_id: source.id, error: logErr })
           }
           continue
@@ -839,7 +855,7 @@ ${item.summary}`.slice(0, 4000)
       }
 
       {
-        const { error: logErr } = await client.from('ingest_logs').insert(runLog)
+        const { error: logErr } = await insertSourceRunLog(client, runLog)
         if (logErr) console.error('ingest_log_insert_failed', { source_id: source.id, error: logErr })
       }
 
