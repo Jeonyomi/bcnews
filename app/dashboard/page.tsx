@@ -14,6 +14,14 @@ import { formatSeoulDateTime } from '@/lib/datetime'
 const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
 const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
 
+interface PendingPost {
+  id: number
+  headline: string
+  source_name: string | null
+  tags: string[]
+  target_channel: string
+}
+
 interface ArticleRow {
   id: number
   title: string
@@ -54,11 +62,46 @@ const sourceName = (article: ArticleRow) => (article.source?.name || 'Unknown').
 
 export default function DashboardPage() {
   const [articles, setArticles] = useState<ArticleRow[]>([])
+  const [pendingPosts, setPendingPosts] = useState<PendingPost[]>([])
+  const [postingId, setPostingId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const [activeSourceTab, setActiveSourceTab] = useState<SourceTabKey>('breaking')
   const [activeFilter, setActiveFilter] = useState<FeedFilterKey>('all')
+
+  const loadPendingPosts = useCallback(async () => {
+    try {
+      const response = await fetch('/api/channel-posts?status=pending&limit=10')
+      const payload = await response.json()
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'pending load failed')
+      setPendingPosts(Array.isArray(payload.data) ? payload.data : [])
+    } catch (e) {
+      console.error('pending posts load failed', e)
+      setPendingPosts([])
+    }
+  }, [])
+
+  const updatePending = useCallback(
+    async (id: number, action: 'approve' | 'skip') => {
+      setPostingId(id)
+      try {
+        const response = await fetch('/api/channel-posts', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id, action, approvedBy: '@master_billybot' }),
+        })
+        const payload = await response.json()
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'update failed')
+        await loadPendingPosts()
+      } catch (e) {
+        console.error('pending update failed', e)
+      } finally {
+        setPostingId(null)
+      }
+    },
+    [loadPendingPosts],
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -111,7 +154,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     void load()
-  }, [load])
+    void loadPendingPosts()
+  }, [load, loadPendingPosts])
 
   const visibleArticles = useMemo(() => {
     const sourceMatcher = SOURCE_TABS.find((tab) => tab.key === activeSourceTab)?.matcher || (() => true)
@@ -134,6 +178,45 @@ export default function DashboardPage() {
         <h1 className="text-xl font-semibold">Crypto News Dashboard</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">Dense breaking-news feed, source tabs, and latest-first ranking.</p>
       </header>
+
+      <section className="mb-4 rounded-lg border border-amber-300 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Pending Posts (Manual approve)</h2>
+          <span className="text-xs text-gray-500">@Krypto_breaking</span>
+        </div>
+        {pendingPosts.length === 0 ? (
+          <div className="text-xs text-gray-500">No pending posts.</div>
+        ) : (
+          <ul className="space-y-2">
+            {pendingPosts.map((post) => (
+              <li key={post.id} className="rounded border border-amber-200 bg-white p-2 text-xs dark:border-amber-900 dark:bg-gray-950">
+                <div className="font-semibold">{post.headline}</div>
+                <div className="mt-1 text-gray-600 dark:text-gray-300">
+                  {post.source_name || 'Unknown'} | {post.tags?.join(' ')}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={postingId === post.id}
+                    onClick={() => void updatePending(post.id, 'approve')}
+                    className="rounded bg-emerald-600 px-2 py-1 text-white disabled:opacity-50"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    disabled={postingId === post.id}
+                    onClick={() => void updatePending(post.id, 'skip')}
+                    className="rounded bg-gray-700 px-2 py-1 text-white disabled:opacity-50"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="mb-3 flex flex-wrap gap-2">
         {SOURCE_TABS.map((tab) => {
@@ -220,10 +303,10 @@ export default function DashboardPage() {
 
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
                       <span className="font-medium text-gray-700 dark:text-gray-300">{sourceName(article)}</span>
-                      <span>?</span>
+                      <span>|</span>
                       <span>{minutesAgo(article.published_at_utc)}</span>
                       <span>({formatSeoulDateTime(article.published_at_utc)} KST)</span>
-                      <span>?</span>
+                      <span>|</span>
                       <span>{typeLabel}</span>
                     </div>
                   </div>
