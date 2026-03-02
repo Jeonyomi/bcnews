@@ -214,6 +214,11 @@ const canonicalizeUrl = (value: string) => {
 
 const hashContent = (text: string) => crypto.createHash('sha256').update(text).digest('hex')
 
+const fingerprint = (value?: string | null) => {
+  if (!value) return null
+  return hashContent(value).slice(0, 12)
+}
+
 const normalizeTextForHash = (value: string) =>
   value
     .toLowerCase()
@@ -640,6 +645,37 @@ const insertSourceRunLog = async (client: any, runLog: any) => {
   if (error) console.error('ingest_log_insert_failed', { source_id: row.source_id, error })
 }
 
+const buildDebugEnv = async (client: any) => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''
+  let host = ''
+  try { host = new URL(supabaseUrl).host } catch {}
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+  const dbNow = await client.rpc('db_now').then((r: any) => ({ ok: !r.error, value: r.data ?? null, error: r.error ?? null })).catch((e: any) => ({ ok: false, value: null, error: String(e) }))
+
+  return {
+    supabase_host_hash: fingerprint(host),
+    service_role_hash_prefix: fingerprint(serviceKey),
+    db_now: dbNow.value || null,
+    db_now_error: dbNow.ok ? null : (dbNow.error || 'db_now_unavailable'),
+  }
+}
+
+const verifyGlobalReadback = async (client: any, runAtUtc?: string | null) => {
+  if (!runAtUtc) return { found: false, row: null }
+  const q = await client
+    .from('ingest_logs')
+    .select('id,run_at_utc,status,source_id')
+    .is('source_id', null)
+    .eq('run_at_utc', runAtUtc)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (q.error) return { found: false, error: q.error, row: null }
+  return { found: !!q.data, row: q.data || null }
+}
+
 const writeGlobalIngestLog = async (client: any, payload: {
   runAtUtc: string
   status: string
@@ -720,7 +756,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: false, error: 'diagnostic_select_failed', write, latest }, { status: 500 })
       }
 
-      return NextResponse.json({ ok: true, write, latest: latest.data })
+      const debugEnv = await buildDebugEnv(client)
+      const readback = await verifyGlobalReadback(client, write?.row?.run_at_utc || runAt)
+      return NextResponse.json({ ok: true, write, readback, latest: latest.data, debug_env: debugEnv })
     }
 
     // Deterministic global run freshness marker for every ingest call.
@@ -731,6 +769,7 @@ export async function POST(request: Request) {
       itemsFetched: 0,
       itemsSaved: 0,
     })
+    const globalLogStartReadback = await verifyGlobalReadback(client, globalLogStart?.row?.run_at_utc || runAt)
 
     const { data: sources, error: sourceError } = await client
       .from('sources')
@@ -748,7 +787,8 @@ export async function POST(request: Request) {
         stage: 'preflight',
         errorMessage: 'no_enabled_sources',
       })
-      return NextResponse.json({ ok: true, inserted_articles: 0, issue_updates_created: 0, global_log_write_start: globalLogStart, global_log_write_preflight: globalLogNoSources })
+      const debugEnv = await buildDebugEnv(client)
+      return NextResponse.json({ ok: true, inserted_articles: 0, issue_updates_created: 0, global_log_write_start: globalLogStart, global_log_write_start_readback: globalLogStartReadback, global_log_write_preflight: globalLogNoSources, debug_env: debugEnv })
     }
 
     let insertedArticles = 0
@@ -1127,6 +1167,8 @@ ${item.summary}`.slice(0, 4000)
       itemsFetched: 0,
       itemsSaved: insertedArticles,
     })
+    const globalLogEndReadback = await verifyGlobalReadback(client, globalLogEnd?.row?.run_at_utc || runAt)
+    const debugEnv = await buildDebugEnv(client)
 
     return NextResponse.json({
       ok: true,
@@ -1136,7 +1178,10 @@ ${item.summary}`.slice(0, 4000)
       stopped_early: stoppedEarly,
       autopost_eval: autopostEval,
       global_log_write_start: globalLogStart,
+      global_log_write_start_readback: globalLogStartReadback,
       global_log_write_end: globalLogEnd,
+      global_log_write_end_readback: globalLogEndReadback,
+      debug_env: debugEnv,
     })
   } catch (error) {
     console.error('POST /api/jobs/ingest failed', error)

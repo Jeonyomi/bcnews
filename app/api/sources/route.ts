@@ -13,6 +13,16 @@ const DOWN_CONSECUTIVE_ERRORS = Number.parseInt(process.env.SOURCE_DOWN_CONSECUT
 const DOWN_ERROR_RATE_PCT = Number.parseInt(process.env.SOURCE_DOWN_ERROR_RATE_PCT || '80', 10) || 80
 const WARN_ERROR_RATE_PCT = Number.parseInt(process.env.SOURCE_WARN_ERROR_RATE_PCT || '20', 10) || 20
 
+const fingerprint = (value?: string | null) => {
+  if (!value) return null
+  let h = 2166136261
+  for (let i = 0; i < value.length; i += 1) {
+    h ^= value.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (h >>> 0).toString(16).padStart(8, '0')
+}
+
 const toDate = (value?: string | null) => {
   if (!value) return null
   const d = new Date(value)
@@ -120,6 +130,7 @@ export async function GET(request: Request) {
     }
 
     let globalLatestRunAt: string | null = null
+    let debugGlobalLatestRawRow: any = null
     const globalLatestQuery = { filter: 'source_id IS NULL', orderBy: 'run_at_utc DESC', limit: 1, fallback: 'MAX(run_at_utc) overall' }
 
     const latestGlobal = await client
@@ -132,6 +143,7 @@ export async function GET(request: Request) {
 
     if (!latestGlobal.error && latestGlobal.data?.run_at_utc) {
       globalLatestRunAt = String(latestGlobal.data.run_at_utc)
+      debugGlobalLatestRawRow = latestGlobal.data
     }
 
     if (!globalLatestRunAt) {
@@ -143,6 +155,7 @@ export async function GET(request: Request) {
         .maybeSingle()
       if (!latestAny.error && latestAny.data?.run_at_utc) {
         globalLatestRunAt = String(latestAny.data.run_at_utc)
+        debugGlobalLatestRawRow = latestAny.data
       }
     }
 
@@ -205,6 +218,13 @@ export async function GET(request: Request) {
       }
     })
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''
+    let supabaseHost = ''
+    try { supabaseHost = new URL(supabaseUrl).host } catch {}
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+    const dbNow = await client.rpc('db_now').then((r: any) => ({ ok: !r.error, value: r.data ?? null, error: r.error ?? null })).catch((e: any) => ({ ok: false, value: null, error: String(e) }))
+
     const healthCounts = health.reduce(
       (acc, row) => {
         acc.total += 1
@@ -236,6 +256,11 @@ export async function GET(request: Request) {
         debug: debugGlobal && debugAllowed
           ? {
               global_latest_query: globalLatestQuery,
+              global_latest_raw_row: debugGlobalLatestRawRow,
+              supabase_host_hash: fingerprint(supabaseHost),
+              service_role_hash_prefix: fingerprint(serviceKey),
+              db_now: dbNow.value || null,
+              db_now_error: dbNow.ok ? null : (dbNow.error || 'db_now_unavailable'),
               global_rows_last5: (await (async () => {
                 const withStageRows = await client
                   .from('ingest_logs')
