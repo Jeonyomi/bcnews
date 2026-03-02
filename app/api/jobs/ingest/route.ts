@@ -30,11 +30,13 @@ const BREAKING_TIER_A_ALLOWLIST = [
   'FinancialJuice',
   'Binance Announcements',
   'Coinbase Announcements',
-  'Coinbase Blog',
-  'SEC',
+    'SEC',
   'CFTC',
   'Federal Reserve',
   'U.S. Treasury',
+  'Blockmedia',
+  'Tokenpost',
+  'Coinness',
 ]
 
 const BREAKING_TIER_B_ALLOWLIST = [
@@ -551,7 +553,7 @@ const autoPostBreaking = async (client: any, payload: {
   const inTierB = BREAKING_TIER_B_ALLOWLIST.includes(payload.sourceName)
   if (!inTierA && !inTierB) return { posted: false, reason: 'source_not_allowlisted' }
 
-  if (inTierA && !['HIGH', 'MED'].includes(importance)) return { posted: false, reason: 'tier_a_needs_med_or_high' }
+  if (inTierA && !['HIGH', 'MED'].includes(importance)) return { posted: false, reason: 'tier_a_med_or_high_only' }
   if (inTierB && importance !== 'HIGH') return { posted: false, reason: 'tier_b_high_only' }
 
   const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
