@@ -21,6 +21,8 @@ const CRYPTO_RELEVANCE_KEYWORDS = [
   'hack', 'exploit', 'bridge', 'staking', 'airdrop', 'mainnet', 'l2',
 ]
 
+const ALWAYS_ALLOW_SOURCES = ['FinancialJuice','Binance Announcements','Coinbase Announcements']
+
 const NON_CRYPTO_NOISE_KEYWORDS = [
   'nba', 'nfl', 'mlb', 'celebrity', 'fashion', 'movie', 'box office', 'recipe',
   'travel', 'iphone review', 'real estate tips', 'gossip',
@@ -405,7 +407,8 @@ const isCryptoRelevant = (title: string, summary: string) => {
 }
 
 const topicKeywords = (title: string, summary: string) => {
-  const text = `${title}\n${summary}`.toLowerCase()
+  const text = `${title}
+${summary}`.toLowerCase()
   const tokens: string[] = []
 
   if (/(regulation|regulatory|policy|compliance|governance|directive|legal)/.test(text)) tokens.push('regulation')
@@ -573,7 +576,9 @@ export async function POST(request: Request) {
         if (parsed.length === 0) {
           runLog.status = 'warn'
           runLog.error_message = 'Error: rss_parse_no_items'
-          await client.from('ingest_logs').insert(runLog)
+          { const { error: logErr } = await client.from('ingest_logs').insert(runLog)
+            if (logErr) console.error('ingest_log_insert_failed', { source_id: source.id, error: logErr })
+          }
           continue
         }
 
@@ -624,7 +629,7 @@ export async function POST(request: Request) {
             break
           }
 
-          if (!isCryptoRelevant(item.title, item.summary)) {
+          if (!ALWAYS_ALLOW_SOURCES.includes(String(source.name || '')) && !isCryptoRelevant(item.title, item.summary)) {
             runLog.items_skipped_hash += 1
             continue
           }
@@ -833,7 +838,10 @@ ${item.summary}`.slice(0, 4000)
         runLog.error_message = String(sourceError)
       }
 
-      await client.from('ingest_logs').insert(runLog)
+      {
+        const { error: logErr } = await client.from('ingest_logs').insert(runLog)
+        if (logErr) console.error('ingest_log_insert_failed', { source_id: source.id, error: logErr })
+      }
 
       if (runLog.status === 'ok') {
         await client.from('sources').update({ last_success_at: runAt, last_error_at: null }).eq('id', source.id)

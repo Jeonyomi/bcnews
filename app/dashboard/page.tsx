@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [activeSourceTab, setActiveSourceTab] = useState<SourceTabKey>('all')
+  const [activeSourceTab, setActiveSourceTab] = useState<SourceTabKey>('breaking')
   const [activeFilter, setActiveFilter] = useState<FeedFilterKey>('all')
 
   const load = useCallback(async () => {
@@ -120,6 +120,8 @@ export default function DashboardPage() {
       const source = sourceName(article).toLowerCase()
       const sourceMatched = sourceMatcher(source)
       if (!sourceMatched) return false
+
+      if (activeSourceTab === 'breaking' && classifyArticle(article) !== 'breaking') return false
 
       if (activeFilter === 'all') return true
       return classifyArticle(article) === activeFilter

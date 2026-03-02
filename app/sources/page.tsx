@@ -16,6 +16,7 @@ type HealthRow = {
   last_error: string | null
   last_run_at: string | null
   runs: number
+  source_runs?: number
   warn_runs: number
   error_runs: number
   success_rate: number | null
@@ -129,7 +130,7 @@ export default function SourcesPage() {
       <h1 className="text-xl font-semibold">Sources Health</h1>
       <p className="text-sm text-gray-500">Ingest reliability overview with stale/down detection and recent success/error ratios.</p>
       <p className="text-xs text-gray-500">
-        Window: last {meta.health_window_runs} runs per source Â· stale if no run for {meta.stale_hours}h Â· warn if error_rate â‰¥ {meta.warn_error_rate_pct ?? 20}% (runs â‰¥ {meta.min_runs_for_rate ?? 10}) Â· down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate â‰¥ {meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}.
+        Window: last {meta.health_window_runs} runs per source ¡¤ stale if no run for {meta.stale_hours}h ¡¤ warn if error_rate ¡Ã {meta.warn_error_rate_pct ?? 20}% (runs ¡Ã {meta.min_runs_for_rate ?? 10}) ¡¤ down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate ¡Ã {meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}.
       </p>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -156,6 +157,7 @@ export default function SourcesPage() {
               <th className="px-3 py-2 text-left">Status</th>
               <th className="px-3 py-2 text-left">Last run</th>
               <th className="px-3 py-2 text-left">Last fetched/saved</th>
+              <th className="px-3 py-2 text-left">Runs (source/global)</th>
               <th className="px-3 py-2 text-left">Success / Error</th>
               <th className="px-3 py-2 text-left">Recent totals</th>
               <th className="px-3 py-2 text-left">Last error</th>
@@ -165,11 +167,14 @@ export default function SourcesPage() {
             {activeSources.map((source) => {
               const row = healthMap.get(source.id)
               const status = row?.status || 'warn'
+              const sourceRuns = row?.source_runs ?? 0
+              const globalRuns = row?.runs ?? 0
+
               return (
                 <tr key={source.id} className="border-b border-gray-100 dark:border-gray-800">
                   <td className="px-3 py-2">
                     <div className="font-medium">{source.name}</div>
-                    <div className="text-xs text-gray-500">{source.type} Â· {source.region || 'All'}</div>
+                    <div className="text-xs text-gray-500">{source.type} ¡¤ {source.region || 'All'}</div>
                   </td>
                   <td className="px-3 py-2">{source.tier || '-'}</td>
                   <td className="px-3 py-2">
@@ -179,7 +184,8 @@ export default function SourcesPage() {
                   </td>
                   <td className="px-3 py-2 text-xs">{renderDate(row?.last_run_at)}</td>
                   <td className="px-3 py-2 text-xs">{row?.last_items || 0} / {row?.last_saved || 0}</td>
-                  <td className="px-3 py-2 text-xs">{row?.success_rate == null ? '?' : `${row.success_rate}%`} / {row?.error_rate == null ? '?' : `${row.error_rate}%`}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns} / {globalRuns}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '? / ?' : `${row?.success_rate ?? 0}% / ${row?.error_rate ?? 0}%`}</td>
                   <td className="px-3 py-2 text-xs">{row?.total_fetched || 0} / {row?.total_saved || 0}</td>
                   <td className="max-w-[340px] truncate px-3 py-2 text-xs text-red-500" title={row?.last_error || ''}>{row?.last_error || '-'}</td>
                 </tr>
@@ -187,7 +193,7 @@ export default function SourcesPage() {
             })}
             {activeSources.length === 0 ? (
               <tr>
-                <td className="px-3 py-2 text-sm text-gray-500" colSpan={8}>No active sources configured.</td>
+                <td className="px-3 py-2 text-sm text-gray-500" colSpan={9}>No active sources configured.</td>
               </tr>
             ) : null}
           </tbody>
@@ -198,5 +204,3 @@ export default function SourcesPage() {
     </div>
   )
 }
-
-
