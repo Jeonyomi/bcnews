@@ -223,7 +223,13 @@ export async function GET(request: Request) {
     try { supabaseHost = new URL(supabaseUrl).host } catch {}
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-    const dbNow = await client.rpc('db_now').then((r: any) => ({ ok: !r.error, value: r.data ?? null, error: r.error ?? null })).catch((e: any) => ({ ok: false, value: null, error: String(e) }))
+    let dbNow: { ok: boolean; value: any; error: any } = { ok: false, value: null, error: null }
+    try {
+      const r: any = await client.rpc('db_now')
+      dbNow = { ok: !r?.error, value: r?.data ?? null, error: r?.error ?? null }
+    } catch (e: any) {
+      dbNow = { ok: false, value: null, error: String(e) }
+    }
 
     const healthCounts = health.reduce(
       (acc, row) => {
