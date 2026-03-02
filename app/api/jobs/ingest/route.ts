@@ -143,7 +143,29 @@ const stripHtmlTags = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim())
 
-const extractItemsFromRss = (xml: string) => {
+const decodeHtmlEntities = (value: string) =>
+  (value || '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_m, code) => String.fromCharCode(Number(code) || 0))
+
+const cleanTitle = (title: string, summary: string, sourceName = '') => {
+  const decoded = decodeHtmlEntities(stripHtmlTags(title || '')).replace(/^[\[,\s\-??:;|]+/, '').trim()
+  if (sourceName.toLowerCase() !== 'tokenpost') return decoded
+
+  const compact = decoded.replace(/^\W+/, '').trim()
+  if (compact) return compact
+
+  const summaryFallback = decodeHtmlEntities(stripHtmlTags(summary || '')).replace(/^[\[,\s\-??:;|]+/, '').trim()
+  if (!summaryFallback) return ''
+  return summaryFallback.slice(0, 120)
+}
+
+const extractItemsFromRss = (xml: string, sourceName = "") => {
   const items = xml.match(/<item>[\s\S]*?<\/item>/gi) || []
   const entries = xml.match(/<entry>[\s\S]*?<\/entry>/gi) || []
 
@@ -170,7 +192,7 @@ const extractItemsFromRss = (xml: string) => {
     const dateSource = dateMatch?.[1]
     const publishedAt = normalizeDate(dateSource)
 
-    return { title, link, summary, publishedAt }
+    return { title: cleanTitle(title, summary, sourceName), link, summary, publishedAt }
   }
 
   return items
@@ -189,7 +211,7 @@ const extractItemsFromRss = (xml: string) => {
         : ''
       const publishedAt = normalizeDate(pubMatch?.[1])
 
-      return { title, link, summary, publishedAt }
+      return { title: cleanTitle(title, summary, sourceName), link, summary, publishedAt }
     })
     .filter((row) => row.title && row.link)
     .concat(
@@ -559,7 +581,7 @@ const autoPostBreaking = async (client: any, payload: {
   if (inTierB && importance !== 'HIGH') return { posted: false, reason: 'tier_b_high_only' }
 
   const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
-  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\\n\\n異쒖쿂: \n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
+  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\\n\\n?怨쀫츋?? \n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
   const dedupeBase = hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())
   const dedupeSince = new Date(Date.now() - AUTO_POST_DEDUPE_HOURS * 60 * 60 * 1000).toISOString()
 
@@ -856,7 +878,7 @@ export async function POST(request: Request) {
         }
 
         const xml = await response.text()
-        const parsed = extractItemsFromRss(xml)
+        const parsed = extractItemsFromRss(xml, String(source.name || ""))
         runLog.items_fetched = parsed.length
         runLog.items_skipped_url = 0
         runLog.items_skipped_hash = 0

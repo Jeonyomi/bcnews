@@ -13,25 +13,23 @@ const clampLimit = (value: string | null) => {
 
 const normalizeSort = (sort: ReturnType<typeof parseSort>): SortMode => sort
 
+
+const LANE_SOURCE_NAMES: Record<string, string[]> = {
+  official: ['Binance Announcements', 'Coinbase Announcements', 'Coinbase Blog', 'SEC', 'CFTC', 'Federal Reserve', 'U.S. Treasury'],
+  media: ['CoinDesk', 'The Block', 'Blockworks', 'DL News', 'Decrypt', 'Reuters', 'FinancialJuice'],
+  kr: ['Blockmedia', 'Tokenpost', 'Coinness'],
+}
+
 const normalizeEnglish = (value: string) =>
-  stripHtml(value || '')
-    .replace(/\.{3}/g, '')
-    .replace(/([A-Za-z])'([A-Za-z])/g, '$1a$2')
-    .replace(/(^|\s)'([A-Za-z])/g, '$1a$2')
-    .replace(/\b'nd\b/gi, 'and')
-    .replace(/\b're\b/gi, 'are')
-    .replace(/\b'll\b/gi, 'will')
-    .replace(/\b'ctually\b/gi, 'actually')
-    .replace(/\b\s+'s\b/g, "'s")
-    .replace(/[^\x20-\x7E]/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
+  stripHtml(value || '').replace(/\s{2,}/g, ' ').trim()
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
     const search = url.searchParams.get('search')?.trim() || ''
     const topic = url.searchParams.get('topic') || 'all'
+    const lane = (url.searchParams.get('lane') || 'all').toLowerCase()
+    const source = url.searchParams.get('source')?.trim() || ''
     const region = (url.searchParams.get('region') || 'All') as 'All' | 'KR' | 'Global'
     const sort = parseSort(url.searchParams.get('sort'))
     const window = parseTimeWindow(url.searchParams.get('time_window'))
@@ -82,6 +80,8 @@ export async function GET(request: Request) {
     const { data, count, error } = await query.limit(limit)
     if (error) throw error
 
+    const laneNames = lane !== 'all' ? (LANE_SOURCE_NAMES[lane] || []) : []
+
     const articles = (data || []).map((item) => ({
       ...item,
       title: normalizeEnglish(String(item.title || '')),
@@ -105,9 +105,16 @@ export async function GET(request: Request) {
           : undefined,
     }))
 
+    const filteredArticles = articles.filter((item: any) => {
+      const sourceName = String(item?.source?.name || '')
+      if (source && sourceName !== source) return false
+      if (lane !== 'all' && laneNames.length > 0 && !laneNames.includes(sourceName)) return false
+      return true
+    })
+
     return NextResponse.json(
       ok({
-        articles: articles as any,
+        articles: filteredArticles as any,
         count: count || 0,
         window,
       }),
@@ -127,6 +134,7 @@ export async function GET(request: Request) {
       stack,
       raw: error,
     })
+
 
     return NextResponse.json(
       {
