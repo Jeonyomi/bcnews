@@ -53,12 +53,13 @@ const TAG_RULES: Array<{ tag: string; keywords: string[] }> = [
   { tag: '#BTC', keywords: ['bitcoin', 'btc'] },
   { tag: '#ETH', keywords: ['ethereum', 'eth'] },
   { tag: '#ALT', keywords: ['solana', 'xrp', 'altcoin', 'token'] },
-  { tag: '#REGULATION', keywords: ['sec', 'cftc', 'regulation', 'treasury', 'law'] },
+  { tag: '#MACRO', keywords: ['war', 'oil', 'rates', 'rate cut', 'cpi', 'inflation', 'fed', 'fomc', 'treasury yield', 'geopolitics'] },
+  { tag: '#REGULATION', keywords: ['sec', 'cftc', 'regulation', 'lawsuit', 'compliance', 'enforcement'] },
   { tag: '#EXCHANGE', keywords: ['binance', 'coinbase', 'exchange', 'listing', 'delisting'] },
   { tag: '#HACK', keywords: ['hack', 'exploit', 'breach'] },
   { tag: '#STABLECOIN', keywords: ['stablecoin', 'usdt', 'usdc', 'depeg'] },
   { tag: '#ETF', keywords: ['etf'] },
-  { tag: '#ONCHAIN', keywords: ['onchain', 'wallet', 'validator', 'bridge'] },
+  { tag: '#ONCHAIN', keywords: ['onchain', 'wallet', 'validator', 'bridge', 'staking', 'gas fee', 'mempool'] },
 ]
 
 const deriveBreakingTags = (text: string) => {
@@ -557,7 +558,7 @@ const autoPostBreaking = async (client: any, payload: {
   if (inTierB && importance !== 'HIGH') return { posted: false, reason: 'tier_b_high_only' }
 
   const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
-  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\n\nSource: ${payload.sourceName}\n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
+  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\\n\\n출처: \n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
   const dedupeBase = hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())
   const dedupeSince = new Date(Date.now() - AUTO_POST_DEDUPE_HOURS * 60 * 60 * 1000).toISOString()
 
