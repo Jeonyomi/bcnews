@@ -104,7 +104,7 @@ export default function DashboardPage() {
     <div>
       <header className="mb-4">
         <h1 className="text-xl font-semibold">Crypto News Dashboard</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400">Auto-post v1 enabled for Breaking lane (HIGH-only + allowlist + dedupe/cap).</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Dense breaking-news feed, source tabs, and latest-first ranking.</p>
       </header>
 
       <section className="mb-3 flex flex-wrap gap-2">
