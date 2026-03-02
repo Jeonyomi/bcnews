@@ -130,7 +130,7 @@ export default function SourcesPage() {
       <h1 className="text-xl font-semibold">Sources Health</h1>
       <p className="text-sm text-gray-500">Ingest reliability overview with stale/down detection and recent success/error ratios.</p>
       <p className="text-xs text-gray-500">
-        Window: last {meta.health_window_runs} runs per source ¡¤ stale if no run for {meta.stale_hours}h ¡¤ warn if error_rate ¡Ã {meta.warn_error_rate_pct ?? 20}% (runs ¡Ã {meta.min_runs_for_rate ?? 10}) ¡¤ down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate ¡Ã {meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}.
+        Window: last {meta.health_window_runs} runs per source Â· stale if no run for {meta.stale_hours}h Â· warn if error_rate â‰¥ {meta.warn_error_rate_pct ?? 20}% (runs â‰¥ {meta.min_runs_for_rate ?? 10}) Â· down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate â‰¥ {meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}.
       </p>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -174,7 +174,7 @@ export default function SourcesPage() {
                 <tr key={source.id} className="border-b border-gray-100 dark:border-gray-800">
                   <td className="px-3 py-2">
                     <div className="font-medium">{source.name}</div>
-                    <div className="text-xs text-gray-500">{source.type} ¡¤ {source.region || 'All'}</div>
+                    <div className="text-xs text-gray-500">{source.type} Â· {source.region || 'All'}</div>
                   </td>
                   <td className="px-3 py-2">{source.tier || '-'}</td>
                   <td className="px-3 py-2">

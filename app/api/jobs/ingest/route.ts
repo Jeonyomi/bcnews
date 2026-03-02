@@ -592,9 +592,7 @@ export async function POST(request: Request) {
         if (parsed.length === 0) {
           runLog.status = 'warn'
           runLog.error_message = 'Error: rss_parse_no_items'
-          { const { error: logErr } = await insertSourceRunLog(client, runLog)
-            if (logErr) console.error('ingest_log_insert_failed', { source_id: source.id, error: logErr })
-          }
+          await insertSourceRunLog(client, runLog)
           continue
         }
 
@@ -854,10 +852,7 @@ ${item.summary}`.slice(0, 4000)
         runLog.error_message = String(sourceError)
       }
 
-      {
-        const { error: logErr } = await insertSourceRunLog(client, runLog)
-        if (logErr) console.error('ingest_log_insert_failed', { source_id: source.id, error: logErr })
-      }
+      await insertSourceRunLog(client, runLog)
 
       if (runLog.status === 'ok') {
         await client.from('sources').update({ last_success_at: runAt, last_error_at: null }).eq('id', source.id)
