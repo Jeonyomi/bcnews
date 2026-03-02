@@ -440,7 +440,37 @@ const regionFromSource = (value: string | null) => {
   return 'Global'
 }
 
+
+const insertGlobalIngestLog = async (client: any, payload: {
+  runAtUtc: string
+  status: string
+  stage: string
+  errorMessage?: string | null
+  itemsFetched?: number
+  itemsSaved?: number
+}) => {
+  if (!client) return
+
+  const baseRow: any = {
+    source_id: null,
+    run_at_utc: payload.runAtUtc,
+    status: payload.status,
+    error_message: payload.errorMessage || null,
+    items_fetched: payload.itemsFetched || 0,
+    items_saved: payload.itemsSaved || 0,
+  }
+
+  // Prefer stage column when available, but gracefully fallback for older schema.
+  const withStage = { ...baseRow, stage: payload.stage }
+  const { error: stageErr } = await client.from('ingest_logs').insert(withStage)
+  if (!stageErr) return
+  await client.from('ingest_logs').insert(baseRow)
+}
+
 export async function POST(request: Request) {
+  let client: any = null
+  const runAt = new Date().toISOString()
+
   try {
     const runStart = Date.now()
 
@@ -452,7 +482,7 @@ export async function POST(request: Request) {
       return NextResponse.json(err('unauthorized'), { status: 401 })
     }
 
-    const client = createAdminClient()
+    client = createAdminClient()
 
     const { data: sources, error: sourceError } = await client
       .from('sources')
@@ -464,6 +494,12 @@ export async function POST(request: Request) {
     if (sourceError) throw sourceError
 
     if (!sources || sources.length === 0) {
+      await insertGlobalIngestLog(client, {
+        runAtUtc: runAt,
+        status: 'warn',
+        stage: 'preflight',
+        errorMessage: 'no_enabled_sources',
+      })
       return NextResponse.json({ ok: true, inserted_articles: 0, issue_updates_created: 0 })
     }
 
@@ -471,7 +507,6 @@ export async function POST(request: Request) {
     let issueUpdatesCreated = 0
     let sourcesProcessed = 0
     let stoppedEarly = false
-    const runAt = new Date().toISOString()
 
     // Shuffle sources deterministically per run to avoid starvation when runs stop early.
     const shuffled = [...(sources as SourceType[])]
@@ -601,7 +636,7 @@ export async function POST(request: Request) {
             continue
           }
 
-          const dupeByTitle = (recentSourceRows || []).some((row) => {
+          const dupeByTitle = (recentSourceRows || []).some((row: any) => {
             const existingTitle = String((row as any).title || '')
             if (!existingTitle) return false
             return titleSimilarity(existingTitle, item.title) >= TITLE_SIMILARITY_THRESHOLD
@@ -710,7 +745,7 @@ ${item.summary}`.slice(0, 4000)
           }
 
           const bestCandidateTopic =
-            activeIssues?.find((row) => row.id === bestMatch.id)?.topic_label || ''
+            activeIssues?.find((row: any) => row.id === bestMatch.id)?.topic_label || ''
 
           if (bestMatch.id && isBestMatch(bestMatch.score, topic, String(bestCandidateTopic), lookbackWindowMinutes / 60)) {
             issueId = bestMatch.id
@@ -807,6 +842,14 @@ ${item.summary}`.slice(0, 4000)
       }
     }
 
+    await insertGlobalIngestLog(client, {
+      runAtUtc: runAt,
+      status: 'ok',
+      stage: 'ingest',
+      itemsFetched: 0,
+      itemsSaved: insertedArticles,
+    })
+
     return NextResponse.json({
       ok: true,
       inserted_articles: insertedArticles,
@@ -816,9 +859,20 @@ ${item.summary}`.slice(0, 4000)
     })
   } catch (error) {
     console.error('POST /api/jobs/ingest failed', error)
+    try {
+      await insertGlobalIngestLog(client, {
+        runAtUtc: runAt,
+        status: 'error',
+        stage: 'preflight',
+        errorMessage: (error as any)?.message || String(error),
+      })
+    } catch (logErr) {
+      console.error('failed to write global ingest preflight log', logErr)
+    }
     return NextResponse.json(err(`ingest_error: ${String(error)}`), { status: 500 })
   }
 }
+
 
 
 

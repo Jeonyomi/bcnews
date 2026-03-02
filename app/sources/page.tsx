@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatSeoulDateTime } from '@/lib/datetime'
@@ -32,6 +32,7 @@ type Meta = {
   down_consecutive_errors?: number
   down_error_rate_pct?: number
   warn_error_rate_pct?: number
+  global_runs_window?: number
 }
 
 const statusClass: Record<HealthRow['status'], string> = {
@@ -128,7 +129,7 @@ export default function SourcesPage() {
       <h1 className="text-xl font-semibold">Sources Health</h1>
       <p className="text-sm text-gray-500">Ingest reliability overview with stale/down detection and recent success/error ratios.</p>
       <p className="text-xs text-gray-500">
-        Window: last {meta.health_window_runs} runs per source · stale if no run for {meta.stale_hours}h · warn if error_rate ≥ {meta.warn_error_rate_pct ?? 20}% (runs ≥ {meta.min_runs_for_rate ?? 10}) · down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate ≥ {meta.down_error_rate_pct ?? 80}%.
+        Window: last {meta.health_window_runs} runs per source · stale if no run for {meta.stale_hours}h · warn if error_rate ≥ {meta.warn_error_rate_pct ?? 20}% (runs ≥ {meta.min_runs_for_rate ?? 10}) · down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate ≥ {meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}.
       </p>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -197,4 +198,5 @@ export default function SourcesPage() {
     </div>
   )
 }
+
 

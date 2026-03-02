@@ -95,7 +95,7 @@ export interface SourcesResponseData {
     total_saved: number
   }>
   summary: { total: number; ok: number; warn: number; stale: number; down: number; disabled: number }
-  meta: { health_window_runs: number; stale_hours: number; min_runs_for_rate?: number; down_consecutive_errors?: number; down_error_rate_pct?: number; warn_error_rate_pct?: number }
+  meta: { health_window_runs: number; stale_hours: number; min_runs_for_rate?: number; down_consecutive_errors?: number; down_error_rate_pct?: number; warn_error_rate_pct?: number; global_runs_window?: number }
 }
 
 export type SourcesResponse = APIEnvelope<SourcesResponseData>
@@ -106,6 +106,7 @@ export type IssueDetailResponse = APIEnvelope<{
   related_articles: ArticleRecord[]
   representative_article: ArticleRecord | null
 }>
+
 
 
 

@@ -69,15 +69,51 @@ export async function GET() {
 
     if (sourceError) throw sourceError
 
-    const { data: logs, error: logsError } = await client
+    let logs: any[] | null = null
+    let logsError: any = null
+
+    const withStage = await client
       .from('ingest_logs')
-      .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message')
+      .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message,stage')
       .order('run_at_utc', { ascending: false })
       .limit(5000)
+
+    if (!withStage.error) {
+      logs = withStage.data || []
+    } else {
+      const withoutStage = await client
+        .from('ingest_logs')
+        .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message')
+        .order('run_at_utc', { ascending: false })
+        .limit(5000)
+      logs = withoutStage.data || []
+      logsError = withoutStage.error
+    }
 
     if (logsError) throw logsError
 
     const grouped: Record<number, any[]> = {}
+
+    let globalWindow: any[] = []
+    const globalWithStage = await client
+      .from('ingest_logs')
+      .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message,stage')
+      .is('source_id', null)
+      .order('run_at_utc', { ascending: false })
+      .limit(HEALTH_WINDOW)
+
+    if (!globalWithStage.error) {
+      globalWindow = globalWithStage.data || []
+    } else {
+      const globalFallback = await client
+        .from('ingest_logs')
+        .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message')
+        .is('source_id', null)
+        .order('run_at_utc', { ascending: false })
+        .limit(HEALTH_WINDOW)
+      globalWindow = globalFallback.data || []
+    }
+
     for (const row of logs || []) {
       if (!row.source_id) continue
       if (!grouped[row.source_id]) grouped[row.source_id] = []
@@ -88,7 +124,8 @@ export async function GET() {
       const sourceLogs = (grouped[source.id] || []).slice(0, HEALTH_WINDOW)
       const latest = sourceLogs[0]
 
-      const runs = sourceLogs.length
+      const sourceRuns = sourceLogs.length
+      const runs = sourceRuns > 0 ? sourceRuns : globalWindow.length
       const errorRuns = sourceLogs.filter((r) => r.status === 'error').length
       const warnRuns = sourceLogs.filter((r) => r.status === 'warn').length
       const fetched = sourceLogs.reduce((sum, r) => sum + Number(r.items_fetched || 0), 0)
@@ -125,6 +162,7 @@ export async function GET() {
         last_error: source.enabled === false ? null : latest?.error_message || null,
         last_run_at: latest?.run_at_utc || null,
         runs,
+        source_runs: sourceRuns,
         warn_runs: warnRuns,
         error_runs: errorRuns,
         success_rate: successRate,
@@ -159,6 +197,7 @@ export async function GET() {
           down_consecutive_errors: DOWN_CONSECUTIVE_ERRORS,
           down_error_rate_pct: DOWN_ERROR_RATE_PCT,
           warn_error_rate_pct: WARN_ERROR_RATE_PCT,
+          global_runs_window: globalWindow.length,
         },
       }),
     )
