@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import RefreshBar from '@/components/RefreshBar'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 const NAV = [
@@ -17,8 +16,6 @@ const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
 export default function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
-  const [autoRefresh, setAutoRefresh] = useState(false)
 
   const navItems = useMemo(() => NAV, [])
 
@@ -36,7 +33,6 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
   const handleRefreshDone = useCallback((event: Event) => {
     const custom = event as CustomEvent<{ pathname: string; lastUpdatedAt?: string }>
     if (!custom.detail || custom.detail.pathname !== pathname) return
-    setLastUpdatedAt(custom.detail.lastUpdatedAt || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
   }, [pathname])
 
   useEffect(() => {
@@ -55,16 +51,6 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
   }, [pathname, requestRefresh, handleRefreshDone])
 
   const closeMenu = () => setOpen(false)
-
-  useEffect(() => {
-    if (!autoRefresh) return
-
-    const timer = window.setInterval(() => {
-      requestRefresh()
-    }, 60 * 1000)
-
-    return () => window.clearInterval(timer)
-  }, [autoRefresh, requestRefresh])
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-black dark:text-gray-100">
@@ -102,14 +88,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
               </span>
             </div>
             <div className="px-2 pb-3">
-              <RefreshBar
-                label="Feed control"
-                lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
-                isAutoRefreshOn={autoRefresh}
-                onToggleAutoRefresh={setAutoRefresh}
-                onRefresh={requestRefresh}
-              />
-              <div className="mt-2 flex justify-end">
+              <div className="flex justify-end">
                 <ThemeToggle />
               </div>
             </div>
@@ -147,14 +126,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
         >
           <div className="px-3 pb-3 text-sm font-semibold text-gray-400">Menu</div>
           <div className="px-2 pb-3">
-            <RefreshBar
-              label="Feed control"
-              lastUpdatedAt={lastUpdatedAt || 'Not updated yet'}
-              isAutoRefreshOn={autoRefresh}
-              onToggleAutoRefresh={setAutoRefresh}
-              onRefresh={requestRefresh}
-            />
-            <div className="mt-2 flex justify-end pr-1">
+            <div className="flex justify-end pr-1">
               <ThemeToggle />
             </div>
           </div>
