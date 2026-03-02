@@ -640,7 +640,7 @@ const insertSourceRunLog = async (client: any, runLog: any) => {
   if (error) console.error('ingest_log_insert_failed', { source_id: row.source_id, error })
 }
 
-const insertGlobalIngestLog = async (client: any, payload: {
+const writeGlobalIngestLog = async (client: any, payload: {
   runAtUtc: string
   status: string
   stage: string
@@ -648,7 +648,7 @@ const insertGlobalIngestLog = async (client: any, payload: {
   itemsFetched?: number
   itemsSaved?: number
 }) => {
-  if (!client) return
+  if (!client) return { ok: false, error: 'missing_client' }
 
   const baseRow: any = {
     source_id: null,
@@ -660,15 +660,23 @@ const insertGlobalIngestLog = async (client: any, payload: {
     items_saved: payload.itemsSaved || 0,
   }
 
-  // Prefer stage column when available, but gracefully fallback for older schema.
   const withStage = { ...baseRow, stage: payload.stage }
   const { error: stageErr } = await client.from('ingest_logs').insert(withStage)
-  if (!stageErr) return
+  if (!stageErr) return { ok: true, usedStage: true, row: withStage }
+
   const { error: baseErr } = await client.from('ingest_logs').insert(baseRow)
-  if (baseErr) {
-    console.error('insertGlobalIngestLog failed', { stageErr, baseErr, payload })
+  if (!baseErr) return { ok: true, usedStage: false, row: baseRow, stageError: stageErr }
+
+  return {
+    ok: false,
+    error: {
+      stageErr,
+      baseErr,
+      payload,
+    },
   }
 }
+
 
 export async function POST(request: Request) {
   let client: any = null
@@ -686,9 +694,38 @@ export async function POST(request: Request) {
     }
 
     client = createAdminClient()
+    const body = await request.json().catch(() => ({} as any))
+
+    if (body?.debug_global_log === true) {
+      const write = await writeGlobalIngestLog(client, {
+        runAtUtc: runAt,
+        status: 'ok',
+        stage: 'diagnostic',
+        itemsFetched: 0,
+        itemsSaved: 0,
+      })
+
+      if (!write.ok) {
+        return NextResponse.json({ ok: false, error: 'diagnostic_insert_failed', write }, { status: 500 })
+      }
+
+      const latest = await client
+        .from('ingest_logs')
+        .select('id,created_at,run_at_utc,status,source_id,error_message,stage')
+        .is('source_id', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (latest.error) {
+        return NextResponse.json({ ok: false, error: 'diagnostic_select_failed', write, latest }, { status: 500 })
+      }
+
+      return NextResponse.json({ ok: true, write, latest: latest.data })
+    }
 
     // Deterministic global run freshness marker for every ingest call.
-    await insertGlobalIngestLog(client, {
+    const globalLogStart = await writeGlobalIngestLog(client, {
       runAtUtc: runAt,
       status: 'ok',
       stage: 'ingest_start',
@@ -706,13 +743,13 @@ export async function POST(request: Request) {
     if (sourceError) throw sourceError
 
     if (!sources || sources.length === 0) {
-      await insertGlobalIngestLog(client, {
+      const globalLogNoSources = await writeGlobalIngestLog(client, {
         runAtUtc: runAt,
         status: 'warn',
         stage: 'preflight',
         errorMessage: 'no_enabled_sources',
       })
-      return NextResponse.json({ ok: true, inserted_articles: 0, issue_updates_created: 0 })
+      return NextResponse.json({ ok: true, inserted_articles: 0, issue_updates_created: 0, global_log_write_start: globalLogStart, global_log_write_preflight: globalLogNoSources })
     }
 
     let insertedArticles = 0
@@ -1084,7 +1121,7 @@ ${item.summary}`.slice(0, 4000)
       }
     }
 
-    await insertGlobalIngestLog(client, {
+    const globalLogEnd = await writeGlobalIngestLog(client, {
       runAtUtc: runAt,
       status: 'ok',
       stage: 'ingest',
@@ -1099,11 +1136,13 @@ ${item.summary}`.slice(0, 4000)
       sources_processed: sourcesProcessed,
       stopped_early: stoppedEarly,
       autopost_eval: autopostEval,
+      global_log_write_start: globalLogStart,
+      global_log_write_end: globalLogEnd,
     })
   } catch (error) {
     console.error('POST /api/jobs/ingest failed', error)
     try {
-      await insertGlobalIngestLog(client, {
+      await writeGlobalIngestLog(client, {
         runAtUtc: runAt,
         status: 'error',
         stage: 'preflight',
