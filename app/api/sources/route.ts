@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase'
+import { createSupabaseServerClient, getSupabaseServerConfig } from '@/lib/supabaseServer'
 import { err, ok } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
@@ -12,16 +12,6 @@ const MIN_RUNS_FOR_RATE = Number.parseInt(process.env.SOURCE_MIN_RUNS_FOR_RATE |
 const DOWN_CONSECUTIVE_ERRORS = Number.parseInt(process.env.SOURCE_DOWN_CONSECUTIVE_ERRORS || '5', 10) || 5
 const DOWN_ERROR_RATE_PCT = Number.parseInt(process.env.SOURCE_DOWN_ERROR_RATE_PCT || '80', 10) || 80
 const WARN_ERROR_RATE_PCT = Number.parseInt(process.env.SOURCE_WARN_ERROR_RATE_PCT || '20', 10) || 20
-
-const fingerprint = (value?: string | null) => {
-  if (!value) return null
-  let h = 2166136261
-  for (let i = 0; i < value.length; i += 1) {
-    h ^= value.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return (h >>> 0).toString(16).padStart(8, '0')
-}
 
 const toDate = (value?: string | null) => {
   if (!value) return null
@@ -70,7 +60,7 @@ const classifyHealthStatus = (args: {
 
 export async function GET(request: Request) {
   try {
-    const client = createAdminClient()
+    const client = createSupabaseServerClient()
     const url = new URL(request.url)
     const debugGlobal = url.searchParams.get('debug_global') === '1'
     const secret = process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET || ''
@@ -218,10 +208,7 @@ export async function GET(request: Request) {
       }
     })
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''
-    let supabaseHost = ''
-    try { supabaseHost = new URL(supabaseUrl).host } catch {}
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const cfg = getSupabaseServerConfig()
 
     let dbNow: { ok: boolean; value: any; error: any } = { ok: false, value: null, error: null }
     try {
@@ -263,8 +250,8 @@ export async function GET(request: Request) {
           ? {
               global_latest_query: globalLatestQuery,
               global_latest_raw_row: debugGlobalLatestRawRow,
-              supabase_host_hash: fingerprint(supabaseHost),
-              service_role_hash_prefix: fingerprint(serviceKey),
+              supabase_host_hash: cfg.supabaseHostHash,
+              service_role_hash_prefix: cfg.serviceRoleHashPrefix,
               db_now: dbNow.value || null,
               db_now_error: dbNow.ok ? null : (dbNow.error || 'db_now_unavailable'),
               global_rows_last5: (await (async () => {

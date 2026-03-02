@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase'
+import { createSupabaseServerClient, getSupabaseServerConfig } from '@/lib/supabaseServer'
 import { err } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
@@ -214,10 +214,6 @@ const canonicalizeUrl = (value: string) => {
 
 const hashContent = (text: string) => crypto.createHash('sha256').update(text).digest('hex')
 
-const fingerprint = (value?: string | null) => {
-  if (!value) return null
-  return hashContent(value).slice(0, 12)
-}
 
 const normalizeTextForHash = (value: string) =>
   value
@@ -646,16 +642,19 @@ const insertSourceRunLog = async (client: any, runLog: any) => {
 }
 
 const buildDebugEnv = async (client: any) => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''
-  let host = ''
-  try { host = new URL(supabaseUrl).host } catch {}
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  const cfg = getSupabaseServerConfig()
 
-  const dbNow = await client.rpc('db_now').then((r: any) => ({ ok: !r.error, value: r.data ?? null, error: r.error ?? null })).catch((e: any) => ({ ok: false, value: null, error: String(e) }))
+  let dbNow: { ok: boolean; value: any; error: any } = { ok: false, value: null, error: null }
+  try {
+    const r: any = await client.rpc('db_now')
+    dbNow = { ok: !r?.error, value: r?.data ?? null, error: r?.error ?? null }
+  } catch (e: any) {
+    dbNow = { ok: false, value: null, error: String(e) }
+  }
 
   return {
-    supabase_host_hash: fingerprint(host),
-    service_role_hash_prefix: fingerprint(serviceKey),
+    supabase_host_hash: cfg.supabaseHostHash,
+    service_role_hash_prefix: cfg.serviceRoleHashPrefix,
     db_now: dbNow.value || null,
     db_now_error: dbNow.ok ? null : (dbNow.error || 'db_now_unavailable'),
   }
@@ -728,7 +727,7 @@ export async function POST(request: Request) {
       return NextResponse.json(err('unauthorized'), { status: 401 })
     }
 
-    client = createAdminClient()
+    client = createSupabaseServerClient()
     const body = await request.json().catch(() => ({} as any))
 
     if (body?.debug_global_log === true) {
