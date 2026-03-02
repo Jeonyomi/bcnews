@@ -652,7 +652,6 @@ const writeGlobalIngestLog = async (client: any, payload: {
 
   const baseRow: any = {
     source_id: null,
-    created_at: new Date().toISOString(),
     run_at_utc: payload.runAtUtc,
     status: payload.status,
     error_message: payload.errorMessage || null,
@@ -711,9 +710,9 @@ export async function POST(request: Request) {
 
       const latest = await client
         .from('ingest_logs')
-        .select('id,created_at,run_at_utc,status,source_id,error_message,stage')
+        .select('id,run_at_utc,status,source_id,error_message,stage')
         .is('source_id', null)
-        .order('created_at', { ascending: false })
+        .order('run_at_utc', { ascending: false })
         .limit(1)
         .maybeSingle()
 
