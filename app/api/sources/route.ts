@@ -118,31 +118,18 @@ export async function GET() {
 
     const latestGlobal = await client
       .from('ingest_logs')
-      .select('created_at,run_at_utc')
+      .select('created_at')
       .is('source_id', null)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    if (!latestGlobal.error && latestGlobal.data) {
-      globalLatestRunAt = String((latestGlobal.data as any).created_at || (latestGlobal.data as any).run_at_utc || null)
+    if (!latestGlobal.error && latestGlobal.data?.created_at) {
+      globalLatestRunAt = String(latestGlobal.data.created_at)
     }
 
     if (!globalLatestRunAt) {
-      const latestAny = await client
-        .from('ingest_logs')
-        .select('created_at,run_at_utc')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (!latestAny.error && latestAny.data) {
-        globalLatestRunAt = String((latestAny.data as any).created_at || (latestAny.data as any).run_at_utc || null)
-      }
-    }
-
-    if (!globalLatestRunAt) {
-      globalLatestRunAt = (globalWindow[0]?.run_at_utc as string | null) || null
+      console.warn('global_latest_run_at missing from global ingest logs')
     }
 
     for (const row of logs || []) {

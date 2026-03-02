@@ -652,6 +652,7 @@ const insertGlobalIngestLog = async (client: any, payload: {
 
   const baseRow: any = {
     source_id: null,
+    created_at: new Date().toISOString(),
     run_at_utc: payload.runAtUtc,
     status: payload.status,
     error_message: payload.errorMessage || null,
@@ -663,7 +664,10 @@ const insertGlobalIngestLog = async (client: any, payload: {
   const withStage = { ...baseRow, stage: payload.stage }
   const { error: stageErr } = await client.from('ingest_logs').insert(withStage)
   if (!stageErr) return
-  await client.from('ingest_logs').insert(baseRow)
+  const { error: baseErr } = await client.from('ingest_logs').insert(baseRow)
+  if (baseErr) {
+    console.error('insertGlobalIngestLog failed', { stageErr, baseErr, payload })
+  }
 }
 
 export async function POST(request: Request) {
@@ -682,6 +686,15 @@ export async function POST(request: Request) {
     }
 
     client = createAdminClient()
+
+    // Deterministic global run freshness marker for every ingest call.
+    await insertGlobalIngestLog(client, {
+      runAtUtc: runAt,
+      status: 'ok',
+      stage: 'ingest_start',
+      itemsFetched: 0,
+      itemsSaved: 0,
+    })
 
     const { data: sources, error: sourceError } = await client
       .from('sources')
