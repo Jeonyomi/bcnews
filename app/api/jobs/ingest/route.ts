@@ -559,7 +559,7 @@ const autoPostBreaking = async (client: any, payload: {
   if (inTierB && importance !== 'HIGH') return { posted: false, reason: 'tier_b_high_only' }
 
   const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
-  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\\n\\n출처: \n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
+  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\\n\\n異쒖쿂: \n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
   const dedupeBase = hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())
   const dedupeSince = new Date(Date.now() - AUTO_POST_DEDUPE_HOURS * 60 * 60 * 1000).toISOString()
 
@@ -745,7 +745,7 @@ export async function POST(request: Request) {
 
       const latest = await client
         .from('ingest_logs')
-        .select('id,run_at_utc,status,source_id,error_message,stage')
+        .select('id,run_at_utc,status,source_id,error_message')
         .is('source_id', null)
         .order('run_at_utc', { ascending: false })
         .limit(1)
