@@ -58,9 +58,14 @@ const classifyHealthStatus = (args: {
   return 'warn'
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const client = createAdminClient()
+    const url = new URL(request.url)
+    const debugGlobal = url.searchParams.get('debug_global') === '1'
+    const secret = process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET || ''
+    const headerSecret = request.headers.get('x-cron-secret') || ''
+    const debugAllowed = !!secret && headerSecret === secret
 
     const { data: sources, error: sourceError } = await client
       .from('sources')
@@ -115,6 +120,7 @@ export async function GET() {
     }
 
     let globalLatestRunAt: string | null = null
+    const globalLatestQuery = { filter: 'source_id IS NULL', orderBy: 'run_at_utc DESC', limit: 1, fallback: 'MAX(run_at_utc) overall' }
 
     const latestGlobal = await client
       .from('ingest_logs')
@@ -227,6 +233,27 @@ export async function GET() {
           global_runs_window: globalWindow.length,
           global_latest_run_at: globalLatestRunAt,
         },
+        debug: debugGlobal && debugAllowed
+          ? {
+              global_latest_query: globalLatestQuery,
+              global_rows_last5: (await (async () => {
+                const withStageRows = await client
+                  .from('ingest_logs')
+                  .select('id,run_at_utc,stage,status,source_id')
+                  .is('source_id', null)
+                  .order('run_at_utc', { ascending: false })
+                  .limit(5)
+                if (!withStageRows.error) return withStageRows.data || []
+                const fallbackRows = await client
+                  .from('ingest_logs')
+                  .select('id,run_at_utc,status,source_id')
+                  .is('source_id', null)
+                  .order('run_at_utc', { ascending: false })
+                  .limit(5)
+                return fallbackRows.data || []
+              })()),
+            }
+          : undefined,
       }),
     )
   } catch (error) {
