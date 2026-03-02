@@ -85,7 +85,7 @@ const sources = [
   { name: 'The Verge', type: 'rss', tier: '3', url: 'https://www.theverge.com', rss_url: 'https://www.theverge.com/rss/index.xml', region: 'Global', enabled: true },
   { name: 'Ars Technica', type: 'rss', tier: '3', url: 'https://arstechnica.com', rss_url: 'https://feeds.arstechnica.com/arstechnica/index', region: 'Global', enabled: true },
 
-  // Optional ???????⑹른??Pulse??
+  // Optional ????????밸Ⅸ??Pulse??
   { name: 'Hacker News (frontpage)', type: 'rss', tier: '3', url: 'https://news.ycombinator.com', rss_url: 'https://hnrss.org/frontpage', region: 'Global', enabled: true },
   { name: 'GitHub Trending', type: 'web', tier: '3', url: 'https://github.com/trending', rss_url: null, region: 'Global', enabled: false },
 
@@ -99,6 +99,9 @@ const sources = [
 
   // Korea (official) ??Tier 1
   // ------------------------------------------------------------
+    { name: 'Upbit Announcements', type: 'official', tier: '1', url: 'https://upbit.com/service_center/notice', rss_url: null, region: 'KR', enabled: true },
+  { name: 'Bithumb Announcements', type: 'official', tier: '1', url: 'https://www.bithumb.com/customer_support/info_notice', rss_url: null, region: 'KR', enabled: true },
+  { name: 'Coinone Announcements', type: 'official', tier: '1', url: 'https://coinone.co.kr/support/notice', rss_url: null, region: 'KR', enabled: true },
   { name: 'Financial Services Commission (KR)', type: 'official', tier: '1', url: 'https://www.fsc.go.kr', rss_url: 'https://www.fsc.go.kr/eng/rss.xml', region: 'KR', enabled: true },
   { name: 'MOEF (KR)', type: 'official', tier: '1', url: 'https://www.moef.go.kr', rss_url: 'https://www.moef.go.kr/eng/rss.xml', region: 'KR', enabled: true },
   { name: 'Financial Supervisory Service (KR)', type: 'official', tier: '1', url: 'https://www.fss.or.kr', rss_url: null, region: 'KR', enabled: false },
