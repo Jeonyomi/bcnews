@@ -15,6 +15,7 @@ type HealthRow = {
   last_saved: number
   last_error: string | null
   last_run_at: string | null
+  display_last_run_at?: string | null
   runs: number
   source_runs?: number
   warn_runs: number
@@ -34,6 +35,7 @@ type Meta = {
   down_error_rate_pct?: number
   warn_error_rate_pct?: number
   global_runs_window?: number
+  global_latest_run_at?: string | null
 }
 
 const statusClass: Record<HealthRow['status'], string> = {
@@ -130,7 +132,7 @@ export default function SourcesPage() {
       <h1 className="text-xl font-semibold">Sources Health</h1>
       <p className="text-sm text-gray-500">Ingest reliability overview with stale/down detection and recent success/error ratios.</p>
       <p className="text-xs text-gray-500">
-        Window: last {meta.health_window_runs} runs per source · stale if no run for {meta.stale_hours}h · warn if error_rate ≥ {meta.warn_error_rate_pct ?? 20}% (runs ≥ {meta.min_runs_for_rate ?? 10}) · down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate ≥ {meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}.
+        Window: last {meta.health_window_runs} runs per source 쨌 stale if no run for {meta.stale_hours}h 쨌 warn if error_rate ??{meta.warn_error_rate_pct ?? 20}% (runs ??{meta.min_runs_for_rate ?? 10}) 쨌 down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate ??{meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}. Global latest run: {renderDate(meta.global_latest_run_at)}.
       </p>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -174,7 +176,7 @@ export default function SourcesPage() {
                 <tr key={source.id} className="border-b border-gray-100 dark:border-gray-800">
                   <td className="px-3 py-2">
                     <div className="font-medium">{source.name}</div>
-                    <div className="text-xs text-gray-500">{source.type} · {source.region || 'All'}</div>
+                    <div className="text-xs text-gray-500">{source.type} 쨌 {source.region || 'All'}</div>
                   </td>
                   <td className="px-3 py-2">{source.tier || '-'}</td>
                   <td className="px-3 py-2">
@@ -182,7 +184,7 @@ export default function SourcesPage() {
                       {status}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-xs">{renderDate(row?.last_run_at)}</td>
+                  <td className="px-3 py-2 text-xs">{renderDate(row?.display_last_run_at || row?.last_run_at)}</td>
                   <td className="px-3 py-2 text-xs">{row?.last_items || 0} / {row?.last_saved || 0}</td>
                   <td className="px-3 py-2 text-xs">{sourceRuns} / {globalRuns}</td>
                   <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '? / ?' : `${row?.success_rate ?? 0}% / ${row?.error_rate ?? 0}%`}</td>

@@ -114,6 +114,8 @@ export async function GET() {
       globalWindow = globalFallback.data || []
     }
 
+    const globalLatestRunAt = (globalWindow[0]?.run_at_utc as string | null) || null
+
     for (const row of logs || []) {
       if (!row.source_id) continue
       if (!grouped[row.source_id]) grouped[row.source_id] = []
@@ -161,6 +163,7 @@ export async function GET() {
         last_saved: latest?.items_saved || 0,
         last_error: source.enabled === false ? null : latest?.error_message || null,
         last_run_at: latest?.run_at_utc || null,
+        display_last_run_at: latest?.run_at_utc || globalLatestRunAt || null,
         runs,
         source_runs: sourceRuns,
         warn_runs: warnRuns,
@@ -198,6 +201,7 @@ export async function GET() {
           down_error_rate_pct: DOWN_ERROR_RATE_PCT,
           warn_error_rate_pct: WARN_ERROR_RATE_PCT,
           global_runs_window: globalWindow.length,
+          global_latest_run_at: globalLatestRunAt,
         },
       }),
     )
