@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const client = createAdminClient()
     const { data, error } = await client
       .from('channel_posts')
-      .select('id,created_at,status,lane,headline,headline_ko,source_name,article_url,tags,post_text,target_channel,target_admin,telegram_message_id,telegram_chat_id')
+      .select('id,created_at,status,lane,headline,headline_ko,source_name,article_url,tags,post_text,target_channel,target_admin,telegram_message_id,telegram_chat_id,reason')
       .eq('status', status)
       .order('created_at', { ascending: false })
       .limit(limit)
@@ -55,7 +55,7 @@ export async function PATCH(request: Request) {
       .from('channel_posts')
       .update(patch)
       .eq('id', id)
-      .select('id,status,posted_at,approved_by,telegram_message_id,telegram_chat_id')
+      .select('id,status,posted_at,approved_by,telegram_message_id,telegram_chat_id,reason')
       .single()
 
     if (error) throw error

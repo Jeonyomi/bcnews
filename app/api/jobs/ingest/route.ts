@@ -25,7 +25,7 @@ const AUTO_POST_DAILY_CAP = Number.parseInt(process.env.AUTO_POST_DAILY_CAP || '
 const AUTO_POST_DEDUPE_HOURS = Number.parseInt(process.env.AUTO_POST_DEDUPE_HOURS || '12', 10) || 12
 const TELEGRAM_BOT_TOKEN = process.env.TG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ''
 const TELEGRAM_BREAKING_CHANNEL = process.env.TG_BREAKING_CHANNEL || '@Krypto_breaking'
-const BREAKING_SOURCE_ALLOWLIST = [
+const BREAKING_TIER_A_ALLOWLIST = [
   'Reuters',
   'FinancialJuice',
   'Binance Announcements',
@@ -36,6 +36,16 @@ const BREAKING_SOURCE_ALLOWLIST = [
   'Federal Reserve',
   'U.S. Treasury',
 ]
+
+const BREAKING_TIER_B_ALLOWLIST = [
+  'CoinDesk',
+  'The Block',
+  'DL News',
+  'Blockworks',
+  'Decrypt',
+]
+
+const BREAKING_POST_KEYWORDS = ['breaking','exploit','hack','etf','sec','lawsuit','liquidation','depeg','listing','delisting','launchpool']
 
 const TAG_RULES: Array<{ tag: string; keywords: string[] }> = [
   { tag: '#BTC', keywords: ['bitcoin', 'btc'] },
@@ -483,7 +493,23 @@ const regionFromSource = (value: string | null) => {
 
 
 
+const insertChannelPostSafe = async (client: any, row: any) => {
+  const { error } = await client.from('channel_posts').insert({ ...row })
+  if (!error) return
+
+  if (String(error.message || '').includes('reason')) {
+    const fallback = { ...row }
+    delete fallback.reason
+    const { error: fallbackErr } = await client.from('channel_posts').insert(fallback)
+    if (!fallbackErr) return
+    throw fallbackErr
+  }
+
+  throw error
+}
+
 const sendTelegramMessage = async (text: string) => {
+
   if (!TELEGRAM_BOT_TOKEN) throw new Error('missing_telegram_bot_token')
 
   const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -516,8 +542,17 @@ const autoPostBreaking = async (client: any, payload: {
   importanceLabel: string
 }) => {
   const importance = String(payload.importanceLabel || '').toUpperCase()
-  if (importance !== 'HIGH') return
-  if (!BREAKING_SOURCE_ALLOWLIST.includes(payload.sourceName)) return
+  const text = `${payload.headline} ${payload.summary}`.toLowerCase()
+  const isBreaking = importance === 'HIGH' || BREAKING_POST_KEYWORDS.some((k) => text.includes(k))
+
+  if (!isBreaking) return { posted: false, reason: 'not_breaking' }
+
+  const inTierA = BREAKING_TIER_A_ALLOWLIST.includes(payload.sourceName)
+  const inTierB = BREAKING_TIER_B_ALLOWLIST.includes(payload.sourceName)
+  if (!inTierA && !inTierB) return { posted: false, reason: 'source_not_allowlisted' }
+
+  if (inTierA && !['HIGH', 'MED'].includes(importance)) return { posted: false, reason: 'tier_a_needs_med_or_high' }
+  if (inTierB && importance !== 'HIGH') return { posted: false, reason: 'tier_b_high_only' }
 
   const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
   const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\n\nSource: ${payload.sourceName}\n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
@@ -534,40 +569,56 @@ const autoPostBreaking = async (client: any, payload: {
     .limit(1)
     .maybeSingle()
 
-  if (recentDuplicate?.id) return
+  if (recentDuplicate?.id) {
+    await insertChannelPostSafe(client, {
+      status: 'skipped', lane: 'breaking', article_id: payload.articleId,
+      source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
+      article_url: payload.articleUrl, tags, post_text: postText,
+      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
+      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:dupe`, reason: 'dedupe_12h', approved_by: 'auto',
+    })
+    return { posted: false, reason: 'dedupe_12h' }
+  }
 
-  const dayStart = new Date()
-  dayStart.setUTCHours(0, 0, 0, 0)
-
+  const dayStart = new Date(); dayStart.setUTCHours(0,0,0,0)
   const { count: postedToday } = await client
-    .from('channel_posts')
-    .select('id', { count: 'exact', head: true })
-    .eq('lane', 'breaking')
-    .eq('status', 'posted')
-    .gte('posted_at', dayStart.toISOString())
+    .from('channel_posts').select('id', { count: 'exact', head: true })
+    .eq('lane', 'breaking').eq('status', 'posted').gte('posted_at', dayStart.toISOString())
 
-  if ((postedToday || 0) >= AUTO_POST_DAILY_CAP) return
+  if ((postedToday || 0) >= AUTO_POST_DAILY_CAP) {
+    await insertChannelPostSafe(client, {
+      status: 'skipped', lane: 'breaking', article_id: payload.articleId,
+      source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
+      article_url: payload.articleUrl, tags, post_text: postText,
+      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
+      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:cap`, reason: 'daily_cap', approved_by: 'auto',
+    })
+    return { posted: false, reason: 'daily_cap' }
+  }
 
-  const sent = await sendTelegramMessage(postText)
-
-  await client.from('channel_posts').insert({
-    status: 'posted',
-    lane: 'breaking',
-    article_id: payload.articleId,
-    source_name: payload.sourceName,
-    headline: payload.headline,
-    headline_ko: payload.headline,
-    article_url: payload.articleUrl,
-    tags,
-    post_text: postText,
-    target_channel: TELEGRAM_BREAKING_CHANNEL,
-    target_admin: '@master_billybot',
-    dedupe_key: `breaking:${dedupeBase}:${Date.now()}`,
-    posted_at: new Date().toISOString(),
-    approved_by: 'auto',
-    telegram_message_id: sent.messageId,
-    telegram_chat_id: sent.chatId,
-  })
+  try {
+    const sent = await sendTelegramMessage(postText)
+    await insertChannelPostSafe(client, {
+      status: 'posted', lane: 'breaking', article_id: payload.articleId,
+      source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
+      article_url: payload.articleUrl, tags, post_text: postText,
+      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
+      dedupe_key: `breaking:${dedupeBase}:${Date.now()}`,
+      posted_at: new Date().toISOString(), approved_by: 'auto',
+      telegram_message_id: sent.messageId, telegram_chat_id: sent.chatId, reason: 'posted_auto',
+    })
+    return { posted: true, reason: 'posted_auto' }
+  } catch (sendErr: any) {
+    await insertChannelPostSafe(client, {
+      status: 'skipped', lane: 'breaking', article_id: payload.articleId,
+      source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
+      article_url: payload.articleUrl, tags, post_text: postText,
+      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
+      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:senderr`,
+      reason: `telegram_error:${String(sendErr?.message || sendErr)}`.slice(0, 180), approved_by: 'auto',
+    })
+    return { posted: false, reason: `telegram_error:${String(sendErr?.message || sendErr)}` }
+  }
 }
 
 const insertSourceRunLog = async (client: any, runLog: any) => {
@@ -652,6 +703,13 @@ export async function POST(request: Request) {
     let issueUpdatesCreated = 0
     let sourcesProcessed = 0
     let stoppedEarly = false
+
+    const autopostEval = {
+      candidates: 0,
+      posted: 0,
+      skipped: 0,
+      skippedReasons: {} as Record<string, number>,
+    }
 
     // Shuffle sources deterministically per run to avoid starvation when runs stop early.
     const shuffled = [...(sources as SourceType[])]
@@ -851,7 +909,7 @@ ${item.summary}`.slice(0, 4000)
           runLog.items_saved += 1
 
           try {
-            await autoPostBreaking(client, {
+            const ap = await autoPostBreaking(client, {
               articleId: inserted.id,
               sourceName: String(source.name || 'Unknown'),
               headline: item.title,
@@ -859,8 +917,18 @@ ${item.summary}`.slice(0, 4000)
               summary: item.summary,
               importanceLabel: articleLabel,
             })
-          } catch (autoPostErr) {
+            if (ap.reason !== 'not_breaking') {
+              autopostEval.candidates += 1
+              if (ap.posted) autopostEval.posted += 1
+              else autopostEval.skipped += 1
+              if (!ap.posted) autopostEval.skippedReasons[ap.reason] = (autopostEval.skippedReasons[ap.reason] || 0) + 1
+            }
+          } catch (autoPostErr: any) {
             console.error('autoPostBreaking failed', autoPostErr)
+            autopostEval.candidates += 1
+            autopostEval.skipped += 1
+            const key = `runtime_error:${String(autoPostErr?.message || autoPostErr)}`.slice(0, 120)
+            autopostEval.skippedReasons[key] = (autopostEval.skippedReasons[key] || 0) + 1
           }
 
           const now = new Date().toISOString()
@@ -1014,6 +1082,7 @@ ${item.summary}`.slice(0, 4000)
       issue_updates_created: issueUpdatesCreated,
       sources_processed: sourcesProcessed,
       stopped_early: stoppedEarly,
+      autopost_eval: autopostEval,
     })
   } catch (error) {
     console.error('POST /api/jobs/ingest failed', error)
