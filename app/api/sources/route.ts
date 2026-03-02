@@ -121,7 +121,7 @@ export async function GET(request: Request) {
 
     let globalLatestRunAt: string | null = null
     let debugGlobalLatestRawRow: any = null
-    const globalLatestQuery = { filter: 'source_id IS NULL', orderBy: 'run_at_utc DESC', limit: 1, fallback: 'MAX(run_at_utc) overall' }
+    const globalLatestQuery = { filter: 'source_id IS NULL', select: 'run_at_utc', orderBy: 'run_at_utc DESC', limit: 1 }
 
     const latestGlobal = await client
       .from('ingest_logs')
@@ -133,19 +133,20 @@ export async function GET(request: Request) {
 
     if (!latestGlobal.error && latestGlobal.data?.run_at_utc) {
       globalLatestRunAt = String(latestGlobal.data.run_at_utc)
-      debugGlobalLatestRawRow = latestGlobal.data
-    }
 
-    if (!globalLatestRunAt) {
-      const latestAny = await client
+      const latestRowForDebug = await client
         .from('ingest_logs')
-        .select('run_at_utc')
-        .order('run_at_utc', { ascending: false })
+        .select('id,run_at_utc')
+        .is('source_id', null)
+        .eq('run_at_utc', globalLatestRunAt)
+        .order('id', { ascending: false })
         .limit(1)
         .maybeSingle()
-      if (!latestAny.error && latestAny.data?.run_at_utc) {
-        globalLatestRunAt = String(latestAny.data.run_at_utc)
-        debugGlobalLatestRawRow = latestAny.data
+
+      if (!latestRowForDebug.error && latestRowForDebug.data) {
+        debugGlobalLatestRawRow = latestRowForDebug.data
+      } else {
+        debugGlobalLatestRawRow = { id: null, run_at_utc: globalLatestRunAt }
       }
     }
 
