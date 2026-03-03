@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -47,17 +47,24 @@ export async function GET(request: Request) {
     const limit = Math.max(100, Math.min(5000, Number(url.searchParams.get('limit') || 2000)))
 
     const client = createAdminClient()
-    const { data, error } = await client
-      .from('channel_posts')
-      .select('id,status,reason,source_name,source_id,target_channel,created_at')
-      .eq('target_channel', channel)
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .limit(limit)
+    const baseQuery = (selectText: string) =>
+      client
+        .from('channel_posts')
+        .select(selectText)
+        .eq('target_channel', channel)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(limit)
 
-    if (error) throw error
+    const withSourceId: any = await baseQuery('id,status,reason,source_name,source_id,target_channel,created_at')
+    let rows = ((withSourceId.data || []) as unknown as Row[])
 
-    const rows = ((data || []) as Row[])
+    if (withSourceId.error) {
+      // Prod compatibility: some environments may not have source_id on channel_posts yet.
+      const fallback: any = await baseQuery('id,status,reason,source_name,target_channel,created_at')
+      if (fallback.error) throw fallback.error
+      rows = ((fallback.data || []) as unknown as Row[]).map((r) => ({ ...r, source_id: null }))
+    }
     const posted = rows.filter((r) => r.status === 'posted').length
     const failed = rows.filter((r) => r.status === 'failed').length
     const skipped = rows.filter((r) => r.status === 'skipped').length
@@ -97,3 +104,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: String(error) }, { status: 500 })
   }
 }
+
