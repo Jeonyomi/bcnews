@@ -872,8 +872,11 @@ export async function POST(request: Request) {
       skippedReasons: {} as Record<string, number>,
     }
 
-    // Shuffle sources deterministically per run to avoid starvation when runs stop early.
-    const shuffled = [...(sources as SourceType[])]
+    // Shuffle non-priority sources deterministically per run to avoid starvation when runs stop early.
+    const allSources = [...(sources as SourceType[])]
+    const priority = allSources.filter((s) => KR_EXCHANGE_NOTICE_SOURCES.includes(String(s.name || '')))
+    const shuffled = allSources.filter((s) => !KR_EXCHANGE_NOTICE_SOURCES.includes(String(s.name || '')))
+
     const seed = Number.parseInt(crypto.createHash('sha256').update(runAt).digest('hex').slice(0, 8), 16)
     for (let i = shuffled.length - 1; i > 0; i -= 1) {
       const j = (seed + i * 1103515245) % (i + 1)
@@ -882,9 +885,11 @@ export async function POST(request: Request) {
       shuffled[j] = tmp
     }
 
+    const sourceQueue = [...priority, ...shuffled]
+
     let processedCount = 0
 
-    for (const source of shuffled) {
+    for (const source of sourceQueue) {
       if (processedCount >= MAX_SOURCES_PER_RUN) {
         stoppedEarly = true
         break
