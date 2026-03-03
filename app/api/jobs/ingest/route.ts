@@ -26,6 +26,18 @@ const AUTO_POST_DAILY_CAP = Number.parseInt(process.env.AUTO_POST_DAILY_CAP || '
 const AUTO_POST_DEDUPE_HOURS = Number.parseInt(process.env.AUTO_POST_DEDUPE_HOURS || '12', 10) || 12
 const TELEGRAM_BOT_TOKEN = process.env.TG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ''
 const TELEGRAM_BREAKING_CHANNEL = process.env.TG_BREAKING_CHANNEL || '@Krypto_breaking'
+
+const CHANNEL_POST_REASONS = {
+  POSTED_AUTO: 'posted_auto',
+  NOT_BREAKING_LANE: 'not_breaking_lane',
+  SOURCE_NOT_ALLOWLISTED: 'source_not_allowlisted',
+  POLICY_TIER_A_MED_OR_HIGH_ONLY: 'tier_a_med_or_high_only',
+  POLICY_TIER_B_HIGH_ONLY: 'tier_b_high_only',
+  DEDUPE_12H: 'dedupe_12h',
+  DAILY_CAP: 'daily_cap',
+  KR_TITLE_DOT_SPAM_GUARD: 'kr_title_dot_spam_guard',
+  TELEGRAM_ERROR_PREFIX: 'telegram_error:',
+} as const
 const BREAKING_TIER_A_ALLOWLIST = [
   'Reuters',
   'FinancialJuice',
@@ -599,7 +611,7 @@ const autoPostBreaking = async (client: any, payload: {
 }) => {
   const importance = String(payload.importanceLabel || '').toUpperCase()
   const inBreakingLane = isBreakingLane({ title: payload.headline, summary: payload.summary, importanceLabel: importance })
-  if (!inBreakingLane) return { posted: false, reason: 'not_breaking_lane' }
+  if (!inBreakingLane) return { posted: false, reason: CHANNEL_POST_REASONS.NOT_BREAKING_LANE }
 
   const inTierA = BREAKING_TIER_A_ALLOWLIST.includes(payload.sourceName)
   const inTierB = BREAKING_TIER_B_ALLOWLIST.includes(payload.sourceName)
@@ -620,12 +632,12 @@ const autoPostBreaking = async (client: any, payload: {
     return { posted: false, reason }
   }
 
-  if (!inTierA && !inTierB) return skip('source_not_allowlisted')
-  if (inTierA && !['HIGH', 'MED'].includes(importance)) return skip('tier_a_med_or_high_only')
-  if (inTierB && importance !== 'HIGH') return skip('tier_b_high_only')
+  if (!inTierA && !inTierB) return skip(CHANNEL_POST_REASONS.SOURCE_NOT_ALLOWLISTED)
+  if (inTierA && !['HIGH', 'MED'].includes(importance)) return skip(CHANNEL_POST_REASONS.POLICY_TIER_A_MED_OR_HIGH_ONLY)
+  if (inTierB && importance !== 'HIGH') return skip(CHANNEL_POST_REASONS.POLICY_TIER_B_HIGH_ONLY)
 
   if (KR_TITLE_SAFE_SOURCES.includes(payload.sourceName) && hasDotSpam(payload.headline)) {
-    return skip('kr_title_dot_spam_guard')
+    return skip(CHANNEL_POST_REASONS.KR_TITLE_DOT_SPAM_GUARD)
   }
 
   const dedupeSince = new Date(Date.now() - AUTO_POST_DEDUPE_HOURS * 60 * 60 * 1000).toISOString()
@@ -639,14 +651,14 @@ const autoPostBreaking = async (client: any, payload: {
     .limit(1)
     .maybeSingle()
 
-  if (dup?.id) return skip('dedupe_12h')
+  if (dup?.id) return skip(CHANNEL_POST_REASONS.DEDUPE_12H)
 
   const dayStart = new Date(); dayStart.setUTCHours(0,0,0,0)
   const { count: postedToday } = await client
     .from('channel_posts').select('id', { count: 'exact', head: true })
     .eq('lane', 'breaking').eq('status', 'posted').gte('posted_at', dayStart.toISOString())
 
-  if ((postedToday || 0) >= AUTO_POST_DAILY_CAP) return skip('daily_cap')
+  if ((postedToday || 0) >= AUTO_POST_DAILY_CAP) return skip(CHANNEL_POST_REASONS.DAILY_CAP)
 
   try {
     const sent = await sendTelegramMessage(postText)
@@ -657,11 +669,11 @@ const autoPostBreaking = async (client: any, payload: {
       target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
       dedupe_key: `breaking:${dedupeBase}:${Date.now()}`,
       posted_at: new Date().toISOString(), approved_by: 'auto',
-      telegram_message_id: sent.messageId, telegram_chat_id: sent.chatId, reason: 'posted_auto',
+      telegram_message_id: sent.messageId, telegram_chat_id: sent.chatId, reason: CHANNEL_POST_REASONS.POSTED_AUTO,
     })
-    return { posted: true, reason: 'posted_auto' }
+    return { posted: true, reason: CHANNEL_POST_REASONS.POSTED_AUTO }
   } catch (sendErr: any) {
-    return skip(`telegram_error:${String(sendErr?.message || sendErr)}`.slice(0, 180))
+    return skip(`${CHANNEL_POST_REASONS.TELEGRAM_ERROR_PREFIX}${String(sendErr?.message || sendErr)}`.slice(0, 180))
   }
 }
 
