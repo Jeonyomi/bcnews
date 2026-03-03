@@ -11,6 +11,7 @@ type Row = {
   source_id?: number | null
   target_channel: string | null
   created_at: string | null
+  headline?: string | null
 }
 
 const parseWindowHours = (value: string | null) => {
@@ -56,12 +57,12 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false })
         .limit(limit)
 
-    const withSourceId: any = await baseQuery('id,status,reason,source_name,source_id,target_channel,created_at')
+    const withSourceId: any = await baseQuery('id,status,reason,source_name,source_id,target_channel,created_at,headline')
     let rows = ((withSourceId.data || []) as unknown as Row[])
 
     if (withSourceId.error) {
       // Prod compatibility: some environments may not have source_id on channel_posts yet.
-      const fallback: any = await baseQuery('id,status,reason,source_name,target_channel,created_at')
+      const fallback: any = await baseQuery('id,status,reason,source_name,target_channel,created_at,headline')
       if (fallback.error) throw fallback.error
       rows = ((fallback.data || []) as unknown as Row[]).map((r) => ({ ...r, source_id: null }))
     }
@@ -86,6 +87,21 @@ export async function GET(request: Request) {
       return { source_name, source_id: source_id === 'null' ? null : Number(source_id), count: it.count }
     })
 
+
+    const recentSkipped = rows
+      .filter((r) => r.status === 'skipped')
+      .slice(0, 15)
+      .map((r) => ({
+        id: r.id,
+        reason: r.reason || 'unknown',
+        reason_detail: {
+          source_name: r.source_name || 'unknown',
+          source_id: r.source_id ?? null,
+          headline: r.headline || null,
+        },
+        created_at: r.created_at,
+      }))
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -97,10 +113,13 @@ export async function GET(request: Request) {
         reason_top: reasonTop,
         skipped_source_top: skippedSourceTop,
         allowlist_candidate_top: allowlistCandidateTop,
+        recent_skipped: recentSkipped,
       },
     })
   } catch (error) {
     console.error('GET /api/ops/channel-posts failed', error)
+
+
     return NextResponse.json({ ok: false, error: String(error) }, { status: 500 })
   }
 }
