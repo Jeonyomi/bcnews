@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ANALYSIS_KEYWORDS,
-  BREAKING_KEYWORDS,
   FEED_FILTERS,
   SOURCE_TABS,
   type FeedFilterKey,
   type SourceTabKey,
 } from '@/lib/dashboardFeedConfig'
+import { isBreakingLane } from '@/lib/breakingClassifier'
 import { formatSeoulDateTime } from '@/lib/datetime'
 
 const REFRESH_REQUEST_EVENT = 'bcnews:refresh-request'
@@ -39,8 +39,7 @@ const minutesAgo = (value: string) => {
 
 const classifyArticle = (article: ArticleRow): FeedFilterKey => {
   const text = `${article.title || ''} ${article.summary_short || ''} ${article.why_it_matters || ''}`.toLowerCase()
-  const importance = (article.importance_label || '').toUpperCase()
-  if (importance === 'HIGH' || BREAKING_KEYWORDS.some((k) => text.includes(k))) return 'breaking'
+  if (isBreakingLane({ title: article.title, summary: article.summary_short, why: article.why_it_matters, importanceLabel: article.importance_label })) return 'breaking'
   if (ANALYSIS_KEYWORDS.some((k) => text.includes(k))) return 'analysis'
   return 'all'
 }

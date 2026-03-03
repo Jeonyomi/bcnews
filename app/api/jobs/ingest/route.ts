@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSupabaseServerConfig } from '@/lib/supabaseServer'
 import { err } from '@/lib/dashboardApi'
+import { isBreakingLane } from '@/lib/breakingClassifier'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,8 +47,6 @@ const BREAKING_TIER_B_ALLOWLIST = [
   'Blockworks',
   'Decrypt',
 ]
-
-const BREAKING_POST_KEYWORDS = ['breaking','exploit','hack','etf','sec','lawsuit','liquidation','depeg','listing','delisting','launchpool']
 
 const TAG_RULES: Array<{ tag: string; keywords: string[] }> = [
   { tag: '#BTC', keywords: ['bitcoin', 'btc'] },
@@ -599,36 +598,38 @@ const autoPostBreaking = async (client: any, payload: {
   importanceLabel: string
 }) => {
   const importance = String(payload.importanceLabel || '').toUpperCase()
-  const text = `${payload.headline} ${payload.summary}`.toLowerCase()
-  const isBreaking = importance === 'HIGH' || BREAKING_POST_KEYWORDS.some((k) => text.includes(k))
-
-  if (!isBreaking) return { posted: false, reason: 'not_breaking' }
+  const inBreakingLane = isBreakingLane({ title: payload.headline, summary: payload.summary, importanceLabel: importance })
+  if (!inBreakingLane) return { posted: false, reason: 'not_breaking_lane' }
 
   const inTierA = BREAKING_TIER_A_ALLOWLIST.includes(payload.sourceName)
   const inTierB = BREAKING_TIER_B_ALLOWLIST.includes(payload.sourceName)
-  if (!inTierA && !inTierB) return { posted: false, reason: 'source_not_allowlisted' }
 
-  if (inTierA && !['HIGH', 'MED'].includes(importance)) return { posted: false, reason: 'tier_a_med_or_high_only' }
-  if (inTierB && importance !== 'HIGH') return { posted: false, reason: 'tier_b_high_only' }
+  const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
+  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\n\n\uCD9C\uCC98: ${payload.sourceName}\n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
+  const dedupeBase = hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())
 
-  if (KR_TITLE_SAFE_SOURCES.includes(payload.sourceName) && hasDotSpam(payload.headline)) {
+  const skip = async (reason: string) => {
     await insertChannelPostSafe(client, {
       status: 'skipped', lane: 'breaking', article_id: payload.articleId,
       source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
-      article_url: payload.articleUrl, tags: [], post_text: null,
+      article_url: payload.articleUrl, tags, post_text: postText,
       target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
-      dedupe_key: `breaking:${hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())}:${Date.now()}:krdot`,
-      reason: 'kr_title_dot_spam_guard', approved_by: 'auto',
+      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:${reason.slice(0,24)}`,
+      reason, approved_by: 'auto',
     })
-    return { posted: false, reason: 'kr_title_dot_spam_guard' }
+    return { posted: false, reason }
   }
 
-  const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
-const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\n\n출처: ${payload.sourceName}\n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
-  const dedupeBase = hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())
-  const dedupeSince = new Date(Date.now() - AUTO_POST_DEDUPE_HOURS * 60 * 60 * 1000).toISOString()
+  if (!inTierA && !inTierB) return skip('source_not_allowlisted')
+  if (inTierA && !['HIGH', 'MED'].includes(importance)) return skip('tier_a_med_or_high_only')
+  if (inTierB && importance !== 'HIGH') return skip('tier_b_high_only')
 
-  const { data: recentDuplicate } = await client
+  if (KR_TITLE_SAFE_SOURCES.includes(payload.sourceName) && hasDotSpam(payload.headline)) {
+    return skip('kr_title_dot_spam_guard')
+  }
+
+  const dedupeSince = new Date(Date.now() - AUTO_POST_DEDUPE_HOURS * 60 * 60 * 1000).toISOString()
+  const { data: dup } = await client
     .from('channel_posts')
     .select('id')
     .eq('lane', 'breaking')
@@ -638,32 +639,14 @@ const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\n\n출처: ${payl
     .limit(1)
     .maybeSingle()
 
-  if (recentDuplicate?.id) {
-    await insertChannelPostSafe(client, {
-      status: 'skipped', lane: 'breaking', article_id: payload.articleId,
-      source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
-      article_url: payload.articleUrl, tags, post_text: postText,
-      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
-      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:dupe`, reason: 'dedupe_12h', approved_by: 'auto',
-    })
-    return { posted: false, reason: 'dedupe_12h' }
-  }
+  if (dup?.id) return skip('dedupe_12h')
 
   const dayStart = new Date(); dayStart.setUTCHours(0,0,0,0)
   const { count: postedToday } = await client
     .from('channel_posts').select('id', { count: 'exact', head: true })
     .eq('lane', 'breaking').eq('status', 'posted').gte('posted_at', dayStart.toISOString())
 
-  if ((postedToday || 0) >= AUTO_POST_DAILY_CAP) {
-    await insertChannelPostSafe(client, {
-      status: 'skipped', lane: 'breaking', article_id: payload.articleId,
-      source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
-      article_url: payload.articleUrl, tags, post_text: postText,
-      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
-      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:cap`, reason: 'daily_cap', approved_by: 'auto',
-    })
-    return { posted: false, reason: 'daily_cap' }
-  }
+  if ((postedToday || 0) >= AUTO_POST_DAILY_CAP) return skip('daily_cap')
 
   try {
     const sent = await sendTelegramMessage(postText)
@@ -678,15 +661,7 @@ const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\n\n출처: ${payl
     })
     return { posted: true, reason: 'posted_auto' }
   } catch (sendErr: any) {
-    await insertChannelPostSafe(client, {
-      status: 'skipped', lane: 'breaking', article_id: payload.articleId,
-      source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
-      article_url: payload.articleUrl, tags, post_text: postText,
-      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
-      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:senderr`,
-      reason: `telegram_error:${String(sendErr?.message || sendErr)}`.slice(0, 180), approved_by: 'auto',
-    })
-    return { posted: false, reason: `telegram_error:${String(sendErr?.message || sendErr)}` }
+    return skip(`telegram_error:${String(sendErr?.message || sendErr)}`.slice(0, 180))
   }
 }
 
