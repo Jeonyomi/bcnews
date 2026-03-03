@@ -23,7 +23,6 @@ const CRYPTO_RELEVANCE_KEYWORDS = [
   'hack', 'exploit', 'bridge', 'staking', 'airdrop', 'mainnet', 'l2',
 ]
 
-const AUTO_POST_DAILY_CAP = Number.parseInt(process.env.AUTO_POST_DAILY_CAP || '12', 10) || 12
 const AUTO_POST_DEDUPE_HOURS = Number.parseInt(process.env.AUTO_POST_DEDUPE_HOURS || '12', 10) || 12
 const TELEGRAM_BOT_TOKEN = process.env.TG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ''
 const TELEGRAM_BREAKING_CHANNEL = process.env.TG_BREAKING_CHANNEL || '@Krypto_breaking'
@@ -605,6 +604,7 @@ const sendTelegramMessage = async (text: string) => {
     body: JSON.stringify({
       chat_id: TELEGRAM_BREAKING_CHANNEL,
       text,
+      parse_mode: undefined,
       disable_web_page_preview: false,
     }),
   })
@@ -630,19 +630,21 @@ const formatKbnPost = (payload: {
   fallbackUrl: string
   importanceLabel?: string
 }) => {
-  const rawTitle = String(payload.title || '').trim()
+  const rawTitle = cleanTitle(String(payload.title || ''), String(payload.summary || payload.why || ''), String(payload.sourceName || ''))
   const importance = String(payload.importanceLabel || '').toUpperCase()
-  const hasPrefix = rawTitle.startsWith('[\uC18D\uBCF4]')
+  const hasPrefix = rawTitle.startsWith('[속보]')
   const finalTitle = importance === 'HIGH'
-    ? (hasPrefix ? rawTitle : `[\uC18D\uBCF4] ${rawTitle}`)
+    ? (hasPrefix ? rawTitle : `[속보] ${rawTitle}`)
     : rawTitle
 
-  const summaryLine = String(payload.summary || '').trim() || String(payload.why || '').trim()
-  const link = String(payload.canonicalUrl || payload.fallbackUrl || '').trim()
+  const summaryLineRaw = String(payload.summary || '').trim() || String(payload.why || '').trim()
+  const summaryLine = stripHtmlTags(decodeHtmlEntities(summaryLineRaw)).replace(/\s+/g, ' ').trim()
+  const safeSource = stripHtmlTags(decodeHtmlEntities(String(payload.sourceName || ''))).replace(/\s+/g, ' ').trim()
+  const link = normalizeFeedLink(String(payload.canonicalUrl || payload.fallbackUrl || '').trim())
 
   const lines = [finalTitle]
   if (summaryLine) lines.push(`- ${summaryLine}`)
-  lines.push(`\uCD9C\uCC98: ${payload.sourceName}`)
+  lines.push(`출처: ${safeSource}`)
   lines.push(link)
 
   return { text: lines.filter(Boolean).join('\n'), finalTitle, link }
