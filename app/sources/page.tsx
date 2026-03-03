@@ -18,6 +18,7 @@ type HealthRow = {
   display_last_run_at?: string | null
   runs: number
   source_runs?: number
+  global_runs?: number
   warn_runs: number
   error_runs: number
   success_rate: number | null
@@ -107,6 +108,7 @@ export default function SourcesPage() {
   const activeSummary = useMemo(
     () => ({
       total: summary.total - (summary.disabled || 0),
+      na: summary.na || 0,
       ok: summary.ok,
       warn: summary.warn,
       stale: summary.stale,
@@ -169,9 +171,9 @@ export default function SourcesPage() {
           <tbody>
             {activeSources.map((source) => {
               const row = healthMap.get(source.id)
-              const status = row?.status || 'warn'
+              const status = row?.status || 'na'
               const sourceRuns = row?.source_runs ?? 0
-              const globalRuns = row?.runs ?? 0
+              const globalRuns = row?.global_runs ?? meta.global_runs_window ?? 0
 
               return (
                 <tr key={source.id} className="border-b border-gray-100 dark:border-gray-800">
@@ -186,10 +188,10 @@ export default function SourcesPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs">{renderDate(row?.display_last_run_at || row?.last_run_at)}</td>
-                  <td className="px-3 py-2 text-xs">{row?.last_items || 0} / {row?.last_saved || 0}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '? / ?' : `${row?.last_items || 0} / ${row?.last_saved || 0}`}</td>
                   <td className="px-3 py-2 text-xs">{sourceRuns} / {globalRuns}</td>
                   <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '? / ?' : `${row?.success_rate ?? 0}% / ${row?.error_rate ?? 0}%`}</td>
-                  <td className="px-3 py-2 text-xs">{row?.total_fetched || 0} / {row?.total_saved || 0}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '? / ?' : `${row?.total_fetched || 0} / ${row?.total_saved || 0}`}</td>
                   <td className="max-w-[340px] truncate px-3 py-2 text-xs text-red-500" title={row?.last_error || ''}>{row?.last_error || '-'}</td>
                 </tr>
               )

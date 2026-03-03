@@ -34,6 +34,7 @@ const classifyHealthStatus = (args: {
 
   if (sourceName.toLowerCase() === 'fatf') return 'disabled'
   if (!enabled) return 'disabled'
+  if (sourceRuns === 0) return 'na'
   if (!latest) return 'warn'
 
   if (sourceRuns === 0 && lastFetched === 0 && lastSaved === 0) return 'na'
@@ -166,7 +167,8 @@ export async function GET(request: Request) {
       const latest = sourceLogs[0]
 
       const sourceRuns = sourceLogs.length
-      const runs = sourceRuns > 0 ? sourceRuns : globalWindow.length
+      const runs = sourceRuns
+      const globalRuns = globalWindow.length
       const errorRuns = sourceLogs.filter((r) => r.status === 'error').length
       const warnRuns = sourceLogs.filter((r) => r.status === 'warn').length
       const fetched = sourceLogs.reduce((sum, r) => sum + Number(r.items_fetched || 0), 0)
@@ -208,6 +210,7 @@ export async function GET(request: Request) {
         display_last_run_at: latest?.run_at_utc || globalLatestRunAt || null,
         runs,
         source_runs: sourceRuns,
+        global_runs: globalRuns,
         warn_runs: warnRuns,
         error_runs: errorRuns,
         success_rate: successRate,
