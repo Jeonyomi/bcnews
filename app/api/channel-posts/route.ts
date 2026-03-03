@@ -6,18 +6,30 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
-    const status = url.searchParams.get('status') || 'pending'
+    const status = (url.searchParams.get('status') || '').trim()
+    const debug = url.searchParams.get('debug') === '1'
     const limit = Math.max(1, Math.min(100, Number(url.searchParams.get('limit') || 20)))
 
     const client = createAdminClient()
-    const { data, error } = await client
+    let query = client
       .from('channel_posts')
       .select('id,created_at,status,lane,headline,headline_ko,source_name,article_url,tags,post_text,target_channel,target_admin,telegram_message_id,telegram_chat_id,reason')
-      .eq('status', status)
+
+    if (status) query = query.eq('status', status)
+
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .limit(limit)
 
     if (error) throw error
+
+    if (debug) {
+      let countQuery = client.from('channel_posts').select('id', { count: 'exact', head: true })
+      if (status) countQuery = countQuery.eq('status', status)
+      const counted = await countQuery
+      return NextResponse.json({ ok: true, data: data || [], meta: { status: status || 'all', count: counted.count || 0 } })
+    }
+
     return NextResponse.json({ ok: true, data: data || [] })
   } catch (error) {
     console.error('GET /api/channel-posts failed', error)
