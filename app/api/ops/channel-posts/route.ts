@@ -79,6 +79,13 @@ export async function GET(request: Request) {
       10,
     )
 
+
+    const total = rows.length
+    const postRate = total > 0 ? Number(((posted / total) * 100).toFixed(1)) : 0
+    const skipRate = total > 0 ? Number(((skipped / total) * 100).toFixed(1)) : 0
+    const failRate = total > 0 ? Number(((failed / total) * 100).toFixed(1)) : 0
+    const dominantSkipReason = (reasonTopNormalized.find((r) => r.key.startsWith('skipped_')) || null)
+
     const allowlistCandidateTop = countTop(
       rows
         .filter((r) => r.status === 'skipped' && r.reason === CHANNEL_POST_REASONS.SOURCE_NOT_ALLOWLISTED)
@@ -112,7 +119,8 @@ export async function GET(request: Request) {
         window: `${windowHours}h`,
         since,
         sampled_rows: rows.length,
-        counts: { posted, failed, skipped, total: rows.length },
+        counts: { posted, failed, skipped, total },
+        policy_summary: { post_rate_pct: postRate, skip_rate_pct: skipRate, fail_rate_pct: failRate, dominant_skip_reason: dominantSkipReason },
         reason_top: reasonTop,
         reason_top_normalized: reasonTopNormalized,
         skipped_source_top: skippedSourceTop,
