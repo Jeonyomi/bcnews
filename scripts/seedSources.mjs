@@ -99,9 +99,9 @@ const sources = [
 
   // Korea (official) ??Tier 1
   // ------------------------------------------------------------
-    { name: 'Upbit Announcements', type: 'official', tier: '1', url: 'https://upbit.com/service_center/notice', rss_url: null, region: 'KR', enabled: true },
-  { name: 'Bithumb Announcements', type: 'official', tier: '1', url: 'https://www.bithumb.com/customer_support/info_notice', rss_url: null, region: 'KR', enabled: true },
-  { name: 'Coinone Announcements', type: 'official', tier: '1', url: 'https://coinone.co.kr/support/notice', rss_url: null, region: 'KR', enabled: true },
+    { name: 'Upbit Announcements', type: 'official', tier: '1', url: 'https://upbit.com/service_center/notice', rss_url: 'https://news.google.com/rss/search?q=site:upbit.com/service_center/notice%20(listing%20OR%20delisting%20OR%20notice)&hl=ko&gl=KR&ceid=KR:ko', region: 'KR', enabled: true },
+  { name: 'Bithumb Announcements', type: 'official', tier: '1', url: 'https://www.bithumb.com/customer_support/info_notice', rss_url: 'https://news.google.com/rss/search?q=site:bithumb.com/customer_support/info_notice%20(listing%20OR%20delisting%20OR%20notice)&hl=ko&gl=KR&ceid=KR:ko', region: 'KR', enabled: true },
+  { name: 'Coinone Announcements', type: 'official', tier: '1', url: 'https://coinone.co.kr/support/notice', rss_url: 'https://news.google.com/rss/search?q=site:coinone.co.kr/support/notice%20(listing%20OR%20delisting%20OR%20notice)&hl=ko&gl=KR&ceid=KR:ko', region: 'KR', enabled: true },
   { name: 'Financial Services Commission (KR)', type: 'official', tier: '1', url: 'https://www.fsc.go.kr', rss_url: 'https://www.fsc.go.kr/eng/rss.xml', region: 'KR', enabled: true },
   { name: 'MOEF (KR)', type: 'official', tier: '1', url: 'https://www.moef.go.kr', rss_url: 'https://www.moef.go.kr/eng/rss.xml', region: 'KR', enabled: true },
   { name: 'Financial Supervisory Service (KR)', type: 'official', tier: '1', url: 'https://www.fss.or.kr', rss_url: null, region: 'KR', enabled: false },
