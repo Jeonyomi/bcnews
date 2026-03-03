@@ -9,7 +9,7 @@ const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
 type HealthRow = {
   source_id: number
   source_name: string
-  status: 'ok' | 'warn' | 'down' | 'disabled' | 'restricted' | 'throttled' | 'stale'
+  status: 'ok' | 'warn' | 'down' | 'disabled' | 'restricted' | 'throttled' | 'stale' | 'na'
   last_status: string | null
   last_items: number
   last_saved: number
@@ -26,7 +26,7 @@ type HealthRow = {
   total_saved: number
 }
 
-type Summary = { total: number; ok: number; warn: number; stale: number; down: number; disabled: number }
+type Summary = { total: number; ok: number; warn: number; stale: number; down: number; disabled: number; na?: number }
 type Meta = {
   health_window_runs: number
   stale_hours: number
@@ -46,6 +46,7 @@ const statusClass: Record<HealthRow['status'], string> = {
   stale: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
   down: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
   disabled: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+  na: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
 }
 
 export default function SourcesPage() {

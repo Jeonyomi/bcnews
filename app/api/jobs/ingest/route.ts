@@ -73,6 +73,7 @@ const deriveBreakingTags = (text: string) => {
 }
 
 const ALWAYS_ALLOW_SOURCES = ['FinancialJuice','Binance Announcements','Coinbase Announcements','Coinbase Blog']
+const KR_TITLE_SAFE_SOURCES = ['Tokenpost', 'Blockmedia', 'Coinness']
 
 const NON_CRYPTO_NOISE_KEYWORDS = [
   'nba', 'nfl', 'mlb', 'celebrity', 'fashion', 'movie', 'box office', 'recipe',
@@ -153,12 +154,35 @@ const decodeHtmlEntities = (value: string) =>
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/&#(\d+);/g, (_m, code) => String.fromCharCode(Number(code) || 0))
 
-const cleanTitle = (title: string, summary: string, sourceName = '') => {
-  const decoded = decodeHtmlEntities(stripHtmlTags(title || '')).replace(/^[\[,\s\-??:;|]+/, '').trim()
-  if (sourceName.toLowerCase() !== 'tokenpost') return decoded
+const sanitizeKrTitle = (value: string) =>
+  decodeHtmlEntities(stripHtmlTags(value || ''))
+    .normalize('NFC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/[\u00B7\u2022\u2026\u2013\u2014]/g, ' ')
+    .replace(/^\[[^\]]+\]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 
-  const compact = decoded.replace(/^\W+/, '').trim()
-  if (compact) return compact
+const hasDotSpam = (value: string) => {
+  const s = String(value || '').trim()
+  if (s.length < 12) return false
+  const dots = (s.match(/\./g) || []).length
+  return dots >= 4 && dots / s.length >= 0.2
+}
+
+const cleanTitle = (title: string, summary: string, sourceName = '') => {
+  const source = String(sourceName || '')
+
+  if (KR_TITLE_SAFE_SOURCES.includes(source)) {
+    const krTitle = sanitizeKrTitle(title || '')
+    if (krTitle) return krTitle
+    const krFallback = sanitizeKrTitle(summary || '')
+    if (!krFallback) return ''
+    return krFallback.slice(0, 120)
+  }
+
+  const decoded = decodeHtmlEntities(stripHtmlTags(title || '')).replace(/^[\[,\s\-??:;|]+/, '').trim()
+  if (decoded) return decoded
 
   const summaryFallback = decodeHtmlEntities(stripHtmlTags(summary || '')).replace(/^[\[,\s\-??:;|]+/, '').trim()
   if (!summaryFallback) return ''
@@ -579,6 +603,18 @@ const autoPostBreaking = async (client: any, payload: {
 
   if (inTierA && !['HIGH', 'MED'].includes(importance)) return { posted: false, reason: 'tier_a_med_or_high_only' }
   if (inTierB && importance !== 'HIGH') return { posted: false, reason: 'tier_b_high_only' }
+
+  if (KR_TITLE_SAFE_SOURCES.includes(payload.sourceName) && hasDotSpam(payload.headline)) {
+    await insertChannelPostSafe(client, {
+      status: 'skipped', lane: 'breaking', article_id: payload.articleId,
+      source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
+      article_url: payload.articleUrl, tags: [], post_text: null,
+      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
+      dedupe_key: `breaking:${hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())}:${Date.now()}:krdot`,
+      reason: 'kr_title_dot_spam_guard', approved_by: 'auto',
+    })
+    return { posted: false, reason: 'kr_title_dot_spam_guard' }
+  }
 
   const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
 const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\n\n출처: ${payload.sourceName}\n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`

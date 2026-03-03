@@ -4,7 +4,7 @@ import { err, ok } from '@/lib/dashboardApi'
 
 export const dynamic = 'force-dynamic'
 
-type HealthStatus = 'ok' | 'warn' | 'down' | 'disabled' | 'restricted' | 'throttled' | 'stale'
+type HealthStatus = 'ok' | 'warn' | 'down' | 'disabled' | 'restricted' | 'throttled' | 'stale' | 'na'
 
 const STALE_HOURS = Number.parseInt(process.env.SOURCE_STALE_HOURS || '6', 10) || 6
 const HEALTH_WINDOW = Number.parseInt(process.env.SOURCE_HEALTH_LOG_WINDOW || '20', 10) || 20
@@ -24,14 +24,19 @@ const classifyHealthStatus = (args: {
   sourceName: string
   latest?: { status?: string | null; error_message?: string | null; run_at_utc?: string | null }
   runs: number
+  sourceRuns: number
   errorRate: number | null
   consecutiveErrors: number
+  lastFetched: number
+  lastSaved: number
 }): HealthStatus => {
-  const { enabled, sourceName, latest, runs, errorRate, consecutiveErrors } = args
+  const { enabled, sourceName, latest, runs, sourceRuns, errorRate, consecutiveErrors, lastFetched, lastSaved } = args
 
   if (sourceName.toLowerCase() === 'fatf') return 'disabled'
   if (!enabled) return 'disabled'
   if (!latest) return 'warn'
+
+  if (sourceRuns === 0 && lastFetched === 0 && lastSaved === 0) return 'na'
 
   const latestDate = toDate(latest.run_at_utc)
   if (latestDate) {
@@ -184,8 +189,11 @@ export async function GET(request: Request) {
         sourceName: String(source.name || ''),
         latest,
         runs,
+        sourceRuns,
         errorRate,
         consecutiveErrors,
+        lastFetched: Number(latest?.items_fetched || 0),
+        lastSaved: Number(latest?.items_saved || 0),
       })
 
       return {
@@ -226,10 +234,11 @@ export async function GET(request: Request) {
         else if (row.status === 'warn' || row.status === 'throttled' || row.status === 'restricted') acc.warn += 1
         else if (row.status === 'stale') acc.stale += 1
         else if (row.status === 'disabled') acc.disabled += 1
+        else if (row.status === 'na') acc.na += 1
         else acc.down += 1
         return acc
       },
-      { total: 0, ok: 0, warn: 0, stale: 0, down: 0, disabled: 0 },
+      { total: 0, ok: 0, warn: 0, stale: 0, down: 0, disabled: 0, na: 0 },
     )
 
     return NextResponse.json(
