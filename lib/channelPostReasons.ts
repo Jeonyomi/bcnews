@@ -13,3 +13,17 @@
 export const CHANNEL_POST_REASON_VALUES = Object.values(CHANNEL_POST_REASONS)
 
 export type ChannelPostReason = (typeof CHANNEL_POST_REASONS)[keyof typeof CHANNEL_POST_REASONS]
+
+export const normalizeChannelPostReason = (reason: string | null | undefined) => {
+  const r = String(reason || '').trim()
+  if (!r) return 'unknown'
+  if (r === CHANNEL_POST_REASONS.POSTED_AUTO) return 'posted_auto'
+  if (r.startsWith(CHANNEL_POST_REASONS.TELEGRAM_ERROR_PREFIX)) return 'failed_send'
+  if (r === CHANNEL_POST_REASONS.NOT_BREAKING_LANE) return 'skipped_not_breaking_lane'
+  if (r === CHANNEL_POST_REASONS.SOURCE_NOT_ALLOWLISTED) return 'skipped_source_not_allowlisted'
+  if (r === CHANNEL_POST_REASONS.POLICY_TIER_A_MED_OR_HIGH_ONLY || r === CHANNEL_POST_REASONS.POLICY_TIER_B_HIGH_ONLY) return 'skipped_policy_importance'
+  if (r === CHANNEL_POST_REASONS.DEDUPE_12H) return 'skipped_policy_dedupe'
+  if (r === CHANNEL_POST_REASONS.DAILY_CAP) return 'skipped_policy_daily_cap'
+  if (r === CHANNEL_POST_REASONS.KR_TITLE_DOT_SPAM_GUARD) return 'skipped_format_kr_title_dot_spam'
+  return 'other'
+}

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { CHANNEL_POST_REASONS, CHANNEL_POST_REASON_VALUES } from '@/lib/channelPostReasons'
+import { CHANNEL_POST_REASONS, CHANNEL_POST_REASON_VALUES, normalizeChannelPostReason } from '@/lib/channelPostReasons'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +72,7 @@ export async function GET(request: Request) {
     const skipped = rows.filter((r) => r.status === 'skipped').length
 
     const reasonTop = countTop(rows.map((r) => String(r.reason || 'unknown')), 12)
+    const reasonTopNormalized = countTop(rows.map((r) => normalizeChannelPostReason(r.reason)), 12)
 
     const skippedSourceTop = countTop(
       rows.filter((r) => r.status === 'skipped').map((r) => String(r.source_name || 'unknown')),
@@ -95,6 +96,7 @@ export async function GET(request: Request) {
       .map((r) => ({
         id: r.id,
         reason: r.reason || 'unknown',
+        reason_normalized: normalizeChannelPostReason(r.reason),
         reason_detail: {
           source_name: r.source_name || 'unknown',
           source_id: r.source_id ?? null,
@@ -112,6 +114,7 @@ export async function GET(request: Request) {
         sampled_rows: rows.length,
         counts: { posted, failed, skipped, total: rows.length },
         reason_top: reasonTop,
+        reason_top_normalized: reasonTopNormalized,
         skipped_source_top: skippedSourceTop,
         allowlist_candidate_top: allowlistCandidateTop,
         taxonomy: CHANNEL_POST_REASON_VALUES,
