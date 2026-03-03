@@ -1,5 +1,10 @@
 ﻿export const CHANNEL_POST_REASONS = {
   POSTED_AUTO: 'posted_auto',
+  SKIPPED_DUPLICATE: 'skipped_duplicate',
+  SKIPPED_INVALID_PAYLOAD: 'skipped_invalid_payload',
+  FAILED_SEND: 'failed_send',
+
+  // legacy reasons kept for backward-compatible analytics
   NOT_BREAKING_LANE: 'not_breaking_lane',
   SOURCE_NOT_ALLOWLISTED: 'source_not_allowlisted',
   POLICY_TIER_A_MED_OR_HIGH_ONLY: 'tier_a_med_or_high_only',
@@ -18,7 +23,11 @@ export const normalizeChannelPostReason = (reason: string | null | undefined) =>
   const r = String(reason || '').trim()
   if (!r) return 'unknown'
   if (r === CHANNEL_POST_REASONS.POSTED_AUTO) return 'posted_auto'
-  if (r.startsWith(CHANNEL_POST_REASONS.TELEGRAM_ERROR_PREFIX)) return 'failed_send'
+  if (r === CHANNEL_POST_REASONS.SKIPPED_DUPLICATE) return 'skipped_duplicate'
+  if (r === CHANNEL_POST_REASONS.SKIPPED_INVALID_PAYLOAD) return 'skipped_invalid_payload'
+  if (r === CHANNEL_POST_REASONS.FAILED_SEND || r.startsWith(CHANNEL_POST_REASONS.TELEGRAM_ERROR_PREFIX) || r.startsWith('failed_send:')) return 'failed_send'
+
+  // legacy mapping
   if (r === CHANNEL_POST_REASONS.NOT_BREAKING_LANE) return 'skipped_not_breaking_lane'
   if (r === CHANNEL_POST_REASONS.SOURCE_NOT_ALLOWLISTED) return 'skipped_source_not_allowlisted'
   if (r === CHANNEL_POST_REASONS.POLICY_TIER_A_MED_OR_HIGH_ONLY || r === CHANNEL_POST_REASONS.POLICY_TIER_B_HIGH_ONLY) return 'skipped_policy_importance'

@@ -1,4 +1,4 @@
-import crypto from 'crypto'
+﻿import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSupabaseServerConfig } from '@/lib/supabaseServer'
 import { err } from '@/lib/dashboardApi'
@@ -27,6 +27,7 @@ const AUTO_POST_DAILY_CAP = Number.parseInt(process.env.AUTO_POST_DAILY_CAP || '
 const AUTO_POST_DEDUPE_HOURS = Number.parseInt(process.env.AUTO_POST_DEDUPE_HOURS || '12', 10) || 12
 const TELEGRAM_BOT_TOKEN = process.env.TG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ''
 const TELEGRAM_BREAKING_CHANNEL = process.env.TG_BREAKING_CHANNEL || '@Krypto_breaking'
+const AUTO_POST_MODE = String(process.env.AUTO_POST_MODE || 'all_post').toLowerCase()
 
 
 const BREAKING_TIER_A_ALLOWLIST = [
@@ -619,30 +620,61 @@ const sendTelegramMessage = async (text: string) => {
   }
 }
 
+
+const formatKbnPost = (payload: {
+  title: string
+  summary?: string
+  why?: string
+  sourceName: string
+  canonicalUrl?: string
+  fallbackUrl: string
+  importanceLabel?: string
+}) => {
+  const rawTitle = String(payload.title || '').trim()
+  const importance = String(payload.importanceLabel || '').toUpperCase()
+  const hasPrefix = rawTitle.startsWith('[\uC18D\uBCF4]')
+  const finalTitle = importance === 'HIGH'
+    ? (hasPrefix ? rawTitle : `[\uC18D\uBCF4] ${rawTitle}`)
+    : rawTitle
+
+  const summaryLine = String(payload.summary || '').trim() || String(payload.why || '').trim()
+  const link = String(payload.canonicalUrl || payload.fallbackUrl || '').trim()
+
+  const lines = [finalTitle]
+  if (summaryLine) lines.push(`- ${summaryLine}`)
+  lines.push(`\uCD9C\uCC98: ${payload.sourceName}`)
+  lines.push(link)
+
+  return { text: lines.filter(Boolean).join('\n'), finalTitle, link }
+}
+
+const isValidHttpUrl = (value: string) => {
+  try {
+    const u = new URL(String(value || '').trim())
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 const autoPostBreaking = async (client: any, payload: {
   articleId: number
   sourceName: string
   headline: string
   articleUrl: string
+  canonicalUrl?: string
+  contentHash?: string
   summary: string
+  whyItMatters?: string
   importanceLabel: string
 }) => {
-  const importance = String(payload.importanceLabel || '').toUpperCase()
-  const inBreakingLane = isBreakingLane({ title: payload.headline, summary: payload.summary, importanceLabel: importance })
-  if (!inBreakingLane) return { posted: false, reason: CHANNEL_POST_REASONS.NOT_BREAKING_LANE }
+  const dedupeBase = hashContent(`${payload.canonicalUrl || payload.articleUrl || ''}|${payload.contentHash || ''}|${payload.headline}`.toLowerCase())
 
-  const inTierA = BREAKING_TIER_A_ALLOWLIST.includes(payload.sourceName)
-  const inTierB = BREAKING_TIER_B_ALLOWLIST.includes(payload.sourceName)
-
-  const tags = deriveBreakingTags(`${payload.headline} ${payload.summary}`).slice(0, 3)
-  const postText = `\u{1F6A8} [\uC18D\uBCF4] ${payload.headline}\n\n\uCD9C\uCC98: ${payload.sourceName}\n${payload.articleUrl}${tags.length ? `\n\n${tags.join(' ')}` : ''}`
-  const dedupeBase = hashContent(`${payload.sourceName}|${payload.headline}`.toLowerCase())
-
-  const skip = async (reason: string) => {
+  const skip = async (reason: string, postText: string | null) => {
     await insertChannelPostSafe(client, {
       status: 'skipped', lane: 'breaking', article_id: payload.articleId,
       source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
-      article_url: payload.articleUrl, tags, post_text: postText,
+      article_url: payload.canonicalUrl || payload.articleUrl, tags: [], post_text: postText,
       target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
       dedupe_key: `breaking:${dedupeBase}:${Date.now()}:${reason.slice(0,24)}`,
       reason, approved_by: 'auto',
@@ -650,40 +682,38 @@ const autoPostBreaking = async (client: any, payload: {
     return { posted: false, reason }
   }
 
-  if (!inTierA && !inTierB) return skip(CHANNEL_POST_REASONS.SOURCE_NOT_ALLOWLISTED)
-  if (inTierA && !['HIGH', 'MED'].includes(importance)) return skip(CHANNEL_POST_REASONS.POLICY_TIER_A_MED_OR_HIGH_ONLY)
-  if (inTierB && importance !== 'HIGH') return skip(CHANNEL_POST_REASONS.POLICY_TIER_B_HIGH_ONLY)
-
-  if (KR_TITLE_SAFE_SOURCES.includes(payload.sourceName) && hasDotSpam(payload.headline)) {
-    return skip(CHANNEL_POST_REASONS.KR_TITLE_DOT_SPAM_GUARD)
+  if (!String(payload.headline || '').trim() || !isValidHttpUrl(payload.canonicalUrl || payload.articleUrl)) {
+    return skip('skipped_invalid_payload', null)
   }
 
-  const dedupeSince = new Date(Date.now() - AUTO_POST_DEDUPE_HOURS * 60 * 60 * 1000).toISOString()
+  const post = formatKbnPost({
+    title: payload.headline,
+    summary: payload.summary,
+    why: payload.whyItMatters,
+    sourceName: payload.sourceName,
+    canonicalUrl: payload.canonicalUrl,
+    fallbackUrl: payload.articleUrl,
+    importanceLabel: payload.importanceLabel,
+  })
+
   const { data: dup } = await client
     .from('channel_posts')
     .select('id')
     .eq('lane', 'breaking')
     .eq('status', 'posted')
-    .gte('created_at', dedupeSince)
-    .like('dedupe_key', `breaking:${dedupeBase}:%`)
+    .or(`article_url.eq.${post.link},dedupe_key.like.breaking:${dedupeBase}:%`)
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
-  if (dup?.id) return skip(CHANNEL_POST_REASONS.DEDUPE_12H)
-
-  const dayStart = new Date(); dayStart.setUTCHours(0,0,0,0)
-  const { count: postedToday } = await client
-    .from('channel_posts').select('id', { count: 'exact', head: true })
-    .eq('lane', 'breaking').eq('status', 'posted').gte('posted_at', dayStart.toISOString())
-
-  if ((postedToday || 0) >= AUTO_POST_DAILY_CAP) return skip(CHANNEL_POST_REASONS.DAILY_CAP)
+  if (dup?.id) return skip('skipped_duplicate', post.text)
 
   try {
-    const sent = await sendTelegramMessage(postText)
+    const sent = await sendTelegramMessage(post.text)
     await insertChannelPostSafe(client, {
       status: 'posted', lane: 'breaking', article_id: payload.articleId,
-      source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
-      article_url: payload.articleUrl, tags, post_text: postText,
+      source_name: payload.sourceName, headline: post.finalTitle, headline_ko: post.finalTitle,
+      article_url: post.link, tags: [], post_text: post.text,
       target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
       dedupe_key: `breaking:${dedupeBase}:${Date.now()}`,
       posted_at: new Date().toISOString(), approved_by: 'auto',
@@ -691,7 +721,16 @@ const autoPostBreaking = async (client: any, payload: {
     })
     return { posted: true, reason: CHANNEL_POST_REASONS.POSTED_AUTO }
   } catch (sendErr: any) {
-    return skip(`${CHANNEL_POST_REASONS.TELEGRAM_ERROR_PREFIX}${String(sendErr?.message || sendErr)}`.slice(0, 180))
+    const failReason = `failed_send:${String(sendErr?.message || sendErr)}`.slice(0, 180)
+    await insertChannelPostSafe(client, {
+      status: 'failed', lane: 'breaking', article_id: payload.articleId,
+      source_name: payload.sourceName, headline: post.finalTitle, headline_ko: post.finalTitle,
+      article_url: post.link, tags: [], post_text: post.text,
+      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
+      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:failed`,
+      approved_by: 'auto', reason: failReason,
+    })
+    return { posted: false, reason: 'failed_send' }
   }
 }
 
@@ -1103,15 +1142,16 @@ ${effectiveSummary}`.slice(0, 4000)
               sourceName: String(source.name || 'Unknown'),
               headline: effectiveTitle,
               articleUrl: item.link,
+              canonicalUrl: canonical_url,
+              contentHash: contentHash,
               summary: effectiveSummary,
+              whyItMatters: effectiveSummary.slice(0, 140),
               importanceLabel: articleLabel,
             })
-            if (ap.reason !== 'not_breaking') {
-              autopostEval.candidates += 1
-              if (ap.posted) autopostEval.posted += 1
-              else autopostEval.skipped += 1
-              if (!ap.posted) autopostEval.skippedReasons[ap.reason] = (autopostEval.skippedReasons[ap.reason] || 0) + 1
-            }
+            autopostEval.candidates += 1
+            if (ap.posted) autopostEval.posted += 1
+            else autopostEval.skipped += 1
+            if (!ap.posted) autopostEval.skippedReasons[ap.reason] = (autopostEval.skippedReasons[ap.reason] || 0) + 1
           } catch (autoPostErr: any) {
             console.error('autoPostBreaking failed', autoPostErr)
             autopostEval.candidates += 1
@@ -1295,6 +1335,7 @@ ${effectiveSummary}`.slice(0, 4000)
     return NextResponse.json(err(`ingest_error: ${String(error)}`), { status: 500 })
   }
 }
+
 
 
 
