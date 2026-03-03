@@ -76,6 +76,7 @@ const deriveBreakingTags = (text: string) => {
 
 const ALWAYS_ALLOW_SOURCES = ['FinancialJuice','Binance Announcements','Coinbase Announcements','Coinbase Blog']
 const KR_TITLE_SAFE_SOURCES = ['Tokenpost', 'Blockmedia', 'Coinness']
+const KR_EXCHANGE_NOTICE_SOURCES = ['Upbit Announcements', 'Bithumb Announcements', 'Coinone Announcements']
 
 const NON_CRYPTO_NOISE_KEYWORDS = [
   'nba', 'nfl', 'mlb', 'celebrity', 'fashion', 'movie', 'box office', 'recipe',
@@ -198,6 +199,32 @@ const cleanTitle = (title: string, summary: string, sourceName = '') => {
   return summaryFallback.slice(0, 120)
 }
 
+
+
+const extractItemsFromNoticeHtml = (html: string, baseUrl: string, sourceName = '') => {
+  const items: Array<{ title: string; link: string; summary: string; publishedAt: string }> = []
+  const anchorRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  const toAbs = (href: string) => {
+    try { return new URL(href, baseUrl).toString() } catch { return href }
+  }
+
+  for (const m of html.matchAll(anchorRegex)) {
+    const href = String(m[1] || '').trim()
+    const text = cleanTitle(stripHtmlTags(String(m[2] || '')), '', sourceName)
+    if (!href || !text || text.length < 8) continue
+    const link = normalizeFeedLink(toAbs(href))
+    if (!/(notice|announcement|support|service_center|customer_support)/i.test(link)) continue
+    items.push({ title: text, link, summary: text, publishedAt: new Date().toISOString() })
+    if (items.length >= 60) break
+  }
+
+  const uniq = new Map<string, { title: string; link: string; summary: string; publishedAt: string }>()
+  for (const it of items) {
+    const key = canonicalizeUrl(it.link)
+    if (!uniq.has(key)) uniq.set(key, it)
+  }
+  return Array.from(uniq.values())
+}
 const extractItemsFromRss = (xml: string, sourceName = "") => {
   const items = xml.match(/<item>[\s\S]*?<\/item>/gi) || []
   const entries = xml.match(/<entry>[\s\S]*?<\/entry>/gi) || []
@@ -899,7 +926,10 @@ export async function POST(request: Request) {
         }
 
         const xml = await response.text()
-        const parsed = extractItemsFromRss(xml, String(source.name || ""))
+        let parsed = extractItemsFromRss(xml, String(source.name || ""))
+        if (parsed.length === 0 && KR_EXCHANGE_NOTICE_SOURCES.includes(String(source.name || ''))) {
+          parsed = extractItemsFromNoticeHtml(xml, String(source.url || source.rss_url || ''), String(source.name || ''))
+        }
         runLog.items_fetched = parsed.length
         runLog.items_skipped_url = 0
         runLog.items_skipped_hash = 0
@@ -909,7 +939,7 @@ export async function POST(request: Request) {
         // This prevents HTML pages (or broken feeds) from being marked as successful and starving real feeds.
         if (parsed.length === 0) {
           runLog.status = 'warn'
-          runLog.error_message = 'Error: rss_parse_no_items'
+          runLog.error_message = 'Error: rss_parse_no_items_or_notice_links'
           await insertSourceRunLog(client, runLog)
           continue
         }
