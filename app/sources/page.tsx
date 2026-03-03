@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatSeoulDateTime } from '@/lib/datetime'
@@ -135,7 +135,7 @@ export default function SourcesPage() {
       <h1 className="text-xl font-semibold">Sources Health</h1>
       <p className="text-sm text-gray-500">Ingest reliability overview with stale/down detection and recent success/error ratios.</p>
       <p className="text-xs text-gray-500">
-        Window: last {meta.health_window_runs} runs per source 쨌 stale if no run for {meta.stale_hours}h 쨌 warn if error_rate ??{meta.warn_error_rate_pct ?? 20}% (runs ??{meta.min_runs_for_rate ?? 10}) 쨌 down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate ??{meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}. Global latest run: {renderDate(meta.global_latest_run_at)}.
+        Window: last {meta.health_window_runs} runs per source 夷?stale if no run for {meta.stale_hours}h 夷?warn if error_rate ??{meta.warn_error_rate_pct ?? 20}% (runs ??{meta.min_runs_for_rate ?? 10}) 夷?down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate ??{meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}. Global latest run: {renderDate(meta.global_latest_run_at)}.
       </p>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -143,6 +143,7 @@ export default function SourcesPage() {
           ['Total (active)', activeSummary.total],
           ['OK', activeSummary.ok],
           ['Warn', activeSummary.warn],
+          ['N/A', (activeSummary as any).na || 0],
           ['Stale', activeSummary.stale],
           ['Down', activeSummary.down],
         ].map(([label, value]) => (
@@ -179,7 +180,7 @@ export default function SourcesPage() {
                 <tr key={source.id} className="border-b border-gray-100 dark:border-gray-800">
                   <td className="px-3 py-2">
                     <div className="font-medium">{source.name}</div>
-                    <div className="text-xs text-gray-500">{source.type} 쨌 {source.region || 'All'}</div>
+                    <div className="text-xs text-gray-500">{source.type} 夷?{source.region || 'All'}</div>
                   </td>
                   <td className="px-3 py-2">{source.tier || '-'}</td>
                   <td className="px-3 py-2">
@@ -188,10 +189,10 @@ export default function SourcesPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs">{renderDate(row?.display_last_run_at || row?.last_run_at)}</td>
-                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '? / ?' : `${row?.last_items || 0} / ${row?.last_saved || 0}`}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '- / -' : `${row?.last_items || 0} / ${row?.last_saved || 0}`}</td>
                   <td className="px-3 py-2 text-xs">{sourceRuns} / {globalRuns}</td>
-                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '? / ?' : `${row?.success_rate ?? 0}% / ${row?.error_rate ?? 0}%`}</td>
-                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '? / ?' : `${row?.total_fetched || 0} / ${row?.total_saved || 0}`}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '- / -' : `${row?.success_rate ?? 0}% / ${row?.error_rate ?? 0}%`}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '- / -' : `${row?.total_fetched || 0} / ${row?.total_saved || 0}`}</td>
                   <td className="max-w-[340px] truncate px-3 py-2 text-xs text-red-500" title={row?.last_error || ''}>{row?.last_error || '-'}</td>
                 </tr>
               )
@@ -209,3 +210,5 @@ export default function SourcesPage() {
     </div>
   )
 }
+
+
