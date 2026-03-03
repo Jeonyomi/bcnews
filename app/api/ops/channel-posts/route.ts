@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { CHANNEL_POST_REASONS, CHANNEL_POST_REASON_VALUES } from '@/lib/channelPostReasons'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
 
     const allowlistCandidateTop = countTop(
       rows
-        .filter((r) => r.status === 'skipped' && r.reason === 'source_not_allowlisted')
+        .filter((r) => r.status === 'skipped' && r.reason === CHANNEL_POST_REASONS.SOURCE_NOT_ALLOWLISTED)
         .map((r) => `${String(r.source_name || 'unknown')}|${String(r.source_id ?? 'null')}`),
       5,
     ).map((it) => {
@@ -113,6 +114,7 @@ export async function GET(request: Request) {
         reason_top: reasonTop,
         skipped_source_top: skippedSourceTop,
         allowlist_candidate_top: allowlistCandidateTop,
+        taxonomy: CHANNEL_POST_REASON_VALUES,
         recent_skipped: recentSkipped,
       },
     })

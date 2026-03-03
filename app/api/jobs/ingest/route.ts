@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSupabaseServerConfig } from '@/lib/supabaseServer'
 import { err } from '@/lib/dashboardApi'
 import { isBreakingLane } from '@/lib/breakingClassifier'
+import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,17 +28,7 @@ const AUTO_POST_DEDUPE_HOURS = Number.parseInt(process.env.AUTO_POST_DEDUPE_HOUR
 const TELEGRAM_BOT_TOKEN = process.env.TG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ''
 const TELEGRAM_BREAKING_CHANNEL = process.env.TG_BREAKING_CHANNEL || '@Krypto_breaking'
 
-const CHANNEL_POST_REASONS = {
-  POSTED_AUTO: 'posted_auto',
-  NOT_BREAKING_LANE: 'not_breaking_lane',
-  SOURCE_NOT_ALLOWLISTED: 'source_not_allowlisted',
-  POLICY_TIER_A_MED_OR_HIGH_ONLY: 'tier_a_med_or_high_only',
-  POLICY_TIER_B_HIGH_ONLY: 'tier_b_high_only',
-  DEDUPE_12H: 'dedupe_12h',
-  DAILY_CAP: 'daily_cap',
-  KR_TITLE_DOT_SPAM_GUARD: 'kr_title_dot_spam_guard',
-  TELEGRAM_ERROR_PREFIX: 'telegram_error:',
-} as const
+
 const BREAKING_TIER_A_ALLOWLIST = [
   'Reuters',
   'FinancialJuice',
