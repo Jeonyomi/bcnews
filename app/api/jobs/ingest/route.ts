@@ -327,12 +327,12 @@ const fetchWithTimeout = async (url: string, timeoutMs = FETCH_TIMEOUT_MS, optio
   }
 }
 
-const fetchWithRetry = async (url: string, tries = FETCH_TRIES) => {
+const fetchWithRetry = async (url: string, tries = FETCH_TRIES, timeoutMs = FETCH_TIMEOUT_MS) => {
   let lastError: unknown
 
   for (let attempt = 1; attempt <= tries; attempt += 1) {
     try {
-      const response = await fetchWithTimeout(url)
+      const response = await fetchWithTimeout(url, timeoutMs)
       if (response.ok) return response
 
       const shouldRetry =
@@ -908,15 +908,18 @@ export async function POST(request: Request) {
 
       try {
         const primaryUrl = source.rss_url || source.url
+        const isKrExchangeNotice = KR_EXCHANGE_NOTICE_SOURCES.includes(String(source.name || ''))
+        const fetchTries = isKrExchangeNotice ? Math.max(FETCH_TRIES, 4) : FETCH_TRIES
+        const fetchTimeoutMs = isKrExchangeNotice ? Math.max(FETCH_TIMEOUT_MS, 22000) : FETCH_TIMEOUT_MS
         let response
         try {
-          response = await fetchWithRetry(primaryUrl)
+          response = await fetchWithRetry(primaryUrl, fetchTries, fetchTimeoutMs)
         } catch (primaryError) {
           // Fallback: many sources expose broken/removed RSS endpoints.
           // If RSS URL fails, try the source URL once before marking source error.
           if (source.rss_url && source.url && source.url !== source.rss_url) {
             try {
-              response = await fetchWithRetry(source.url)
+              response = await fetchWithRetry(source.url, fetchTries, fetchTimeoutMs)
             } catch {
               throw primaryError
             }
