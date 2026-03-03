@@ -976,7 +976,24 @@ export async function POST(request: Request) {
             break
           }
 
-          if (!ALWAYS_ALLOW_SOURCES.includes(String(source.name || '')) && !isCryptoRelevant(item.title, item.summary)) {
+          let effectiveTitle = String(item.title || '').trim()
+          let effectiveSummary = String(item.summary || '').trim()
+
+          if (KR_TITLE_SAFE_SOURCES.includes(String(source.name || ''))) {
+            effectiveTitle = sanitizeKrTitle(effectiveTitle)
+            effectiveSummary = sanitizeKrTitle(effectiveSummary)
+
+            if (hasDotSpam(effectiveTitle)) {
+              effectiveTitle = effectiveSummary || effectiveTitle
+            }
+
+            if (!effectiveTitle || hasDotSpam(effectiveTitle)) {
+              runLog.items_skipped_hash += 1
+              continue
+            }
+          }
+
+          if (!ALWAYS_ALLOW_SOURCES.includes(String(source.name || '')) && !isCryptoRelevant(effectiveTitle, effectiveSummary)) {
             runLog.items_skipped_hash += 1
             continue
           }
@@ -991,7 +1008,7 @@ export async function POST(request: Request) {
           const dupeByTitle = (recentSourceRows || []).some((row: any) => {
             const existingTitle = String((row as any).title || '')
             if (!existingTitle) return false
-            return titleSimilarity(existingTitle, item.title) >= TITLE_SIMILARITY_THRESHOLD
+            return titleSimilarity(existingTitle, effectiveTitle) >= TITLE_SIMILARITY_THRESHOLD
           })
 
           if (dupeByTitle) {
@@ -999,18 +1016,18 @@ export async function POST(request: Request) {
             continue
           }
 
-          const contentText = `${item.title}
+          const contentText = `${effectiveTitle}
 
-${item.summary}`.slice(0, 4000)
-          const contentHash = buildLookupHash(canonical_url, item.title, item.summary)
-          const topic = deriveTopic(item.title, item.summary)
-          const entities = extractEntities(`${item.title} ${item.summary}`)
+${effectiveSummary}`.slice(0, 4000)
+          const contentHash = buildLookupHash(canonical_url, effectiveTitle, effectiveSummary)
+          const topic = deriveTopic(effectiveTitle, effectiveSummary)
+          const entities = extractEntities(`${effectiveTitle} ${effectiveSummary}`)
           const { score: articleScore, importance_label: articleLabel } = computeScores({
             sourceTier: source.tier,
             topic,
             entities,
-            title: item.title,
-            summary: item.summary,
+            title: effectiveTitle,
+            summary: effectiveSummary,
           })
 
           // Dedupe window: only consider recent articles so old backfills don't block.
@@ -1031,7 +1048,7 @@ ${item.summary}`.slice(0, 4000)
           const { data: inserted, error: insertErr } = await client
             .from('articles')
             .insert({
-              title: item.title,
+              title: effectiveTitle,
               source_id: source.id,
               url: item.link,
               canonical_url,
@@ -1040,8 +1057,8 @@ ${item.summary}`.slice(0, 4000)
               region: regionFromSource(source.region),
               content_text: contentText,
               content_hash: contentHash,
-              summary_short: item.summary.slice(0, 280),
-              why_it_matters: item.summary.slice(0, 140),
+              summary_short: effectiveSummary.slice(0, 280),
+              why_it_matters: effectiveSummary.slice(0, 140),
               confidence_label: 'medium',
               status: 'new',
               importance_score: articleScore,
@@ -1061,9 +1078,9 @@ ${item.summary}`.slice(0, 4000)
             const ap = await autoPostBreaking(client, {
               articleId: inserted.id,
               sourceName: String(source.name || 'Unknown'),
-              headline: item.title,
+              headline: effectiveTitle,
               articleUrl: item.link,
-              summary: item.summary,
+              summary: effectiveSummary,
               importanceLabel: articleLabel,
             })
             if (ap.reason !== 'not_breaking') {
@@ -1131,8 +1148,8 @@ ${item.summary}`.slice(0, 4000)
               sourceTier: source.tier,
               topic,
               entities,
-              title: item.title,
-              summary: item.summary,
+              title: effectiveTitle,
+              summary: effectiveSummary,
             })
 
             const { data: createdIssue, error: createErr } = await client
@@ -1143,7 +1160,7 @@ ${item.summary}`.slice(0, 4000)
                 region,
                 representative_article_id: inserted.id,
                 issue_summary: item.summary.slice(0, 280),
-                why_it_matters: item.summary.slice(0, 140),
+                why_it_matters: effectiveSummary.slice(0, 140),
                 tags: [topic],
                 key_entities: entities,
                 importance_score: issueScore,
@@ -1165,8 +1182,8 @@ ${item.summary}`.slice(0, 4000)
               sourceTier: source.tier,
               topic,
               entities,
-              title: item.title,
-              summary: item.summary,
+              title: effectiveTitle,
+              summary: effectiveSummary,
             })
             await client
               .from('issues')
