@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSupabaseServerConfig } from '@/lib/supabaseServer'
 import { err, ok } from '@/lib/dashboardApi'
+import { inferDisabledReason, normalizeSourcePolicyRegion, normalizeSourcePolicyTier, normalizeSourcePolicyType } from '@/lib/sourcePolicy'
 
 export const dynamic = 'force-dynamic'
 
@@ -198,9 +199,18 @@ export async function GET(request: Request) {
         lastSaved: Number(latest?.items_saved || 0),
       })
 
+      const policy_type = normalizeSourcePolicyType(String(source.name || ''), source.type)
+      const policy_tier = normalizeSourcePolicyTier(source.tier)
+      const policy_region = normalizeSourcePolicyRegion(source.region)
+      const disabled_reason = inferDisabledReason(source.enabled !== false, status)
+
       return {
         source_id: source.id,
         source_name: source.name,
+        policy_type,
+        policy_tier,
+        policy_region,
+        disabled_reason,
         status,
         last_status: latest?.status || null,
         last_items: latest?.items_fetched || 0,
