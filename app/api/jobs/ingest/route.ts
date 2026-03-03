@@ -170,6 +170,13 @@ const hasDotSpam = (value: string) => {
   return dots >= 4 && dots / s.length >= 0.2
 }
 
+
+const normalizeFeedLink = (value: string) =>
+  decodeHtmlEntities(String(value || ''))
+    .replace(/<!\[CDATA\[|\]\]>/g, '')
+    .replace(/&amp;/gi, '&')
+    .trim()
+
 const cleanTitle = (title: string, summary: string, sourceName = '') => {
   const source = String(sourceName || '')
 
@@ -208,7 +215,7 @@ const extractItemsFromRss = (xml: string, sourceName = "") => {
     const title = titleMatch
       ? stripHtmlTags(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
       : ''
-    const link = isAtom ? linkText : (linkMatch ? linkMatch[1].trim() : '')
+    const link = normalizeFeedLink(isAtom ? linkText : (linkMatch ? linkMatch[1] : ''))
     const summarySource = summaryMatch || contentMatch
     const summary = summarySource
       ? stripHtmlTags(summarySource[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
@@ -229,7 +236,7 @@ const extractItemsFromRss = (xml: string, sourceName = "") => {
       const title = titleMatch
         ? stripHtmlTags(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
         : ''
-      const link = linkMatch ? linkMatch[1].trim() : ''
+      const link = normalizeFeedLink(linkMatch ? linkMatch[1] : '')
       const summary = descMatch
         ? stripHtmlTags(descMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
         : ''
