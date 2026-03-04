@@ -604,7 +604,7 @@ const sendTelegramMessage = async (text: string) => {
     body: JSON.stringify({
       chat_id: TELEGRAM_BREAKING_CHANNEL,
       text,
-      parse_mode: undefined,
+      parse_mode: 'MarkdownV2',
       disable_web_page_preview: false,
     }),
   })
@@ -621,6 +621,11 @@ const sendTelegramMessage = async (text: string) => {
 }
 
 
+const escapeTelegramMarkdownV2 = (value: string) =>
+  String(value || '').replace(/([_\*\[\]\(\)~`>#+\-=|{}.!])/g, '\\$1')
+
+const escapeTelegramUrl = (value: string) => encodeURI(String(value || '')).replace(/[()]/g, (m) => (m === '(' ? '%28' : '%29'))
+
 const formatKbnPost = (payload: {
   title: string
   summary?: string
@@ -630,24 +635,21 @@ const formatKbnPost = (payload: {
   fallbackUrl: string
   importanceLabel?: string
 }) => {
-  const rawTitle = cleanTitle(String(payload.title || ''), String(payload.summary || payload.why || ''), String(payload.sourceName || ''))
+  const clean = cleanTitle(
+    String(payload.title || ''),
+    String(payload.summary || payload.why || ''),
+    String(payload.sourceName || ''),
+  )
   const importance = String(payload.importanceLabel || '').toUpperCase()
-  const hasPrefix = rawTitle.startsWith('[속보]')
+  const hasPrefix = clean.startsWith('[속보]')
   const finalTitle = importance === 'HIGH'
-    ? (hasPrefix ? rawTitle : `[속보] ${rawTitle}`)
-    : rawTitle
+    ? (hasPrefix ? clean : `[속보] ${clean}`)
+    : clean
 
-  const summaryLineRaw = String(payload.summary || '').trim() || String(payload.why || '').trim()
-  const summaryLine = stripHtmlTags(decodeHtmlEntities(summaryLineRaw)).replace(/\s+/g, ' ').trim()
-  const safeSource = stripHtmlTags(decodeHtmlEntities(String(payload.sourceName || ''))).replace(/\s+/g, ' ').trim()
   const link = normalizeFeedLink(String(payload.canonicalUrl || payload.fallbackUrl || '').trim())
+  const text = `💥[${escapeTelegramMarkdownV2(finalTitle)}](${escapeTelegramUrl(link)})`
 
-  const lines = [finalTitle]
-  if (summaryLine) lines.push(`- ${summaryLine}`)
-  lines.push(`출처: ${safeSource}`)
-  lines.push(link)
-
-  return { text: lines.filter(Boolean).join('\n'), finalTitle, link }
+  return { text, finalTitle, link }
 }
 
 const isValidHttpUrl = (value: string) => {
