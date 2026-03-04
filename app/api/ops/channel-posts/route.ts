@@ -86,6 +86,18 @@ export async function GET(request: Request) {
     const failRate = total > 0 ? Number(((failed / total) * 100).toFixed(1)) : 0
     const dominantSkipReason = (reasonTopNormalized.find((r) => r.key.startsWith('skipped_')) || null)
 
+
+    const sourceStatusMap = new Map<string, { source_name: string; posted: number; skipped: number; failed: number; total: number }>()
+    for (const r of rows) {
+      const key = String(r.source_name || 'unknown')
+      const cur = sourceStatusMap.get(key) || { source_name: key, posted: 0, skipped: 0, failed: 0, total: 0 }
+      cur.total += 1
+      if (r.status === 'posted') cur.posted += 1
+      else if (r.status === 'skipped') cur.skipped += 1
+      else if (r.status === 'failed') cur.failed += 1
+      sourceStatusMap.set(key, cur)
+    }
+    const sourceStatusCounts = Array.from(sourceStatusMap.values()).sort((a,b)=> b.total-a.total).slice(0, 20)
     const allowlistCandidateTop = countTop(
       rows
         .filter((r) => r.status === 'skipped' && r.reason === CHANNEL_POST_REASONS.SOURCE_NOT_ALLOWLISTED)

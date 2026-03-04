@@ -1,4 +1,4 @@
-﻿import crypto from 'crypto'
+import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSupabaseServerConfig } from '@/lib/supabaseServer'
 import { err } from '@/lib/dashboardApi'
@@ -710,7 +710,7 @@ const autoPostBreaking = async (client: any, payload: {
     .limit(1)
     .maybeSingle()
 
-  if (dup?.id) return skip('skipped_duplicate', post.text)
+  if (dup?.id) return skip(CHANNEL_POST_REASONS.SKIPPED_DUPLICATE, post.text)
 
   try {
     const sent = await sendTelegramMessage(post.text)
@@ -734,7 +734,7 @@ const autoPostBreaking = async (client: any, payload: {
       dedupe_key: `breaking:${dedupeBase}:${Date.now()}:failed`,
       approved_by: 'auto', reason: failReason,
     })
-    return { posted: false, reason: 'failed_send' }
+    return { posted: false, reason: CHANNEL_POST_REASONS.FAILED_SEND }
   }
 }
 
