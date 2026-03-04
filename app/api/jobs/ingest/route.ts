@@ -605,7 +605,7 @@ const sendTelegramMessage = async (text: string) => {
       chat_id: TELEGRAM_BREAKING_CHANNEL,
       text,
       parse_mode: 'MarkdownV2',
-      disable_web_page_preview: false,
+      disable_web_page_preview: true,
     }),
   })
 
@@ -1339,6 +1339,7 @@ ${effectiveSummary}`.slice(0, 4000)
     return NextResponse.json(err(`ingest_error: ${String(error)}`), { status: 500 })
   }
 }
+
 
 
 
