@@ -157,6 +157,15 @@ export async function GET(request: Request) {
       }
     }
 
+    // Fallback: if global log row is missing/stale by schema drift, use latest run among all source logs.
+    if (!globalLatestRunAt) {
+      const fallbackAnyLatest = (logs || []).find((r) => !!r?.run_at_utc)
+      if (fallbackAnyLatest?.run_at_utc) {
+        globalLatestRunAt = String(fallbackAnyLatest.run_at_utc)
+        debugGlobalLatestRawRow = { id: null, run_at_utc: globalLatestRunAt, fallback: 'any_source_latest' }
+      }
+    }
+
     for (const row of logs || []) {
       if (!row.source_id) continue
       if (!grouped[row.source_id]) grouped[row.source_id] = []
@@ -254,6 +263,12 @@ export async function GET(request: Request) {
       { total: 0, ok: 0, warn: 0, stale: 0, down: 0, disabled: 0, na: 0 },
     )
 
+    const globalLatestDate = toDate(globalLatestRunAt)
+    const globalLatestAgeMinutes = globalLatestDate
+      ? Math.max(0, Math.floor((Date.now() - globalLatestDate.getTime()) / 60000))
+      : null
+    const globalIsStale = globalLatestAgeMinutes === null ? true : globalLatestAgeMinutes > STALE_HOURS * 60
+
     return NextResponse.json(
       ok({
         sources,
@@ -268,6 +283,8 @@ export async function GET(request: Request) {
           warn_error_rate_pct: WARN_ERROR_RATE_PCT,
           global_runs_window: globalWindow.length,
           global_latest_run_at: globalLatestRunAt,
+          global_latest_age_minutes: globalLatestAgeMinutes,
+          global_is_stale: globalIsStale,
         },
         debug: debugGlobal && debugAllowed
           ? {

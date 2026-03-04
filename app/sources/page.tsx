@@ -37,6 +37,8 @@ type Meta = {
   warn_error_rate_pct?: number
   global_runs_window?: number
   global_latest_run_at?: string | null
+  global_latest_age_minutes?: number | null
+  global_is_stale?: boolean
 }
 
 const statusClass: Record<HealthRow['status'], string> = {
@@ -128,6 +130,15 @@ export default function SourcesPage() {
     }
   }
 
+  const renderRelativeMinutes = (minutes?: number | null) => {
+    if (minutes === null || minutes === undefined) return 'unknown'
+    if (minutes < 1) return 'just now'
+    if (minutes < 60) return `${minutes}m ago`
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`
+  }
+
   if (loading) return <div className="text-sm text-gray-500">Loading sources...</div>
 
   return (
@@ -137,7 +148,7 @@ export default function SourcesPage() {
       <p className="text-xs text-gray-500">
         Window: last {meta.health_window_runs} runs per source; stale if no run for {meta.stale_hours}h; warn if error_rate &gt;=
         {meta.warn_error_rate_pct ?? 20}% (runs &gt;= {meta.min_runs_for_rate ?? 10}); down if {meta.down_consecutive_errors ?? 5} consecutive errors or error_rate &gt;=
-        {meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}. Global latest run: {renderDate(meta.global_latest_run_at)}.
+        {meta.down_error_rate_pct ?? 80}%. Global run logs in window: {meta.global_runs_window ?? 0}. Global latest run: {renderDate(meta.global_latest_run_at)} ({renderRelativeMinutes(meta.global_latest_age_minutes)}) {meta.global_is_stale ? '[STALE]' : '[FRESH]'}.
       </p>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

@@ -180,6 +180,26 @@ const normalizeFeedLink = (value: string) =>
     .replace(/&amp;/gi, '&')
     .trim()
 
+const normalizeAbsoluteHttpUrl = (value: string) => {
+  const raw = normalizeFeedLink(value || '')
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return ''
+    return u.toString()
+  } catch {
+    return ''
+  }
+}
+
+const sanitizeHnText = (value: string) =>
+  decodeHtmlEntities(stripHtmlTags(value || ''))
+    .replace(/\bArticle URL\s*:[^\n]*/gi, ' ')
+    .replace(/\bComments URL\s*:[^\n]*/gi, ' ')
+    .replace(/\bnews\.ycombi[^\s]*/gi, ' ')
+    .replace(/\bhttps?:\/\/[^\s]*\.\.\.[^\s]*/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
 const cleanTitle = (title: string, summary: string, sourceName = '') => {
   const source = String(sourceName || '')
 
@@ -241,18 +261,20 @@ const extractItemsFromRss = (xml: string, sourceName = "") => {
       entry.match(/<published>([\s\S]*?)<\/published>/i) ||
       entry.match(/<updated>([\s\S]*?)<\/updated>/i)
 
+    const isHn = String(sourceName || '').toLowerCase().includes('hacker news')
     const title = titleMatch
       ? stripHtmlTags(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
       : ''
-    const link = normalizeFeedLink(isAtom ? linkText : (linkMatch ? linkMatch[1] : ''))
+    const link = normalizeAbsoluteHttpUrl(isAtom ? linkText : (linkMatch ? linkMatch[1] : ''))
     const summarySource = summaryMatch || contentMatch
-    const summary = summarySource
+    const rawSummary = summarySource
       ? stripHtmlTags(summarySource[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
       : ''
+    const summary = isHn ? cleanTitle(sanitizeHnText(title), '', sourceName) : rawSummary
     const dateSource = dateMatch?.[1]
     const publishedAt = normalizeDate(dateSource)
 
-    return { title: cleanTitle(title, summary, sourceName), link, summary, publishedAt }
+    return { title: cleanTitle(isHn ? sanitizeHnText(title) : title, summary, sourceName), link, summary, publishedAt }
   }
 
   return items
@@ -262,16 +284,18 @@ const extractItemsFromRss = (xml: string, sourceName = "") => {
       const descMatch = item.match(/<description>([\s\S]*?)<\/description>/i)
       const pubMatch = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)
 
+      const isHn = String(sourceName || '').toLowerCase().includes('hacker news')
       const title = titleMatch
         ? stripHtmlTags(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
         : ''
-      const link = normalizeFeedLink(linkMatch ? linkMatch[1] : '')
-      const summary = descMatch
+      const link = normalizeAbsoluteHttpUrl(linkMatch ? linkMatch[1] : '')
+      const rawSummary = descMatch
         ? stripHtmlTags(descMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
         : ''
+      const summary = isHn ? cleanTitle(sanitizeHnText(title), '', sourceName) : rawSummary
       const publishedAt = normalizeDate(pubMatch?.[1])
 
-      return { title: cleanTitle(title, summary, sourceName), link, summary, publishedAt }
+      return { title: cleanTitle(isHn ? sanitizeHnText(title) : title, summary, sourceName), link, summary, publishedAt }
     })
     .filter((row) => row.title && row.link)
     .concat(
