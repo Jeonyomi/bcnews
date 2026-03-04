@@ -1,13 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ANALYSIS_KEYWORDS,
-  FEED_FILTERS,
-  SOURCE_TABS,
-  type FeedFilterKey,
-  type SourceTabKey,
-} from '@/lib/dashboardFeedConfig'
+import { ANALYSIS_KEYWORDS, FEED_FILTERS, type FeedFilterKey } from '@/lib/dashboardFeedConfig'
 import { isBreakingLane } from '@/lib/breakingClassifier'
 import { formatSeoulDateTime } from '@/lib/datetime'
 
@@ -51,7 +45,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [activeSourceTab, setActiveSourceTab] = useState<SourceTabKey>('breaking')
   const [activeFilter, setActiveFilter] = useState<FeedFilterKey>('all')
 
   const load = useCallback(async () => {
@@ -89,42 +82,18 @@ export default function DashboardPage() {
   }, [load])
 
   const visibleArticles = useMemo(() => {
-    const sourceMatcher = SOURCE_TABS.find((tab) => tab.key === activeSourceTab)?.matcher || (() => true)
     return articles.filter((article) => {
-      const source = sourceName(article).toLowerCase()
-      if (!sourceMatcher(source)) return false
-      if (activeSourceTab === 'breaking' && classifyArticle(article) !== 'breaking') return false
       if (activeFilter === 'all') return true
       return classifyArticle(article) === activeFilter
     })
-  }, [articles, activeFilter, activeSourceTab])
+  }, [articles, activeFilter])
 
   return (
     <div>
       <header className="mb-4">
         <h1 className="text-xl font-semibold">Crypto News Dashboard</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400">Dense breaking-news feed, source tabs, and latest-first ranking.</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Dense breaking-news feed, type filters, and latest-first ranking.</p>
       </header>
-
-      <section className="mb-3 flex flex-wrap gap-2">
-        {SOURCE_TABS.map((tab) => {
-          const active = tab.key === activeSourceTab
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveSourceTab(tab.key)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                active
-                  ? 'border-emerald-600 bg-emerald-600 text-white'
-                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
-              }`}
-            >
-              {tab.label}
-            </button>
-          )
-        })}
-      </section>
 
       <section className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Filter</span>
@@ -159,16 +128,43 @@ export default function DashboardPage() {
             const type = classifyArticle(article)
             const typeLabel = type === 'breaking' ? 'Breaking' : type === 'analysis' ? 'Analysis' : 'News'
             const importance = (article.importance_label || '').toUpperCase() || 'LOW'
+            const src = sourceName(article)
+
             return (
               <li key={article.id} className="px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-900">
                 <div className="flex items-start gap-2">
-                  <span className={`mt-0.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${importance === 'HIGH' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : importance === 'MED' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>{importance}</span>
+                  <span
+                    className={`mt-0.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                      importance === 'HIGH'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                        : importance === 'MED'
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                    }`}
+                  >
+                    {importance}
+                  </span>
+
                   <div className="min-w-0 flex-1">
-                    <a href={article.url} target="_blank" rel="noreferrer" className="line-clamp-2 text-sm font-semibold leading-5 hover:underline">{article.title}</a>
-                    <div className="mt-1 line-clamp-1 text-xs text-gray-600 dark:text-gray-400">{article.why_it_matters || article.summary_short || 'No summary yet.'}</div>
+                    <div className="flex items-start gap-2">
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="line-clamp-2 flex-1 text-sm font-semibold leading-5 hover:underline"
+                      >
+                        {article.title}
+                      </a>
+                      <span className="shrink-0 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        {src}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 line-clamp-1 text-xs text-gray-600 dark:text-gray-400">
+                      {article.why_it_matters || article.summary_short || 'No summary yet.'}
+                    </div>
+
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
-                      <span className="font-medium text-gray-700 dark:text-gray-300">{sourceName(article)}</span>
-                      <span>|</span>
                       <span>{minutesAgo(article.published_at_utc)}</span>
                       <span>({formatSeoulDateTime(article.published_at_utc)} KST)</span>
                       <span>|</span>
