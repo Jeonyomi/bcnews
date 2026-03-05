@@ -15,6 +15,12 @@ const FETCH_TRIES = Number.parseInt(process.env.CRON_FETCH_TRIES || '3', 10) || 
 const TITLE_SIMILARITY_THRESHOLD = Number.parseFloat(process.env.INGEST_TITLE_SIM_THRESHOLD || '0.82') || 0.82
 const TITLE_DEDUPE_WINDOW_HOURS = Number.parseInt(process.env.INGEST_TITLE_DEDUPE_WINDOW_HOURS || '36', 10) || 36
 
+// Hard allowlist for ingest scope (KBN policy)
+const INGEST_SOURCE_ALLOWLIST_IDS = [
+  32, 36, 37, 38, 121, 123, 125, 126, 127, 128, 131, 132, 136,
+  211, 219, 220, 455, 612, 613, 614, 715, 716, 717,
+]
+
 const CRYPTO_RELEVANCE_KEYWORDS = [
   'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'xrp', 'doge', 'bnb',
   'crypto', 'cryptocurrency', 'token', 'blockchain', 'onchain', 'wallet',
@@ -920,6 +926,7 @@ export async function POST(request: Request) {
       .from('sources')
       .select('id,name,type,tier,url,rss_url,region,last_success_at,last_error_at')
       .eq('enabled', true)
+      .in('id', INGEST_SOURCE_ALLOWLIST_IDS)
       // PERF: process non-erroring sources first, then those with recent success.
       .order('last_error_at', { ascending: true, nullsFirst: true })
       .order('last_success_at', { ascending: false, nullsFirst: false })
