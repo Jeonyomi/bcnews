@@ -128,13 +128,13 @@ export async function GET(request: Request) {
 
     let globalLatestRunAt: string | null = null
     let debugGlobalLatestRawRow: any = null
-    const globalLatestQuery = { filter: 'source_id IS NULL', select: 'run_at_utc', orderBy: 'run_at_utc DESC', limit: 1 }
+    const globalLatestQuery = { filter: 'source_id IS NULL', select: 'id,run_at_utc', orderBy: 'id DESC', limit: 1 }
 
     const latestGlobal = await client
       .from('ingest_logs')
-      .select('run_at_utc')
+      .select('id,run_at_utc')
       .is('source_id', null)
-      .order('run_at_utc', { ascending: false })
+      .order('id', { ascending: false })
       .limit(1)
       .maybeSingle()
 
