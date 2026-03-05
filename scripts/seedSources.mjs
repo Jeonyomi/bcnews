@@ -79,14 +79,14 @@ const sources = [
   // ------------------------------------------------------------
   // (5) AI/LLM/AI Infra Media ??Tier 2/3
   // ------------------------------------------------------------
-  { name: 'MIT Technology Review', type: 'rss', tier: '2', url: 'https://www.technologyreview.com', rss_url: 'https://www.technologyreview.com/feed/', region: 'Global', enabled: true },
+  { name: 'MIT Technology Review', type: 'rss', tier: '2', url: 'https://www.technologyreview.com', rss_url: 'https://www.technologyreview.com/feed/', region: 'Global', enabled: false },
   { name: 'VentureBeat (AI)', type: 'web', tier: '2', url: 'https://venturebeat.com', rss_url: null, region: 'Global', enabled: false }, // TODO: confirm AI feed
   { name: 'TechCrunch (AI)', type: 'web', tier: '2', url: 'https://techcrunch.com', rss_url: null, region: 'Global', enabled: false }, // TODO: confirm AI feed
-  { name: 'The Verge', type: 'rss', tier: '3', url: 'https://www.theverge.com', rss_url: 'https://www.theverge.com/rss/index.xml', region: 'Global', enabled: true },
-  { name: 'Ars Technica', type: 'rss', tier: '3', url: 'https://arstechnica.com', rss_url: 'https://feeds.arstechnica.com/arstechnica/index', region: 'Global', enabled: true },
+  { name: 'The Verge', type: 'rss', tier: '3', url: 'https://www.theverge.com', rss_url: 'https://www.theverge.com/rss/index.xml', region: 'Global', enabled: false },
+  { name: 'Ars Technica', type: 'rss', tier: '3', url: 'https://arstechnica.com', rss_url: 'https://feeds.arstechnica.com/arstechnica/index', region: 'Global', enabled: false },
 
   // Optional ????????밸Ⅸ??Pulse??
-  { name: 'Hacker News (frontpage)', type: 'rss', tier: '3', url: 'https://news.ycombinator.com', rss_url: 'https://hnrss.org/frontpage', region: 'Global', enabled: true },
+  { name: 'Hacker News (frontpage)', type: 'rss', tier: '3', url: 'https://news.ycombinator.com', rss_url: 'https://hnrss.org/frontpage', region: 'Global', enabled: false },
   { name: 'GitHub Trending', type: 'web', tier: '3', url: 'https://github.com/trending', rss_url: null, region: 'Global', enabled: false },
 
   // ------------------------------------------------------------
