@@ -95,7 +95,7 @@ export async function GET(request: Request) {
               ...(item.source as Record<string, unknown>),
               name: normalizeEnglish(String((item.source as any).name || '')),
             }
-          : undefined,
+          : null,
       issue:
         item.issue && typeof item.issue === 'object' && !Array.isArray(item.issue)
           ? {
@@ -104,6 +104,33 @@ export async function GET(request: Request) {
             }
           : undefined,
     }))
+
+    const missingSourceIds = Array.from(
+      new Set(
+        articles
+          .filter((item: any) => !String(item?.source?.name || '').trim() && Number.isFinite(Number(item?.source_id)))
+          .map((item: any) => Number(item.source_id)),
+      ),
+    )
+
+    if (missingSourceIds.length > 0) {
+      const { data: sourceRows } = await client.from('sources').select('id,name,tier').in('id', missingSourceIds)
+      const sourceMap = new Map<number, any>((sourceRows || []).map((s: any) => [Number(s.id), s]))
+      for (const item of articles as any[]) {
+        if (String(item?.source?.name || '').trim()) continue
+        const sid = Number(item?.source_id)
+        const fallback = sourceMap.get(sid)
+        if (fallback) {
+          item.source = {
+            id: fallback.id,
+            tier: fallback.tier,
+            name: normalizeEnglish(String(fallback.name || '')),
+          }
+        }
+      }
+    }
+
+    const missingSourceNameCount = articles.filter((item: any) => !String(item?.source?.name || '').trim()).length
 
     const filteredArticles = articles.filter((item: any) => {
       const sourceName = String(item?.source?.name || '')
@@ -117,6 +144,10 @@ export async function GET(request: Request) {
         articles: filteredArticles as any,
         count: count || 0,
         window,
+        ops: {
+          missing_source_name_count: missingSourceNameCount,
+          attempted_source_backfill_count: missingSourceIds.length,
+        },
       }),
     )
   } catch (error: any) {

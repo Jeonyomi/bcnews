@@ -38,7 +38,10 @@ const classifyArticle = (article: ArticleRow): FeedFilterKey => {
   return 'all'
 }
 
-const sourceName = (article: ArticleRow) => (article.source?.name || 'Unknown').trim()
+const sourceName = (article: ArticleRow) => {
+  const name = String(article.source?.name || '').trim()
+  return name || null
+}
 
 export default function DashboardPage() {
   const [articles, setArticles] = useState<ArticleRow[]>([])
@@ -155,9 +158,11 @@ export default function DashboardPage() {
                       >
                         {article.title}
                       </a>
-                      <span className="shrink-0 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                        {src}
-                      </span>
+                      {src ? (
+                        <span className="shrink-0 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                          {src}
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className="mt-1 line-clamp-1 text-xs text-gray-600 dark:text-gray-400">
