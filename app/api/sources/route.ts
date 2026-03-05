@@ -84,17 +84,7 @@ export async function GET(request: Request) {
       .select('id,name,type,tier,region,enabled,last_success_at,last_error_at')
       .order('id', { ascending: true })
 
-    // Attach effective enabled flag to each source row so `/sources` can show the ingest-active pool.
-    const sourcesWithEffective = (sources || []).map((s: any) => ({
-      ...s,
-      ingest_active: activeSourceIds.has(Number(s.id)),
-      enabled_effective: s.enabled === true || activeSourceIds.has(Number(s.id)),
-    }))
-
     if (sourceError) throw sourceError
-
-    // Prefer the decorated list going forward.
-    const sourcesResolved: any[] = sourcesWithEffective
 
     let logs: any[] | null = null
     let logsError: any = null
@@ -138,6 +128,13 @@ export async function GET(request: Request) {
         if (!Number.isNaN(id)) activeSourceIds.add(id)
       }
     }
+
+    // Attach effective enabled flag to each source row so `/sources` can show the ingest-active pool.
+    const sourcesResolved: any[] = (sources || []).map((s: any) => ({
+      ...s,
+      ingest_active: activeSourceIds.has(Number(s.id)),
+      enabled_effective: s.enabled === true || activeSourceIds.has(Number(s.id)),
+    }))
 
     let globalWindow: any[] = []
     const globalWithStage = await client
