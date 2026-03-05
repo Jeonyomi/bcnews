@@ -288,10 +288,16 @@ export async function GET(request: Request) {
         },
         debug: debugGlobal && debugAllowed
           ? {
+              vercel_env: process.env.VERCEL_ENV || null,
+              commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
               global_latest_query: globalLatestQuery,
               global_latest_raw_row: debugGlobalLatestRawRow,
               supabase_host_hash: cfg.supabaseHostHash,
               service_role_hash_prefix: cfg.serviceRoleHashPrefix,
+              enabled_true_count: (sources || []).filter((s: any) => s.enabled === true).length,
+              tracked_enabled_flags: (sources || [])
+                .filter((s: any) => [139, 142, 143, 144].includes(Number(s.id)))
+                .map((s: any) => ({ id: s.id, name: s.name, enabled: s.enabled })),
               db_now: dbNow.value || null,
               db_now_error: dbNow.ok ? null : (dbNow.error || 'db_now_unavailable'),
               global_rows_last5: (await (async () => {

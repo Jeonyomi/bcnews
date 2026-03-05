@@ -45,7 +45,27 @@ export async function POST(req: Request) {
 
     if (q.error) throw q.error
 
-    return NextResponse.json({ ok: true, data: q.data || [] })
+    const enabledCount = await db.from('sources').select('id', { count: 'exact', head: true }).eq('enabled', true)
+
+    return NextResponse.json({
+      ok: true,
+      data: q.data || [],
+      debug: {
+        vercel_env: process.env.VERCEL_ENV || null,
+        commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
+        supabase_url_host: (() => {
+          try {
+            return new URL(process.env.SUPABASE_URL || '').host || null
+          } catch {
+            return null
+          }
+        })(),
+        enabled_true_count: enabledCount.count || 0,
+        tracked_enabled_flags: (q.data || [])
+          .filter((s: any) => [139, 142, 143, 144].includes(Number(s.id)))
+          .map((s: any) => ({ id: s.id, name: s.name, enabled: s.enabled })),
+      },
+    })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 })
   }
