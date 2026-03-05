@@ -52,6 +52,8 @@ const statusClass: Record<HealthRow['status'], string> = {
   na: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
 }
 
+const HIDDEN_SOURCE_NAMES = new Set(['MIT Technology Review','The Verge','Ars Technica','Hacker News (frontpage)'])
+
 export default function SourcesPage() {
   const [sources, setSources] = useState<any[]>([])
   const [health, setHealth] = useState<HealthRow[]>([])
@@ -103,7 +105,7 @@ export default function SourcesPage() {
   const healthMap = useMemo(() => new Map<number, HealthRow>(health.map((row) => [row.source_id, row])), [health])
 
   const activeSources = useMemo(
-    () => sources.filter((source) => source.enabled !== false && (healthMap.get(source.id)?.status || 'warn') !== 'disabled'),
+    () => sources.filter((source) => source.enabled !== false && !HIDDEN_SOURCE_NAMES.has(source.name) && (healthMap.get(source.id)?.status || 'warn') !== 'disabled'),
     [sources, healthMap],
   )
 
