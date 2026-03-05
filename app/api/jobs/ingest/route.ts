@@ -74,7 +74,15 @@ const deriveBreakingTags = (text: string) => {
   return tags
 }
 
-const ALWAYS_ALLOW_SOURCES = ['FinancialJuice','Binance Announcements','Coinbase Announcements','Coinbase Blog']
+const ALWAYS_ALLOW_SOURCES = [
+  'FinancialJuice',
+  'Binance Announcements',
+  'Coinbase Announcements',
+  'Coinbase Blog',
+  'Upbit Announcements',
+  'Bithumb Announcements',
+  'Coinone Announcements',
+]
 const KR_TITLE_SAFE_SOURCES = ['Tokenpost', 'Blockmedia', 'Coinness']
 const KR_EXCHANGE_NOTICE_SOURCES = ['Upbit Announcements', 'Bithumb Announcements', 'Coinone Announcements']
 
@@ -232,8 +240,9 @@ const extractItemsFromNoticeHtml = (html: string, baseUrl: string, sourceName = 
     const href = String(m[1] || '').trim()
     const text = cleanTitle(stripHtmlTags(String(m[2] || '')), '', sourceName)
     if (!href || !text || text.length < 8) continue
+    if (/^javascript:/i.test(href)) continue
     const link = normalizeFeedLink(toAbs(href))
-    if (!/(notice|announcement|support|service_center|customer_support)/i.test(link)) continue
+    if (!/(notice|announcement|support|service_center|customer_support|info_notice|\/n\/[0-9]+|\b공지\b)/i.test(link)) continue
     items.push({ title: text, link, summary: text, publishedAt: new Date().toISOString() })
     if (items.length >= 60) break
   }
@@ -1004,6 +1013,19 @@ export async function POST(request: Request) {
         let parsed = extractItemsFromRss(xml, String(source.name || ""))
         if (parsed.length === 0 && KR_EXCHANGE_NOTICE_SOURCES.includes(String(source.name || ''))) {
           parsed = extractItemsFromNoticeHtml(xml, String(source.url || source.rss_url || ''), String(source.name || ''))
+
+          // Secondary fallback: if feed body has no parseable entries, fetch source.url HTML directly.
+          if (parsed.length === 0 && source.url && source.url !== primaryUrl) {
+            try {
+              const htmlResponse = await fetchWithRetry(String(source.url), fetchTries, fetchTimeoutMs)
+              if (htmlResponse.ok) {
+                const html = await htmlResponse.text()
+                parsed = extractItemsFromNoticeHtml(html, String(source.url), String(source.name || ''))
+              }
+            } catch {
+              // keep warning flow with empty parsed
+            }
+          }
         }
         runLog.items_fetched = parsed.length
         runLog.items_skipped_url = 0
