@@ -52,8 +52,6 @@ const statusClass: Record<HealthRow['status'], string> = {
   na: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
 }
 
-const HIDDEN_SOURCE_NAMES = new Set(['MIT Technology Review','The Verge','Ars Technica','Hacker News (frontpage)'])
-
 export default function SourcesPage() {
   const [sources, setSources] = useState<any[]>([])
   const [health, setHealth] = useState<HealthRow[]>([])
@@ -105,21 +103,29 @@ export default function SourcesPage() {
   const healthMap = useMemo(() => new Map<number, HealthRow>(health.map((row) => [row.source_id, row])), [health])
 
   const activeSources = useMemo(
-    () => sources.filter((source) => source.enabled !== false && !HIDDEN_SOURCE_NAMES.has(source.name) && (healthMap.get(source.id)?.status || 'warn') !== 'disabled'),
-    [sources, healthMap],
+    () => sources.filter((source) => source.enabled === true),
+    [sources],
   )
 
-  const activeSummary = useMemo(
-    () => ({
-      total: summary.total - (summary.disabled || 0),
-      na: summary.na || 0,
-      ok: summary.ok,
-      warn: summary.warn,
-      stale: summary.stale,
-      down: summary.down,
-    }),
-    [summary],
+  const disabledSources = useMemo(
+    () => sources.filter((source) => source.enabled === false),
+    [sources],
   )
+
+  const activeSummary = useMemo(() => {
+    const rows = activeSources.map((s) => healthMap.get(s.id)).filter(Boolean) as HealthRow[]
+    const out = { total: activeSources.length, ok: 0, warn: 0, stale: 0, down: 0, na: 0 }
+    for (const row of rows) {
+      if (row.status === 'ok') out.ok += 1
+      else if (row.status === 'warn') out.warn += 1
+      else if (row.status === 'stale') out.stale += 1
+      else if (row.status === 'na') out.na += 1
+      else if (row.status === 'disabled') {
+        // ignore disabled in active summary
+      } else out.down += 1
+    }
+    return out
+  }, [activeSources, healthMap])
 
   const renderDate = (value?: string | null) => {
     if (!value) return '-'
@@ -228,6 +234,13 @@ export default function SourcesPage() {
           </tbody>
         </table>
       </div>
+
+      <details className="rounded border border-gray-200 px-3 py-2 text-sm dark:border-gray-800">
+        <summary className="cursor-pointer text-gray-600 dark:text-gray-300">Disabled sources ({disabledSources.length})</summary>
+        <div className="mt-2 grid gap-1 text-xs text-gray-500">
+          {disabledSources.length > 0 ? disabledSources.map((s) => <div key={s.id}>{s.id} - {s.name}</div>) : <div>None</div>}
+        </div>
+      </details>
 
       {error ? (
         <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30">{error}</div>
