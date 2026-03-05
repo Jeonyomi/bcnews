@@ -9,6 +9,10 @@ const REFRESH_DONE_EVENT = 'bcnews:refresh-done'
 type HealthRow = {
   source_id: number
   source_name: string
+  policy_type?: string | null
+  policy_tier?: string | null
+  policy_region?: string | null
+  disabled_reason?: string | null
   status: 'ok' | 'warn' | 'down' | 'disabled' | 'restricted' | 'throttled' | 'stale' | 'na'
   last_status: string | null
   last_items: number
@@ -193,6 +197,10 @@ export default function SourcesPage() {
               const row = healthMap.get(source.id)
               const status = row?.status || 'na'
               const sourceRuns = row?.source_runs ?? 0
+              const policyTier = row?.policy_tier ?? source.tier ?? '-'
+              const policyType = row?.policy_type ?? source.type ?? '-'
+              const policyRegion = row?.policy_region ?? source.region ?? 'All'
+              const disabledReason = row?.disabled_reason ?? null
 
               return (
                 <tr key={source.id} className="border-b border-gray-100 align-top dark:border-gray-800">
@@ -201,23 +209,25 @@ export default function SourcesPage() {
                     <details className="mt-1">
                       <summary className="cursor-pointer select-none text-xs text-gray-500">details</summary>
                       <div className="mt-1 space-y-1 text-xs text-gray-500">
-                        <div>Type/Region: {source.type} / {source.region || 'All'}</div>
-                        <div>Runs (source/global): {row?.source_runs ?? 0} / {row?.global_runs ?? meta.global_runs_window ?? 0}</div>
+                        <div>Type/Region: {policyType} / {policyRegion}</div>
+                        <div>Tier: {policyTier}</div>
+                        <div>Runs (source/global): {sourceRuns === 0 ? 'N/A' : (row?.source_runs ?? 0)} / {row?.global_runs ?? meta.global_runs_window ?? 0}</div>
                         <div>Last fetched/saved (items/saved): {sourceRuns === 0 ? '- / -' : `${row?.last_items || 0} / ${row?.last_saved || 0}`}</div>
-                        <div>Success/Error: {sourceRuns === 0 ? '- / -' : `${row?.success_rate ?? 0}% / ${row?.error_rate ?? 0}%`}</div>
+                        <div>Success/Error: {sourceRuns === 0 ? 'N/A / N/A' : `${row?.success_rate ?? 0}% / ${row?.error_rate ?? 0}%`}</div>
                         <div>Recent totals (fetched/saved): {sourceRuns === 0 ? '- / -' : `${row?.total_fetched || 0} / ${row?.total_saved || 0}`}</div>
+                        {disabledReason ? <div className="text-rose-600 dark:text-rose-300">Disabled reason: {disabledReason}</div> : null}
                       </div>
                     </details>
                   </td>
-                  <td className="px-3 py-2">{source.tier || '-'}</td>
+                  <td className="px-3 py-2">{policyTier || '-'}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex rounded px-2 py-0.5 text-xs font-semibold uppercase ${statusClass[status as HealthRow['status']]}`}>
                       {status}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-xs">{renderDate(row?.display_last_run_at || row?.last_run_at)}</td>
-                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '-' : String(row?.last_saved || 0)}</td>
-                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? '-' : `${row?.error_rate ?? 0}%`}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? 'N/A' : renderDate(row?.display_last_run_at || row?.last_run_at)}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? 'N/A' : String(row?.last_saved || 0)}</td>
+                  <td className="px-3 py-2 text-xs">{sourceRuns === 0 ? 'N/A' : `${row?.error_rate ?? 0}%`}</td>
                   <td className="max-w-[340px] truncate px-3 py-2 text-xs text-red-500" title={row?.last_error || ''}>
                     {row?.last_error || '-'}
                   </td>
@@ -237,8 +247,34 @@ export default function SourcesPage() {
 
       <details className="rounded border border-gray-200 px-3 py-2 text-sm dark:border-gray-800">
         <summary className="cursor-pointer text-gray-600 dark:text-gray-300">Disabled sources ({disabledSources.length})</summary>
-        <div className="mt-2 grid gap-1 text-xs text-gray-500">
-          {disabledSources.length > 0 ? disabledSources.map((s) => <div key={s.id}>{s.id} - {s.name}</div>) : <div>None</div>}
+        <div className="mt-2 overflow-x-auto">
+          {disabledSources.length > 0 ? (
+            <table className="min-w-full text-xs">
+              <thead className="text-gray-500">
+                <tr>
+                  <th className="px-2 py-1 text-left">ID</th>
+                  <th className="px-2 py-1 text-left">Name</th>
+                  <th className="px-2 py-1 text-left">Tier</th>
+                  <th className="px-2 py-1 text-left">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {disabledSources.map((s) => {
+                  const row = healthMap.get(s.id)
+                  return (
+                    <tr key={s.id} className="border-t border-gray-100 dark:border-gray-900">
+                      <td className="px-2 py-1 text-gray-500">{s.id}</td>
+                      <td className="px-2 py-1">{s.name}</td>
+                      <td className="px-2 py-1">{row?.policy_tier ?? s.tier ?? '-'}</td>
+                      <td className="px-2 py-1 text-gray-500">{row?.disabled_reason ?? '-'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-xs text-gray-500">None</div>
+          )}
         </div>
       </details>
 
