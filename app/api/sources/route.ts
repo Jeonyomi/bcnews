@@ -74,7 +74,8 @@ export async function GET(request: Request) {
     // "Enabled pool" should reflect what ingest is actually processing. In prod, `sources.enabled`
     // can drift from reality if a different env/seed state is deployed.
     // We compute a short-window activity flag from ingest_logs and expose it for UI filtering.
-    const ACTIVE_WINDOW_HOURS = Number.parseInt(process.env.SOURCE_ACTIVE_WINDOW_HOURS || '24', 10) || 24
+    // Default to 7d so the "ingest-enabled pool" is stable even if some sources run infrequently.
+    const ACTIVE_WINDOW_HOURS = Number.parseInt(process.env.SOURCE_ACTIVE_WINDOW_HOURS || '168', 10) || 168
     const secret = process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET || ''
     const headerSecret = request.headers.get('x-cron-secret') || ''
     const debugAllowed = !!secret && headerSecret === secret
