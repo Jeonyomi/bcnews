@@ -107,7 +107,7 @@ export default function SourcesPage() {
   const healthMap = useMemo(() => new Map<number, HealthRow>(health.map((row) => [row.source_id, row])), [health])
 
   const activeSources = useMemo(
-    () => sources.filter((source) => source.enabled === true),
+    () => sources.filter((source) => (source as any).enabled_effective === true || source.enabled === true),
     [sources],
   )
 

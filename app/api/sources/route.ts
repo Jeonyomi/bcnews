@@ -70,6 +70,11 @@ export async function GET(request: Request) {
     const client = createSupabaseServerClient()
     const url = new URL(request.url)
     const debugGlobal = url.searchParams.get('debug_global') === '1'
+
+    // "Enabled pool" should reflect what ingest is actually processing. In prod, `sources.enabled`
+    // can drift from reality if a different env/seed state is deployed.
+    // We compute a short-window activity flag from ingest_logs and expose it for UI filtering.
+    const ACTIVE_WINDOW_HOURS = Number.parseInt(process.env.SOURCE_ACTIVE_WINDOW_HOURS || '24', 10) || 24
     const secret = process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET || ''
     const headerSecret = request.headers.get('x-cron-secret') || ''
     const debugAllowed = !!secret && headerSecret === secret
@@ -105,6 +110,24 @@ export async function GET(request: Request) {
     if (logsError) throw logsError
 
     const grouped: Record<number, any[]> = {}
+
+    // Derive ingest-active sources over a short window (default 24h).
+    const activeSince = new Date(Date.now() - ACTIVE_WINDOW_HOURS * 60 * 60 * 1000).toISOString()
+    const activeRows = await client
+      .from('ingest_logs')
+      .select('source_id')
+      .gte('run_at_utc', activeSince)
+      .not('source_id', 'is', null)
+      .order('run_at_utc', { ascending: false })
+      .limit(5000)
+
+    const activeSourceIds = new Set<number>()
+    if (!activeRows.error) {
+      for (const r of activeRows.data || []) {
+        const id = Number((r as any).source_id)
+        if (!Number.isNaN(id)) activeSourceIds.add(id)
+      }
+    }
 
     let globalWindow: any[] = []
     const globalWithStage = await client
@@ -213,6 +236,9 @@ export async function GET(request: Request) {
       const policy_region = normalizeSourcePolicyRegion(source.region)
       const disabled_reason = inferDisabledReason(source.enabled !== false, status)
 
+      const ingest_active = activeSourceIds.has(Number(source.id))
+      const enabled_effective = (source.enabled === true) || ingest_active
+
       return {
         source_id: source.id,
         source_name: source.name,
@@ -220,6 +246,8 @@ export async function GET(request: Request) {
         policy_tier,
         policy_region,
         disabled_reason,
+        ingest_active,
+        enabled_effective,
         status,
         last_status: latest?.status || null,
         last_items: latest?.items_fetched || 0,
@@ -277,6 +305,8 @@ export async function GET(request: Request) {
         meta: {
           health_window_runs: HEALTH_WINDOW,
           stale_hours: STALE_HOURS,
+          active_window_hours: ACTIVE_WINDOW_HOURS,
+          ingest_active_sources: activeSourceIds.size,
           min_runs_for_rate: MIN_RUNS_FOR_RATE,
           down_consecutive_errors: DOWN_CONSECUTIVE_ERRORS,
           down_error_rate_pct: DOWN_ERROR_RATE_PCT,
