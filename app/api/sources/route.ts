@@ -84,7 +84,17 @@ export async function GET(request: Request) {
       .select('id,name,type,tier,region,enabled,last_success_at,last_error_at')
       .order('id', { ascending: true })
 
+    // Attach effective enabled flag to each source row so `/sources` can show the ingest-active pool.
+    const sourcesWithEffective = (sources || []).map((s: any) => ({
+      ...s,
+      ingest_active: activeSourceIds.has(Number(s.id)),
+      enabled_effective: s.enabled === true || activeSourceIds.has(Number(s.id)),
+    }))
+
     if (sourceError) throw sourceError
+
+    // Prefer the decorated list going forward.
+    const sourcesResolved: any[] = sourcesWithEffective
 
     let logs: any[] | null = null
     let logsError: any = null
@@ -195,7 +205,7 @@ export async function GET(request: Request) {
       grouped[row.source_id].push(row)
     }
 
-    const health = (sources || []).map((source) => {
+    const health = (sourcesResolved || []).map((source) => {
       const sourceLogs = (grouped[source.id] || []).slice(0, HEALTH_WINDOW)
       const latest = sourceLogs[0]
 
@@ -299,7 +309,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       ok({
-        sources,
+        sources: sourcesResolved,
         health,
         summary: healthCounts,
         meta: {
@@ -324,8 +334,9 @@ export async function GET(request: Request) {
               global_latest_raw_row: debugGlobalLatestRawRow,
               supabase_host_hash: cfg.supabaseHostHash,
               service_role_hash_prefix: cfg.serviceRoleHashPrefix,
-              enabled_true_count: (sources || []).filter((s: any) => s.enabled === true).length,
-              tracked_enabled_flags: (sources || [])
+              enabled_true_count: (sourcesResolved || []).filter((s: any) => s.enabled === true).length,
+              enabled_effective_true_count: (sourcesResolved || []).filter((s: any) => s.enabled_effective === true).length,
+              tracked_enabled_flags: (sourcesResolved || [])
                 .filter((s: any) => [139, 142, 143, 144].includes(Number(s.id)))
                 .map((s: any) => ({ id: s.id, name: s.name, enabled: s.enabled })),
               db_now: dbNow.value || null,
