@@ -164,24 +164,25 @@ export async function GET(request: Request) {
       select: 'id,run_at_utc,status',
       orderBy: 'run_at_utc DESC, id DESC',
       limit: 1,
-      source: 'globalWindow[0]',
+      source: 'direct_query',
     }
 
-    // Keep a single ordering source-of-truth for freshness selection.
-    globalWindow.sort((a: any, b: any) => {
-      const ta = new Date(String(a?.run_at_utc || 0)).getTime()
-      const tb = new Date(String(b?.run_at_utc || 0)).getTime()
-      if (tb !== ta) return tb - ta
-      return Number(b?.id || 0) - Number(a?.id || 0)
-    })
+    // Deterministic global latest selection (do not derive from pre-fetched window array).
+    const latestGlobal = await client
+      .from('ingest_logs')
+      .select('id,run_at_utc,status')
+      .is('source_id', null)
+      .order('run_at_utc', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    const selectedGlobal = (globalWindow || [])[0]
-    if (selectedGlobal?.run_at_utc) {
-      globalLatestRunAt = String(selectedGlobal.run_at_utc)
+    if (!latestGlobal.error && latestGlobal.data?.run_at_utc) {
+      globalLatestRunAt = String(latestGlobal.data.run_at_utc)
       debugGlobalLatestRawRow = {
-        id: selectedGlobal.id ?? null,
-        run_at_utc: selectedGlobal.run_at_utc,
-        status: selectedGlobal.status ?? null,
+        id: latestGlobal.data.id ?? null,
+        run_at_utc: latestGlobal.data.run_at_utc,
+        status: latestGlobal.data.status ?? null,
       }
     }
 
@@ -328,6 +329,32 @@ export async function GET(request: Request) {
       { never: 0, le_10m: 0, le_30m: 0, le_60m: 0, le_180m: 0, gt_180m: 0 },
     )
 
+    const withStageRows = await client
+      .from('ingest_logs')
+      .select('id,run_at_utc,stage,status,source_id')
+      .is('source_id', null)
+      .order('run_at_utc', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(5)
+
+    const globalRowsLast5 = !withStageRows.error
+      ? (withStageRows.data || [])
+      : ((await client
+          .from('ingest_logs')
+          .select('id,run_at_utc,status,source_id')
+          .is('source_id', null)
+          .order('run_at_utc', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(5)).data || [])
+
+    const topGlobalRow = (globalRowsLast5 || [])[0] as any
+    const parityOk = !!(
+      topGlobalRow &&
+      debugGlobalLatestRawRow &&
+      String(topGlobalRow.run_at_utc || '') === String(debugGlobalLatestRawRow.run_at_utc || '') &&
+      Number(topGlobalRow.id || 0) === Number(debugGlobalLatestRawRow.id || 0)
+    )
+
     const globalLatestDate = toDate(globalLatestRunAt)
     const globalLatestAgeMinutes = globalLatestDate
       ? Math.max(0, Math.floor((Date.now() - globalLatestDate.getTime()) / 60000))
@@ -377,24 +404,8 @@ export async function GET(request: Request) {
               })),
               db_now: dbNow.value || null,
               db_now_error: dbNow.ok ? null : (dbNow.error || 'db_now_unavailable'),
-              global_rows_last5: (await (async () => {
-                const withStageRows = await client
-                  .from('ingest_logs')
-                  .select('id,run_at_utc,stage,status,source_id')
-                  .is('source_id', null)
-                  .order('run_at_utc', { ascending: false })
-                  .order('id', { ascending: false })
-                  .limit(5)
-                if (!withStageRows.error) return withStageRows.data || []
-                const fallbackRows = await client
-                  .from('ingest_logs')
-                  .select('id,run_at_utc,status,source_id')
-                  .is('source_id', null)
-                  .order('run_at_utc', { ascending: false })
-                  .order('id', { ascending: false })
-                  .limit(5)
-                return fallbackRows.data || []
-              })()),
+              parity_ok: parityOk,
+              global_rows_last5: globalRowsLast5,
             }
           : undefined,
       }),
