@@ -180,8 +180,17 @@ const buildRoundRobinQueue = (sources: SourceType[], previousCursorSourceId: num
     selected.push(regular[idx])
   }
 
+  // Keep priority first, but front-load one regular source right after the first
+  // priority source to prevent starvation when time budget is tight.
+  const queue = [
+    ...priority.slice(0, 1),
+    ...selected.slice(0, 1),
+    ...priority.slice(1),
+    ...selected.slice(1),
+  ]
+
   return {
-    queue: [...priority, ...selected],
+    queue,
     cursor_before: previousCursorSourceId,
     regular_pool_size: regular.length,
     selected_regular_ids: selected.map((s) => Number(s.id)),
@@ -1430,7 +1439,9 @@ ${effectiveSummary}`.slice(0, 4000)
 
     const nextCursor = regularProcessedIds.length > 0
       ? regularProcessedIds[regularProcessedIds.length - 1]
-      : queuePlan.cursor_before
+      : (queuePlan.selected_regular_ids.length > 0
+          ? queuePlan.selected_regular_ids[queuePlan.selected_regular_ids.length - 1]
+          : queuePlan.cursor_before)
 
     await setIngestCursorState(client, nextCursor, runAt)
 
