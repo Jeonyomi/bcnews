@@ -191,7 +191,10 @@ const setIngestCursorState = async (client: any, nextCursorSourceId: number | nu
       next_cursor_source_id: nextCursorSourceId,
       error: String((marker.error as any)?.message || marker.error),
     })
+    return false
   }
+
+  return true
 }
 
 const buildRoundRobinQueue = (sources: SourceType[], previousCursorSourceId: number | null) => {
@@ -1024,6 +1027,7 @@ export async function POST(request: Request) {
     client = createSupabaseServerClient()
     const body = await request.json().catch(() => ({} as any))
     const debugRR = body?.debug_rr === true || new URL(request.url).searchParams.get('debug_rr') === '1'
+    const debugReturnMetrics = body?.debug_return_metrics === true || new URL(request.url).searchParams.get('debug_return_metrics') === '1'
 
     if (body?.debug_global_log === true) {
       const write = await writeGlobalIngestLog(client, {
@@ -1063,6 +1067,7 @@ export async function POST(request: Request) {
       itemsFetched: 0,
       itemsSaved: 0,
     })
+    const globalMarkerWritten = !!globalLogStart?.ok
     const globalLogStartReadback = await verifyGlobalReadback(client, globalLogStart?.row?.run_at_utc || runAt)
 
     const { data: sources, error: sourceError } = await client
@@ -1104,6 +1109,7 @@ export async function POST(request: Request) {
     const regularAttemptedIds: number[] = []
     const attemptedSourceIds: number[] = []
     const completedSourceIds: number[] = []
+    const runlogInsertedSourceIds: number[] = []
     const perSourceMs: Record<number, number> = {}
     let runlogInsertOkCount = 0
 
@@ -1187,7 +1193,10 @@ export async function POST(request: Request) {
           runLog.status = 'warn'
           runLog.error_message = 'Error: rss_parse_no_items_or_notice_links'
           const inserted = await insertSourceRunLog(client, runLog)
-          if (inserted) runlogInsertOkCount += 1
+          if (inserted) {
+            runlogInsertOkCount += 1
+            runlogInsertedSourceIds.push(Number(source.id))
+          }
           completedSourceIds.push(Number(source.id))
           perSourceMs[Number(source.id)] = Date.now() - sourceStartedAt
           continue
@@ -1491,7 +1500,10 @@ ${effectiveSummary}`.slice(0, 4000)
       }
 
       const inserted = await insertSourceRunLog(client, runLog)
-      if (inserted) runlogInsertOkCount += 1
+      if (inserted) {
+        runlogInsertOkCount += 1
+        runlogInsertedSourceIds.push(Number(source.id))
+      }
 
       if (runLog.status === 'ok') {
         await client.from('sources').update({ last_success_at: runAt, last_error_at: null }).eq('id', source.id)
@@ -1509,7 +1521,7 @@ ${effectiveSummary}`.slice(0, 4000)
           ? queuePlan.selected_regular_ids[queuePlan.selected_regular_ids.length - 1]
           : queuePlan.cursor_before)
 
-    await setIngestCursorState(client, nextCursor, runAt)
+    const cursorMarkerWritten = await setIngestCursorState(client, nextCursor, runAt)
 
     const globalLogEnd = await writeGlobalIngestLog(client, {
       runAtUtc: runAt,
@@ -1534,7 +1546,19 @@ ${effectiveSummary}`.slice(0, 4000)
       attempted_source_ids: attemptedSourceIds,
       completed_source_ids: completedSourceIds,
       per_source_ms: perSourceMs,
+      runlog_attempted_count: attemptedSourceIds.length,
       runlog_insert_ok_count: runlogInsertOkCount,
+      inserted_runlog_source_ids: runlogInsertedSourceIds,
+      debug_return_metrics: debugReturnMetrics
+        ? {
+            run_at: runAt,
+            runlog_attempted_count: attemptedSourceIds.length,
+            runlog_insert_ok_count: runlogInsertOkCount,
+            inserted_runlog_source_ids: runlogInsertedSourceIds,
+            global_marker_written: globalMarkerWritten,
+            cursor_marker_written: cursorMarkerWritten,
+          }
+        : undefined,
       rr_debug: debugRR
         ? {
             cursor_state_before: cursorState.cursor_source_id,
