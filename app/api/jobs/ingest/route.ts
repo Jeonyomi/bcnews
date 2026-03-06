@@ -121,14 +121,39 @@ const getIngestCursorState = async (client: any): Promise<IngestCursorState> => 
     .eq('state_key', INGEST_CURSOR_KEY)
     .maybeSingle()
 
-  if (error) {
-    console.warn('ingest_cursor_read_failed', { error: String((error as any)?.message || error) })
+  if (!error) {
+    return {
+      cursor_source_id: Number.isFinite(Number(data?.cursor_source_id)) ? Number(data.cursor_source_id) : null,
+      updated_at: data?.updated_at || null,
+    }
+  }
+
+  console.warn('ingest_cursor_read_failed_primary', { error: String((error as any)?.message || error) })
+
+  // Fallback for environments where `ingest_state` migration has not yet been applied.
+  const fallback = await client
+    .from('ingest_logs')
+    .select('error_message,run_at_utc')
+    .is('source_id', null)
+    .eq('stage', 'cursor_state')
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (fallback.error) {
+    console.warn('ingest_cursor_read_failed_fallback', { error: String((fallback.error as any)?.message || fallback.error) })
     return { cursor_source_id: null }
   }
 
-  return {
-    cursor_source_id: Number.isFinite(Number(data?.cursor_source_id)) ? Number(data.cursor_source_id) : null,
-    updated_at: data?.updated_at || null,
+  try {
+    const parsed = JSON.parse(String(fallback.data?.error_message || '{}'))
+    const cursor = Number(parsed?.cursor_source_id)
+    return {
+      cursor_source_id: Number.isFinite(cursor) ? cursor : null,
+      updated_at: fallback.data?.run_at_utc || null,
+    }
+  } catch {
+    return { cursor_source_id: null, updated_at: fallback.data?.run_at_utc || null }
   }
 }
 
@@ -144,10 +169,28 @@ const setIngestCursorState = async (client: any, nextCursorSourceId: number | nu
     .from('ingest_state')
     .upsert(payload, { onConflict: 'state_key' })
 
-  if (error) {
-    console.warn('ingest_cursor_write_failed', {
+  if (!error) return
+
+  console.warn('ingest_cursor_write_failed_primary', {
+    next_cursor_source_id: nextCursorSourceId,
+    error: String((error as any)?.message || error),
+  })
+
+  const fallbackPayload = JSON.stringify({ cursor_source_id: nextCursorSourceId })
+  const fallback = await client.from('ingest_logs').insert({
+    source_id: null,
+    run_at_utc: runAtUtc,
+    status: 'ok',
+    stage: 'cursor_state',
+    error_message: fallbackPayload,
+    items_fetched: 0,
+    items_saved: 0,
+  })
+
+  if (fallback.error) {
+    console.warn('ingest_cursor_write_failed_fallback', {
       next_cursor_source_id: nextCursorSourceId,
-      error: String((error as any)?.message || error),
+      error: String((fallback.error as any)?.message || fallback.error),
     })
   }
 }
@@ -868,7 +911,7 @@ const autoPostBreaking = async (client: any, payload: {
 }
 
 const insertSourceRunLog = async (client: any, runLog: any) => {
-  if (!client || !runLog) return
+  if (!client || !runLog) return false
 
   const row: any = {
     source_id: runLog.source_id || null,
@@ -880,7 +923,11 @@ const insertSourceRunLog = async (client: any, runLog: any) => {
   }
 
   const { error } = await client.from('ingest_logs').insert(row)
-  if (error) console.error('ingest_log_insert_failed', { source_id: row.source_id, error })
+  if (error) {
+    console.error('ingest_log_insert_failed', { source_id: row.source_id, error })
+    return false
+  }
+  return true
 }
 
 const buildDebugEnv = async (client: any) => {
@@ -1048,7 +1095,11 @@ export async function POST(request: Request) {
     const cursorState = await getIngestCursorState(client)
     const queuePlan = buildRoundRobinQueue(sources as SourceType[], cursorState.cursor_source_id)
     const sourceQueue = queuePlan.queue
-    const regularProcessedIds: number[] = []
+    const regularAttemptedIds: number[] = []
+    const attemptedSourceIds: number[] = []
+    const completedSourceIds: number[] = []
+    const perSourceMs: Record<number, number> = {}
+    let runlogInsertOkCount = 0
 
     let processedCount = 0
 
@@ -1071,10 +1122,12 @@ export async function POST(request: Request) {
         items_fetched: 0,
         items_saved: 0,
       }
+      const sourceStartedAt = Date.now()
+      attemptedSourceIds.push(Number(source.id))
       sourcesProcessed += 1
       processedCount += 1
       if (!KR_EXCHANGE_NOTICE_SOURCES.includes(String(source.name || ''))) {
-        regularProcessedIds.push(Number(source.id))
+        regularAttemptedIds.push(Number(source.id))
       }
 
       try {
@@ -1127,7 +1180,10 @@ export async function POST(request: Request) {
         if (parsed.length === 0) {
           runLog.status = 'warn'
           runLog.error_message = 'Error: rss_parse_no_items_or_notice_links'
-          await insertSourceRunLog(client, runLog)
+          const inserted = await insertSourceRunLog(client, runLog)
+          if (inserted) runlogInsertOkCount += 1
+          completedSourceIds.push(Number(source.id))
+          perSourceMs[Number(source.id)] = Date.now() - sourceStartedAt
           continue
         }
 
@@ -1428,17 +1484,21 @@ ${effectiveSummary}`.slice(0, 4000)
         runLog.error_message = String(sourceError)
       }
 
-      await insertSourceRunLog(client, runLog)
+      const inserted = await insertSourceRunLog(client, runLog)
+      if (inserted) runlogInsertOkCount += 1
 
       if (runLog.status === 'ok') {
         await client.from('sources').update({ last_success_at: runAt, last_error_at: null }).eq('id', source.id)
       } else {
         await client.from('sources').update({ last_error_at: runAt }).eq('id', source.id)
       }
+
+      completedSourceIds.push(Number(source.id))
+      perSourceMs[Number(source.id)] = Date.now() - sourceStartedAt
     }
 
-    const nextCursor = regularProcessedIds.length > 0
-      ? regularProcessedIds[regularProcessedIds.length - 1]
+    const nextCursor = regularAttemptedIds.length > 0
+      ? regularAttemptedIds[regularAttemptedIds.length - 1]
       : (queuePlan.selected_regular_ids.length > 0
           ? queuePlan.selected_regular_ids[queuePlan.selected_regular_ids.length - 1]
           : queuePlan.cursor_before)
@@ -1465,6 +1525,10 @@ ${effectiveSummary}`.slice(0, 4000)
       cursor_before: queuePlan.cursor_before,
       regular_pool_size: queuePlan.regular_pool_size,
       selected_regular_ids: queuePlan.selected_regular_ids,
+      attempted_source_ids: attemptedSourceIds,
+      completed_source_ids: completedSourceIds,
+      per_source_ms: perSourceMs,
+      runlog_insert_ok_count: runlogInsertOkCount,
       autopost_eval: autopostEval,
       global_log_write_start: globalLogStart,
       global_log_write_start_readback: globalLogStartReadback,
