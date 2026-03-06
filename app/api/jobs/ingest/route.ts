@@ -841,6 +841,18 @@ const isValidHttpUrl = (value: string) => {
   }
 }
 
+const hasBadKrNoticeTitle = (title: string) => {
+  const raw = String(title || '').trim()
+  const normalized = raw
+    .replace(/^\[속보\]\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!normalized || normalized.length < 8) return true
+
+  return /(업비트\s*-\s*업비트|빗썸\s*-\s*빗썸|코인원\s*-\s*코인원)/i.test(normalized)
+}
+
 const autoPostBreaking = async (client: any, payload: {
   articleId: number
   sourceName: string
@@ -879,6 +891,11 @@ const autoPostBreaking = async (client: any, payload: {
     fallbackUrl: payload.articleUrl,
     importanceLabel: payload.importanceLabel,
   })
+
+  const isKrNoticeSource = KR_EXCHANGE_NOTICE_SOURCES.includes(String(payload.sourceName || ''))
+  if (isKrNoticeSource && hasBadKrNoticeTitle(post.finalTitle)) {
+    return skip(CHANNEL_POST_REASONS.SKIPPED_BAD_NOTICE_TITLE, post.text)
+  }
 
   const { data: dup } = await client
     .from('channel_posts')
