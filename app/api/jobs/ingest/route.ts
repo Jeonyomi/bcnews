@@ -107,6 +107,87 @@ type SourceType = {
   region: 'KR' | 'Global' | null
 }
 
+type IngestCursorState = {
+  cursor_source_id: number | null
+  updated_at?: string | null
+}
+
+const INGEST_CURSOR_KEY = 'default'
+
+const getIngestCursorState = async (client: any): Promise<IngestCursorState> => {
+  const { data, error } = await client
+    .from('ingest_state')
+    .select('cursor_source_id,updated_at')
+    .eq('state_key', INGEST_CURSOR_KEY)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('ingest_cursor_read_failed', { error: String((error as any)?.message || error) })
+    return { cursor_source_id: null }
+  }
+
+  return {
+    cursor_source_id: Number.isFinite(Number(data?.cursor_source_id)) ? Number(data.cursor_source_id) : null,
+    updated_at: data?.updated_at || null,
+  }
+}
+
+const setIngestCursorState = async (client: any, nextCursorSourceId: number | null, runAtUtc: string) => {
+  const payload = {
+    state_key: INGEST_CURSOR_KEY,
+    cursor_source_id: nextCursorSourceId,
+    last_run_at_utc: runAtUtc,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { error } = await client
+    .from('ingest_state')
+    .upsert(payload, { onConflict: 'state_key' })
+
+  if (error) {
+    console.warn('ingest_cursor_write_failed', {
+      next_cursor_source_id: nextCursorSourceId,
+      error: String((error as any)?.message || error),
+    })
+  }
+}
+
+const buildRoundRobinQueue = (sources: SourceType[], previousCursorSourceId: number | null) => {
+  const ordered = [...sources].sort((a, b) => Number(a.id) - Number(b.id))
+
+  const priority = ordered.filter((s) => KR_EXCHANGE_NOTICE_SOURCES.includes(String(s.name || '')))
+  const regular = ordered.filter((s) => !KR_EXCHANGE_NOTICE_SOURCES.includes(String(s.name || '')))
+
+  const remainingSlots = Math.max(0, MAX_SOURCES_PER_RUN - priority.length)
+  if (remainingSlots === 0 || regular.length === 0) {
+    return {
+      queue: priority.slice(0, MAX_SOURCES_PER_RUN),
+      cursor_before: previousCursorSourceId,
+      regular_pool_size: regular.length,
+      selected_regular_ids: [] as number[],
+    }
+  }
+
+  let startIndex = 0
+  if (previousCursorSourceId !== null) {
+    const nextIdx = regular.findIndex((s) => Number(s.id) > Number(previousCursorSourceId))
+    startIndex = nextIdx >= 0 ? nextIdx : 0
+  }
+
+  const selected: SourceType[] = []
+  for (let i = 0; i < Math.min(remainingSlots, regular.length); i += 1) {
+    const idx = (startIndex + i) % regular.length
+    selected.push(regular[idx])
+  }
+
+  return {
+    queue: [...priority, ...selected],
+    cursor_before: previousCursorSourceId,
+    regular_pool_size: regular.length,
+    selected_regular_ids: selected.map((s) => Number(s.id)),
+  }
+}
+
 const getSecret = () =>
   process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET
 
@@ -940,7 +1021,7 @@ export async function POST(request: Request) {
         errorMessage: 'no_enabled_sources',
       })
       const debugEnv = await buildDebugEnv(client)
-      return NextResponse.json({ ok: true, inserted_articles: 0, issue_updates_created: 0, global_log_write_start: globalLogStart, global_log_write_start_readback: globalLogStartReadback, global_log_write_preflight: globalLogNoSources, debug_env: debugEnv })
+      return NextResponse.json({ ok: true, inserted_articles: 0, issue_updates_created: 0, sources_processed: 0, stopped_early: false, next_cursor: null, global_log_write_start: globalLogStart, global_log_write_start_readback: globalLogStartReadback, global_log_write_preflight: globalLogNoSources, debug_env: debugEnv })
     }
 
     let insertedArticles = 0
@@ -955,20 +1036,10 @@ export async function POST(request: Request) {
       skippedReasons: {} as Record<string, number>,
     }
 
-    // Shuffle non-priority sources deterministically per run to avoid starvation when runs stop early.
-    const allSources = [...(sources as SourceType[])]
-    const priority = allSources.filter((s) => KR_EXCHANGE_NOTICE_SOURCES.includes(String(s.name || '')))
-    const shuffled = allSources.filter((s) => !KR_EXCHANGE_NOTICE_SOURCES.includes(String(s.name || '')))
-
-    const seed = Number.parseInt(crypto.createHash('sha256').update(runAt).digest('hex').slice(0, 8), 16)
-    for (let i = shuffled.length - 1; i > 0; i -= 1) {
-      const j = (seed + i * 1103515245) % (i + 1)
-      const tmp = shuffled[i]
-      shuffled[i] = shuffled[j]
-      shuffled[j] = tmp
-    }
-
-    const sourceQueue = [...priority, ...shuffled]
+    const cursorState = await getIngestCursorState(client)
+    const queuePlan = buildRoundRobinQueue(sources as SourceType[], cursorState.cursor_source_id)
+    const sourceQueue = queuePlan.queue
+    const regularProcessedIds: number[] = []
 
     let processedCount = 0
 
@@ -993,6 +1064,9 @@ export async function POST(request: Request) {
       }
       sourcesProcessed += 1
       processedCount += 1
+      if (!KR_EXCHANGE_NOTICE_SOURCES.includes(String(source.name || ''))) {
+        regularProcessedIds.push(Number(source.id))
+      }
 
       try {
         const primaryUrl = source.rss_url || source.url
@@ -1354,9 +1428,15 @@ ${effectiveSummary}`.slice(0, 4000)
       }
     }
 
+    const nextCursor = regularProcessedIds.length > 0
+      ? regularProcessedIds[regularProcessedIds.length - 1]
+      : queuePlan.cursor_before
+
+    await setIngestCursorState(client, nextCursor, runAt)
+
     const globalLogEnd = await writeGlobalIngestLog(client, {
       runAtUtc: runAt,
-      status: 'ok',
+      status: stoppedEarly ? 'warn' : 'ok',
       stage: 'ingest',
       itemsFetched: 0,
       itemsSaved: insertedArticles,
@@ -1370,6 +1450,10 @@ ${effectiveSummary}`.slice(0, 4000)
       issue_updates_created: issueUpdatesCreated,
       sources_processed: sourcesProcessed,
       stopped_early: stoppedEarly,
+      next_cursor: nextCursor,
+      cursor_before: queuePlan.cursor_before,
+      regular_pool_size: queuePlan.regular_pool_size,
+      selected_regular_ids: queuePlan.selected_regular_ids,
       autopost_eval: autopostEval,
       global_log_write_start: globalLogStart,
       global_log_write_start_readback: globalLogStartReadback,

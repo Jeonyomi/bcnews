@@ -299,6 +299,24 @@ export async function GET(request: Request) {
       { total: 0, ok: 0, warn: 0, stale: 0, down: 0, disabled: 0, na: 0 },
     )
 
+    const lastRunDistribution = health.reduce(
+      (acc, row) => {
+        const d = toDate(row.last_run_at || row.display_last_run_at)
+        if (!d) {
+          acc.never += 1
+          return acc
+        }
+        const ageMin = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000))
+        if (ageMin <= 10) acc.le_10m += 1
+        else if (ageMin <= 30) acc.le_30m += 1
+        else if (ageMin <= 60) acc.le_60m += 1
+        else if (ageMin <= 180) acc.le_180m += 1
+        else acc.gt_180m += 1
+        return acc
+      },
+      { never: 0, le_10m: 0, le_30m: 0, le_60m: 0, le_180m: 0, gt_180m: 0 },
+    )
+
     const globalLatestDate = toDate(globalLatestRunAt)
     const globalLatestAgeMinutes = globalLatestDate
       ? Math.max(0, Math.floor((Date.now() - globalLatestDate.getTime()) / 60000))
@@ -323,6 +341,7 @@ export async function GET(request: Request) {
           global_latest_run_at: globalLatestRunAt,
           global_latest_age_minutes: globalLatestAgeMinutes,
           global_is_stale: globalIsStale,
+          last_run_distribution: lastRunDistribution,
         },
         debug: debugGlobal && debugAllowed
           ? {
