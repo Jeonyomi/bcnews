@@ -87,30 +87,7 @@ export async function GET(request: Request) {
 
     if (sourceError) throw sourceError
 
-    let logs: any[] | null = null
-    let logsError: any = null
-
-    const withStage = await client
-      .from('ingest_logs')
-      .select('id,source_id,status,run_at_utc,items_fetched,items_saved,error_message,stage')
-      .order('run_at_utc', { ascending: false })
-      .limit(5000)
-
-    if (!withStage.error) {
-      logs = withStage.data || []
-    } else {
-      const withoutStage = await client
-        .from('ingest_logs')
-        .select('id,source_id,status,run_at_utc,items_fetched,items_saved,error_message')
-        .order('run_at_utc', { ascending: false })
-        .limit(5000)
-      logs = withoutStage.data || []
-      logsError = withoutStage.error
-    }
-
-    if (logsError) throw logsError
-
-    const grouped: Record<number, any[]> = {}
+    const sourceLogsById: Record<number, any[]> = {}
 
     // Derive ingest-active sources over a short window (default 24h).
     const activeSince = new Date(Date.now() - ACTIVE_WINDOW_HOURS * 60 * 60 * 1000).toISOString()
@@ -136,6 +113,35 @@ export async function GET(request: Request) {
       ingest_active: activeSourceIds.has(Number(s.id)),
       enabled_effective: s.enabled === true || activeSourceIds.has(Number(s.id)),
     }))
+
+    // Per-source windows: query each source directly to avoid global-slice starvation.
+    await Promise.all(
+      (sourcesResolved || []).map(async (source: any) => {
+        const sourceId = Number(source.id)
+        const withStage = await client
+          .from('ingest_logs')
+          .select('id,source_id,status,run_at_utc,items_fetched,items_saved,error_message,stage')
+          .eq('source_id', sourceId)
+          .order('run_at_utc', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(HEALTH_WINDOW)
+
+        if (!withStage.error) {
+          sourceLogsById[sourceId] = withStage.data || []
+          return
+        }
+
+        const fallback = await client
+          .from('ingest_logs')
+          .select('id,source_id,status,run_at_utc,items_fetched,items_saved,error_message')
+          .eq('source_id', sourceId)
+          .order('run_at_utc', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(HEALTH_WINDOW)
+
+        sourceLogsById[sourceId] = fallback.data || []
+      }),
+    )
 
     let globalWindow: any[] = []
     const globalWithStage = await client
@@ -186,9 +192,17 @@ export async function GET(request: Request) {
       }
     }
 
-    // Fallback: if global log row is missing, use latest run among all source logs.
+    // Fallback: if global log row is missing, use latest run among per-source windows.
     if (!globalLatestRunAt) {
-      const fallbackAnyLatest = (logs || []).find((r) => !!r?.run_at_utc)
+      const fallbackAnyLatest = Object.values(sourceLogsById)
+        .flat()
+        .sort((a: any, b: any) => {
+          const ta = new Date(String(a?.run_at_utc || 0)).getTime()
+          const tb = new Date(String(b?.run_at_utc || 0)).getTime()
+          if (tb !== ta) return tb - ta
+          return Number(b?.id || 0) - Number(a?.id || 0)
+        })[0]
+
       if (fallbackAnyLatest?.run_at_utc) {
         globalLatestRunAt = String(fallbackAnyLatest.run_at_utc)
         debugGlobalLatestRawRow = {
@@ -200,23 +214,8 @@ export async function GET(request: Request) {
       }
     }
 
-    for (const row of logs || []) {
-      if (!row.source_id) continue
-      if (!grouped[row.source_id]) grouped[row.source_id] = []
-      grouped[row.source_id].push(row)
-    }
-
-    for (const sourceId of Object.keys(grouped)) {
-      grouped[Number(sourceId)].sort((a: any, b: any) => {
-        const ta = new Date(String(a?.run_at_utc || 0)).getTime()
-        const tb = new Date(String(b?.run_at_utc || 0)).getTime()
-        if (tb !== ta) return tb - ta
-        return Number(b?.id || 0) - Number(a?.id || 0)
-      })
-    }
-
     const health = (sourcesResolved || []).map((source) => {
-      const sourceLogs = (grouped[source.id] || []).slice(0, HEALTH_WINDOW)
+      const sourceLogs = (sourceLogsById[Number(source.id)] || []).slice(0, HEALTH_WINDOW)
       const latest = sourceLogs[0]
 
       const sourceRuns = sourceLogs.length
