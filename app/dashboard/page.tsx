@@ -13,6 +13,7 @@ interface ArticleRow {
   title: string
   url: string
   published_at_utc: string
+  created_at: string
   summary_short: string | null
   why_it_matters: string | null
   importance_label: string | null
@@ -170,10 +171,16 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
-                      <span>{minutesAgo(article.published_at_utc)}</span>
-                      <span>({formatSeoulDateTime(article.published_at_utc)} KST)</span>
+                      <span>Ingested {minutesAgo(article.created_at)}</span>
+                      <span>({formatSeoulDateTime(article.created_at)} KST)</span>
                       <span>|</span>
                       <span>{typeLabel}</span>
+                      {article.published_at_utc ? (
+                        <>
+                          <span>|</span>
+                          <span className="text-gray-400">Published {minutesAgo(article.published_at_utc)}</span>
+                        </>
+                      ) : null}
                     </div>
                   </div>
                 </div>

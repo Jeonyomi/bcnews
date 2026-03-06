@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       .from('articles')
       .select(
         `
-          id,title,url,canonical_url,published_at_utc,fetched_at_utc,language,region,
+          id,title,url,canonical_url,published_at_utc,created_at,fetched_at_utc,language,region,
           summary_short,why_it_matters,confidence_label,importance_score,importance_label,status,issue_id,
           source_id, content_hash,
           source:sources(id,name,tier),
@@ -52,7 +52,10 @@ export async function GET(request: Request) {
 
     const since = timeWindowToIso(window)
     if (since) {
-      query = query.gte('published_at_utc', since)
+      // "latest" should reflect ingestion cadence (created_at), not source publish time.
+      query = sort === 'latest'
+        ? query.gte('created_at', since)
+        : query.gte('published_at_utc', since)
     }
     if (region !== 'All') query = query.eq('region', region)
     if (topic !== 'all') {
@@ -64,11 +67,13 @@ export async function GET(request: Request) {
     }
 
     if (from) {
-      query = query.lte('published_at_utc', from)
+      query = sort === 'latest'
+        ? query.lte('created_at', from)
+        : query.lte('published_at_utc', from)
     }
 
     if (sort === 'latest') {
-      query = query.order('published_at_utc', { ascending: false })
+      query = query.order('created_at', { ascending: false }).order('id', { ascending: false })
     } else if (sort === 'importance') {
       query = query.order('importance_score', { ascending: false, nullsFirst: false })
     } else {
