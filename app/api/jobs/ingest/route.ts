@@ -115,6 +115,30 @@ type IngestCursorState = {
 const INGEST_CURSOR_KEY = 'default'
 
 const getIngestCursorState = async (client: any): Promise<IngestCursorState> => {
+  // Read from ingest_logs marker first: this path is known to be available in all envs.
+  const marker = await client
+    .from('ingest_logs')
+    .select('error_message,run_at_utc')
+    .is('source_id', null)
+    .like('error_message', 'cursor_state:%')
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!marker.error && marker.data?.error_message) {
+    try {
+      const raw = String(marker.data.error_message)
+      const parsed = JSON.parse(raw.slice('cursor_state:'.length))
+      const cursor = Number(parsed?.cursor_source_id)
+      return {
+        cursor_source_id: Number.isFinite(cursor) ? cursor : null,
+        updated_at: marker.data?.run_at_utc || null,
+      }
+    } catch {
+      // continue to ingest_state fallback
+    }
+  }
+
   const { data, error } = await client
     .from('ingest_state')
     .select('cursor_source_id,updated_at')
@@ -128,35 +152,8 @@ const getIngestCursorState = async (client: any): Promise<IngestCursorState> => 
     }
   }
 
-  console.warn('ingest_cursor_read_failed_primary', { error: String((error as any)?.message || error) })
-
-  // Fallback for environments where `ingest_state` migration has not yet been applied.
-  const fallback = await client
-    .from('ingest_logs')
-    .select('error_message,run_at_utc')
-    .is('source_id', null)
-    .or('error_message.like.cursor_state:%25,error_message.like.%22cursor_source_id%22%:%25')
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (fallback.error) {
-    console.warn('ingest_cursor_read_failed_fallback', { error: String((fallback.error as any)?.message || fallback.error) })
-    return { cursor_source_id: null }
-  }
-
-  try {
-    const raw = String(fallback.data?.error_message || '{}')
-    const jsonText = raw.startsWith('cursor_state:') ? raw.slice('cursor_state:'.length) : raw
-    const parsed = JSON.parse(jsonText)
-    const cursor = Number(parsed?.cursor_source_id)
-    return {
-      cursor_source_id: Number.isFinite(cursor) ? cursor : null,
-      updated_at: fallback.data?.run_at_utc || null,
-    }
-  } catch {
-    return { cursor_source_id: null, updated_at: fallback.data?.run_at_utc || null }
-  }
+  console.warn('ingest_cursor_read_failed', { error: String((error as any)?.message || error) })
+  return { cursor_source_id: null }
 }
 
 const setIngestCursorState = async (client: any, nextCursorSourceId: number | null, runAtUtc: string) => {
@@ -171,27 +168,28 @@ const setIngestCursorState = async (client: any, nextCursorSourceId: number | nu
     .from('ingest_state')
     .upsert(payload, { onConflict: 'state_key' })
 
-  if (!error) return
+  if (error) {
+    console.warn('ingest_cursor_write_failed_primary', {
+      next_cursor_source_id: nextCursorSourceId,
+      error: String((error as any)?.message || error),
+    })
+  }
 
-  console.warn('ingest_cursor_write_failed_primary', {
-    next_cursor_source_id: nextCursorSourceId,
-    error: String((error as any)?.message || error),
-  })
-
-  const fallbackPayload = `cursor_state:${JSON.stringify({ cursor_source_id: nextCursorSourceId })}`
-  const fallback = await client.from('ingest_logs').insert({
+  // Always emit cursor marker to ingest_logs for portable, schema-agnostic replay.
+  const markerPayload = `cursor_state:${JSON.stringify({ cursor_source_id: nextCursorSourceId })}`
+  const marker = await client.from('ingest_logs').insert({
     source_id: null,
     run_at_utc: runAtUtc,
     status: 'ok',
-    error_message: fallbackPayload,
+    error_message: markerPayload,
     items_fetched: 0,
     items_saved: 0,
   })
 
-  if (fallback.error) {
-    console.warn('ingest_cursor_write_failed_fallback', {
+  if (marker.error) {
+    console.warn('ingest_cursor_write_marker_failed', {
       next_cursor_source_id: nextCursorSourceId,
-      error: String((fallback.error as any)?.message || fallback.error),
+      error: String((marker.error as any)?.message || marker.error),
     })
   }
 }
