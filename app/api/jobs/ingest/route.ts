@@ -135,7 +135,7 @@ const getIngestCursorState = async (client: any): Promise<IngestCursorState> => 
     .from('ingest_logs')
     .select('error_message,run_at_utc')
     .is('source_id', null)
-    .eq('stage', 'cursor_state')
+    .or('error_message.like.cursor_state:%25,error_message.like.%22cursor_source_id%22%:%25')
     .order('id', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -146,7 +146,9 @@ const getIngestCursorState = async (client: any): Promise<IngestCursorState> => 
   }
 
   try {
-    const parsed = JSON.parse(String(fallback.data?.error_message || '{}'))
+    const raw = String(fallback.data?.error_message || '{}')
+    const jsonText = raw.startsWith('cursor_state:') ? raw.slice('cursor_state:'.length) : raw
+    const parsed = JSON.parse(jsonText)
     const cursor = Number(parsed?.cursor_source_id)
     return {
       cursor_source_id: Number.isFinite(cursor) ? cursor : null,
@@ -176,12 +178,11 @@ const setIngestCursorState = async (client: any, nextCursorSourceId: number | nu
     error: String((error as any)?.message || error),
   })
 
-  const fallbackPayload = JSON.stringify({ cursor_source_id: nextCursorSourceId })
+  const fallbackPayload = `cursor_state:${JSON.stringify({ cursor_source_id: nextCursorSourceId })}`
   const fallback = await client.from('ingest_logs').insert({
     source_id: null,
     run_at_utc: runAtUtc,
     status: 'ok',
-    stage: 'cursor_state',
     error_message: fallbackPayload,
     items_fetched: 0,
     items_saved: 0,
