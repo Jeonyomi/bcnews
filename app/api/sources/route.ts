@@ -355,6 +355,42 @@ export async function GET(request: Request) {
       Number(topGlobalRow.id || 0) === Number(debugGlobalLatestRawRow.id || 0)
     )
 
+    let globalDirectLatestRow: any = null
+    let globalDirectCountLast2h: number | null = null
+    let sourceDirectCountLast2h: number | null = null
+    const serverNowClient = new Date().toISOString()
+
+    if (debugGlobal && debugAllowed) {
+      const latestDirect = await client
+        .from('ingest_logs')
+        .select('id,run_at_utc,status')
+        .is('source_id', null)
+        .order('run_at_utc', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (!latestDirect.error) globalDirectLatestRow = latestDirect.data || null
+
+      const since2hIso = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+
+      const globalCount2h = await client
+        .from('ingest_logs')
+        .select('id', { head: true, count: 'exact' })
+        .is('source_id', null)
+        .gte('run_at_utc', since2hIso)
+
+      if (!globalCount2h.error) globalDirectCountLast2h = Number(globalCount2h.count || 0)
+
+      const sourceCount2h = await client
+        .from('ingest_logs')
+        .select('id', { head: true, count: 'exact' })
+        .not('source_id', 'is', null)
+        .gte('run_at_utc', since2hIso)
+
+      if (!sourceCount2h.error) sourceDirectCountLast2h = Number(sourceCount2h.count || 0)
+    }
+
     const globalLatestDate = toDate(globalLatestRunAt)
     const globalLatestAgeMinutes = globalLatestDate
       ? Math.max(0, Math.floor((Date.now() - globalLatestDate.getTime()) / 60000))
@@ -404,6 +440,12 @@ export async function GET(request: Request) {
               })),
               db_now: dbNow.value || null,
               db_now_error: dbNow.ok ? null : (dbNow.error || 'db_now_unavailable'),
+              server_now_utc: dbNow.value || null,
+              server_now_client: serverNowClient,
+              global_direct_latest_query_row: globalDirectLatestRow,
+              global_direct_latest_row: globalDirectLatestRow,
+              global_direct_count_last_2h: globalDirectCountLast2h,
+              source_direct_count_last_2h: sourceDirectCountLast2h,
               parity_ok: parityOk,
               global_rows_last5: globalRowsLast5,
             }
