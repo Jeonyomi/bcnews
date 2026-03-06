@@ -208,6 +208,9 @@ const buildRoundRobinQueue = (sources: SourceType[], previousCursorSourceId: num
       cursor_before: previousCursorSourceId,
       regular_pool_size: regular.length,
       selected_regular_ids: [] as number[],
+      regular_start_index: 0,
+      regular_ids_order: regular.map((s) => Number(s.id)),
+      priority_ids: priority.map((s) => Number(s.id)),
     }
   }
 
@@ -237,6 +240,9 @@ const buildRoundRobinQueue = (sources: SourceType[], previousCursorSourceId: num
     cursor_before: previousCursorSourceId,
     regular_pool_size: regular.length,
     selected_regular_ids: selected.map((s) => Number(s.id)),
+    regular_start_index: startIndex,
+    regular_ids_order: regular.map((s) => Number(s.id)),
+    priority_ids: priority.map((s) => Number(s.id)),
   }
 }
 
@@ -1018,6 +1024,7 @@ export async function POST(request: Request) {
 
     client = createSupabaseServerClient()
     const body = await request.json().catch(() => ({} as any))
+    const debugRR = body?.debug_rr === true || new URL(request.url).searchParams.get('debug_rr') === '1'
 
     if (body?.debug_global_log === true) {
       const write = await writeGlobalIngestLog(client, {
@@ -1529,6 +1536,16 @@ ${effectiveSummary}`.slice(0, 4000)
       completed_source_ids: completedSourceIds,
       per_source_ms: perSourceMs,
       runlog_insert_ok_count: runlogInsertOkCount,
+      rr_debug: debugRR
+        ? {
+            cursor_state_before: cursorState.cursor_source_id,
+            cursor_state_after: nextCursor,
+            regular_start_index: queuePlan.regular_start_index,
+            regular_ids_order_first10: (queuePlan.regular_ids_order || []).slice(0, 10),
+            priority_ids: queuePlan.priority_ids || [],
+            regular_ids_count: queuePlan.regular_pool_size,
+          }
+        : undefined,
       autopost_eval: autopostEval,
       global_log_write_start: globalLogStart,
       global_log_write_start_readback: globalLogStartReadback,
