@@ -92,7 +92,7 @@ export async function GET(request: Request) {
 
     const withStage = await client
       .from('ingest_logs')
-      .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message,stage')
+      .select('id,source_id,status,run_at_utc,items_fetched,items_saved,error_message,stage')
       .order('run_at_utc', { ascending: false })
       .limit(5000)
 
@@ -101,7 +101,7 @@ export async function GET(request: Request) {
     } else {
       const withoutStage = await client
         .from('ingest_logs')
-        .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message')
+        .select('id,source_id,status,run_at_utc,items_fetched,items_saved,error_message')
         .order('run_at_utc', { ascending: false })
         .limit(5000)
       logs = withoutStage.data || []
@@ -140,7 +140,7 @@ export async function GET(request: Request) {
     let globalWindow: any[] = []
     const globalWithStage = await client
       .from('ingest_logs')
-      .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message,stage')
+      .select('id,source_id,status,run_at_utc,items_fetched,items_saved,error_message,stage')
       .is('source_id', null)
       .order('run_at_utc', { ascending: false })
       .limit(HEALTH_WINDOW)
@@ -150,7 +150,7 @@ export async function GET(request: Request) {
     } else {
       const globalFallback = await client
         .from('ingest_logs')
-        .select('source_id,status,run_at_utc,items_fetched,items_saved,error_message')
+        .select('id,source_id,status,run_at_utc,items_fetched,items_saved,error_message')
         .is('source_id', null)
         .order('run_at_utc', { ascending: false })
         .limit(HEALTH_WINDOW)
@@ -159,12 +159,18 @@ export async function GET(request: Request) {
 
     let globalLatestRunAt: string | null = null
     let debugGlobalLatestRawRow: any = null
-    const globalLatestQuery = { filter: 'source_id IS NULL', select: 'id,run_at_utc', orderBy: 'id DESC', limit: 1 }
+    const globalLatestQuery = {
+      filter: 'source_id IS NULL',
+      select: 'id,run_at_utc',
+      orderBy: 'run_at_utc DESC, id DESC',
+      limit: 1,
+    }
 
     const latestGlobal = await client
       .from('ingest_logs')
       .select('id,run_at_utc')
       .is('source_id', null)
+      .order('run_at_utc', { ascending: false })
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -201,6 +207,15 @@ export async function GET(request: Request) {
       if (!row.source_id) continue
       if (!grouped[row.source_id]) grouped[row.source_id] = []
       grouped[row.source_id].push(row)
+    }
+
+    for (const sourceId of Object.keys(grouped)) {
+      grouped[Number(sourceId)].sort((a: any, b: any) => {
+        const ta = new Date(String(a?.run_at_utc || 0)).getTime()
+        const tb = new Date(String(b?.run_at_utc || 0)).getTime()
+        if (tb !== ta) return tb - ta
+        return Number(b?.id || 0) - Number(a?.id || 0)
+      })
     }
 
     const health = (sourcesResolved || []).map((source) => {
@@ -349,6 +364,7 @@ export async function GET(request: Request) {
               commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
               global_latest_query: globalLatestQuery,
               global_latest_raw_row: debugGlobalLatestRawRow,
+              global_latest_selected_row: debugGlobalLatestRawRow,
               supabase_host_hash: cfg.supabaseHostHash,
               service_role_hash_prefix: cfg.serviceRoleHashPrefix,
               enabled_true_count: (sourcesResolved || []).filter((s: any) => s.enabled === true).length,
@@ -364,6 +380,7 @@ export async function GET(request: Request) {
                   .select('id,run_at_utc,stage,status,source_id')
                   .is('source_id', null)
                   .order('run_at_utc', { ascending: false })
+                  .order('id', { ascending: false })
                   .limit(5)
                 if (!withStageRows.error) return withStageRows.data || []
                 const fallbackRows = await client
@@ -371,6 +388,7 @@ export async function GET(request: Request) {
                   .select('id,run_at_utc,status,source_id')
                   .is('source_id', null)
                   .order('run_at_utc', { ascending: false })
+                  .order('id', { ascending: false })
                   .limit(5)
                 return fallbackRows.data || []
               })()),
