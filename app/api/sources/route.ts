@@ -161,45 +161,41 @@ export async function GET(request: Request) {
     let debugGlobalLatestRawRow: any = null
     const globalLatestQuery = {
       filter: 'source_id IS NULL',
-      select: 'id,run_at_utc',
+      select: 'id,run_at_utc,status',
       orderBy: 'run_at_utc DESC, id DESC',
       limit: 1,
+      source: 'globalWindow[0]',
     }
 
-    const latestGlobal = await client
-      .from('ingest_logs')
-      .select('id,run_at_utc')
-      .is('source_id', null)
-      .order('run_at_utc', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    // Keep a single ordering source-of-truth for freshness selection.
+    globalWindow.sort((a: any, b: any) => {
+      const ta = new Date(String(a?.run_at_utc || 0)).getTime()
+      const tb = new Date(String(b?.run_at_utc || 0)).getTime()
+      if (tb !== ta) return tb - ta
+      return Number(b?.id || 0) - Number(a?.id || 0)
+    })
 
-    if (!latestGlobal.error && latestGlobal.data?.run_at_utc) {
-      globalLatestRunAt = String(latestGlobal.data.run_at_utc)
-
-      const latestRowForDebug = await client
-        .from('ingest_logs')
-        .select('id,run_at_utc')
-        .is('source_id', null)
-        .eq('run_at_utc', globalLatestRunAt)
-        .order('id', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (!latestRowForDebug.error && latestRowForDebug.data) {
-        debugGlobalLatestRawRow = latestRowForDebug.data
-      } else {
-        debugGlobalLatestRawRow = { id: null, run_at_utc: globalLatestRunAt }
+    const selectedGlobal = (globalWindow || [])[0]
+    if (selectedGlobal?.run_at_utc) {
+      globalLatestRunAt = String(selectedGlobal.run_at_utc)
+      debugGlobalLatestRawRow = {
+        id: selectedGlobal.id ?? null,
+        run_at_utc: selectedGlobal.run_at_utc,
+        status: selectedGlobal.status ?? null,
       }
     }
 
-    // Fallback: if global log row is missing/stale by schema drift, use latest run among all source logs.
+    // Fallback: if global log row is missing, use latest run among all source logs.
     if (!globalLatestRunAt) {
       const fallbackAnyLatest = (logs || []).find((r) => !!r?.run_at_utc)
       if (fallbackAnyLatest?.run_at_utc) {
         globalLatestRunAt = String(fallbackAnyLatest.run_at_utc)
-        debugGlobalLatestRawRow = { id: null, run_at_utc: globalLatestRunAt, fallback: 'any_source_latest' }
+        debugGlobalLatestRawRow = {
+          id: fallbackAnyLatest?.id ?? null,
+          run_at_utc: globalLatestRunAt,
+          status: fallbackAnyLatest?.status ?? null,
+          fallback: 'any_source_latest',
+        }
       }
     }
 
@@ -364,6 +360,7 @@ export async function GET(request: Request) {
               commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
               global_latest_query: globalLatestQuery,
               global_latest_raw_row: debugGlobalLatestRawRow,
+              global_latest_selected: debugGlobalLatestRawRow,
               global_latest_selected_row: debugGlobalLatestRawRow,
               supabase_host_hash: cfg.supabaseHostHash,
               service_role_hash_prefix: cfg.serviceRoleHashPrefix,
@@ -372,6 +369,12 @@ export async function GET(request: Request) {
               tracked_enabled_flags: (sourcesResolved || [])
                 .filter((s: any) => [139, 142, 143, 144].includes(Number(s.id)))
                 .map((s: any) => ({ id: s.id, name: s.name, enabled: s.enabled })),
+              sample_source_latest_selected: (health || []).slice(0, 2).map((h: any) => ({
+                source_id: h.source_id,
+                source_name: h.source_name,
+                last_run_at: h.last_run_at,
+                last_status: h.last_status,
+              })),
               db_now: dbNow.value || null,
               db_now_error: dbNow.ok ? null : (dbNow.error || 'db_now_unavailable'),
               global_rows_last5: (await (async () => {
