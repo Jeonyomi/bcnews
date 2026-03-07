@@ -121,11 +121,12 @@ export async function GET(request: Request) {
     const sourceWindowQueryParams = {
       filter: 'eq(source_id, <id>)',
       orderBy: ['run_at_utc DESC', 'id DESC'],
-      limit: HEALTH_WINDOW,
+      limit: 1,
       timeFilter: null,
+      mode: 'direct_latest_hotfix',
     }
 
-    // Per-source windows: query each source directly to avoid global-slice starvation.
+    // Hotfix: use direct-latest row per source for health freshness.
     await Promise.all(
       (sourcesResolved || []).map(async (source: any) => {
         const sourceId = Number(source.id)
@@ -135,7 +136,7 @@ export async function GET(request: Request) {
           .eq('source_id', sourceId)
           .order('run_at_utc', { ascending: false })
           .order('id', { ascending: false })
-          .limit(HEALTH_WINDOW)
+          .limit(1)
 
         if (!withStage.error) {
           sourceLogsById[sourceId] = withStage.data || []
@@ -148,7 +149,7 @@ export async function GET(request: Request) {
           .eq('source_id', sourceId)
           .order('run_at_utc', { ascending: false })
           .order('id', { ascending: false })
-          .limit(HEALTH_WINDOW)
+          .limit(1)
 
         sourceLogsById[sourceId] = fallback.data || []
       }),
@@ -226,29 +227,20 @@ export async function GET(request: Request) {
     }
 
     const health = (sourcesResolved || []).map((source) => {
-      const sourceLogs = (sourceLogsById[Number(source.id)] || []).slice(0, HEALTH_WINDOW)
+      const sourceLogs = (sourceLogsById[Number(source.id)] || []).slice(0, 1)
       const latest = sourceLogs[0]
       const latestRunAtUsedForHealth = latest?.run_at_utc || null
 
-      const sourceRuns = sourceLogs.length
+      const sourceRuns = latest ? 1 : 0
       const runs = sourceRuns
       const globalRuns = globalWindow.length
-      const errorRuns = sourceLogs.filter((r) => r.status === 'error').length
-      const warnRuns = sourceLogs.filter((r) => r.status === 'warn').length
-      const fetched = sourceLogs.reduce((sum, r) => sum + Number(r.items_fetched || 0), 0)
-      const saved = sourceLogs.reduce((sum, r) => sum + Number(r.items_saved || 0), 0)
-      const successRate = runs > 0 ? Math.round(((runs - errorRuns) / runs) * 100) : null
-      const errorRate = runs > 0 ? Math.round((errorRuns / runs) * 100) : null
-      const consecutiveErrors = sourceLogs.slice(0, DOWN_CONSECUTIVE_ERRORS).every((r) => r.status === 'error')
-        ? Math.min(DOWN_CONSECUTIVE_ERRORS, sourceLogs.length)
-        : (() => {
-            let streak = 0
-            for (const r of sourceLogs) {
-              if (r.status === 'error') streak += 1
-              else break
-            }
-            return streak
-          })()
+      const errorRuns = latest?.status === 'error' ? 1 : 0
+      const warnRuns = latest?.status === 'warn' ? 1 : 0
+      const fetched = Number(latest?.items_fetched || 0)
+      const saved = Number(latest?.items_saved || 0)
+      const successRate = null
+      const errorRate = null
+      const consecutiveErrors = latest?.status === 'error' ? 1 : 0
 
       const status = classifyHealthStatus({
         enabled: source.enabled !== false,
