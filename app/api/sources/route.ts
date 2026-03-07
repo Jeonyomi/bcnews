@@ -118,6 +118,13 @@ export async function GET(request: Request) {
       enabled_effective: s.enabled === true || activeSourceIds.has(Number(s.id)),
     }))
 
+    const sourceWindowQueryParams = {
+      filter: 'eq(source_id, <id>)',
+      orderBy: ['run_at_utc DESC', 'id DESC'],
+      limit: HEALTH_WINDOW,
+      timeFilter: null,
+    }
+
     // Per-source windows: query each source directly to avoid global-slice starvation.
     await Promise.all(
       (sourcesResolved || []).map(async (source: any) => {
@@ -480,14 +487,30 @@ export async function GET(request: Request) {
               global_direct_count_last_2h: globalDirectCountLast2h,
               source_direct_count_last_2h: sourceDirectCountLast2h,
               source_direct_latest_by_id: sourceDirectLatestById,
+              source_window_query_params: sourceWindowQueryParams,
+              source_window_first_row_by_id: (debugSourceIds.length > 0 ? debugSourceIds : (health || []).slice(0, 3).map((h: any) => Number(h.source_id))).slice(0, 3).map((sid: number) => {
+                const rows = sourceLogsById[Number(sid)] || []
+                const first = rows[0] || null
+                return {
+                  source_id: Number(sid),
+                  window_first_row: first ? {
+                    id: Number(first.id || 0) || null,
+                    run_at_utc: first.run_at_utc || null,
+                    status: first.status || null,
+                  } : null,
+                  window_rows_count: rows.length,
+                }
+              }),
               distribution_sample: (debugSourceIds.length > 0 ? debugSourceIds : (health || []).slice(0, 3).map((h: any) => Number(h.source_id))).slice(0, 3).map((sid: number) => {
                 const h = (health || []).find((row: any) => Number(row.source_id) === Number(sid))
                 const d = sourceDirectLatestById.find((row) => Number(row.source_id) === Number(sid))
+                const w = (sourceLogsById[Number(sid)] || [])[0]
                 const latestUsed = h?.last_run_at || null
                 return {
                   source_id: sid,
                   latest_run_at_used_for_bucket: latestUsed,
                   latest_run_at_direct: d?.run_at_utc || null,
+                  latest_run_at_window_first: w?.run_at_utc || null,
                   bucket: bucketFromLatestRunAt(latestUsed),
                 }
               }),
