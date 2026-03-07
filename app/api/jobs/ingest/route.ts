@@ -1574,6 +1574,8 @@ ${effectiveSummary}`.slice(0, 4000)
             inserted_runlog_source_ids: runlogInsertedSourceIds,
             global_marker_written: globalMarkerWritten,
             cursor_marker_written: cursorMarkerWritten,
+            supabase_host_hash: debugEnv?.supabase_host_hash || null,
+            service_role_hash_prefix: debugEnv?.service_role_hash_prefix || null,
           }
         : undefined,
       rr_debug: debugRR

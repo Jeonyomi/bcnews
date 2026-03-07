@@ -70,6 +70,10 @@ export async function GET(request: Request) {
     const client = createSupabaseServerClient()
     const url = new URL(request.url)
     const debugGlobal = url.searchParams.get('debug_global') === '1'
+    const debugSourceIds = String(url.searchParams.get('debug_source_ids') || '')
+      .split(',')
+      .map((v) => Number(v.trim()))
+      .filter((n) => Number.isFinite(n) && n > 0)
 
     // "Enabled pool" should reflect what ingest is actually processing. In prod, `sources.enabled`
     // can drift from reality if a different env/seed state is deployed.
@@ -357,6 +361,7 @@ export async function GET(request: Request) {
     let globalDirectLatestRow: any = null
     let globalDirectCountLast2h: number | null = null
     let sourceDirectCountLast2h: number | null = null
+    let sourceDirectLatestById: Array<{ source_id: number; id: number | null; run_at_utc: string | null; status: string | null }> = []
     const serverNowClient = new Date().toISOString()
 
     if (debugGlobal && debugAllowed) {
@@ -388,6 +393,32 @@ export async function GET(request: Request) {
         .gte('run_at_utc', since2hIso)
 
       if (!sourceCount2h.error) sourceDirectCountLast2h = Number(sourceCount2h.count || 0)
+
+      if (debugSourceIds.length > 0) {
+        sourceDirectLatestById = await Promise.all(
+          debugSourceIds.map(async (sourceId) => {
+            const q = await client
+              .from('ingest_logs')
+              .select('id,source_id,run_at_utc,status')
+              .eq('source_id', sourceId)
+              .order('run_at_utc', { ascending: false })
+              .order('id', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (q.error || !q.data) {
+              return { source_id: sourceId, id: null, run_at_utc: null, status: null }
+            }
+
+            return {
+              source_id: Number(q.data.source_id || sourceId),
+              id: Number(q.data.id || 0) || null,
+              run_at_utc: q.data.run_at_utc || null,
+              status: q.data.status || null,
+            }
+          }),
+        )
+      }
     }
 
     const globalLatestDate = toDate(globalLatestRunAt)
@@ -445,6 +476,7 @@ export async function GET(request: Request) {
               global_direct_latest_row: globalDirectLatestRow,
               global_direct_count_last_2h: globalDirectCountLast2h,
               source_direct_count_last_2h: sourceDirectCountLast2h,
+              source_direct_latest_by_id: sourceDirectLatestById,
               parity_ok: parityOk,
               global_rows_last5: globalRowsLast5,
             }
