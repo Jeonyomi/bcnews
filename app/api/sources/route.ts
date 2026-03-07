@@ -221,6 +221,7 @@ export async function GET(request: Request) {
     const health = (sourcesResolved || []).map((source) => {
       const sourceLogs = (sourceLogsById[Number(source.id)] || []).slice(0, HEALTH_WINDOW)
       const latest = sourceLogs[0]
+      const latestRunAtUsedForHealth = latest?.run_at_utc || null
 
       const sourceRuns = sourceLogs.length
       const runs = sourceRuns
@@ -276,8 +277,8 @@ export async function GET(request: Request) {
         last_items: latest?.items_fetched || 0,
         last_saved: latest?.items_saved || 0,
         last_error: source.enabled === false ? null : latest?.error_message || null,
-        last_run_at: latest?.run_at_utc || null,
-        display_last_run_at: latest?.run_at_utc || globalLatestRunAt || null,
+        last_run_at: latestRunAtUsedForHealth,
+        display_last_run_at: latestRunAtUsedForHealth || globalLatestRunAt || null,
         runs,
         source_runs: sourceRuns,
         global_runs: globalRuns,
@@ -314,19 +315,21 @@ export async function GET(request: Request) {
       { total: 0, ok: 0, warn: 0, stale: 0, down: 0, disabled: 0, na: 0 },
     )
 
+    const bucketFromLatestRunAt = (latestRunAt: string | null) => {
+      const d = toDate(latestRunAt)
+      if (!d) return 'never' as const
+      const ageMin = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000))
+      if (ageMin <= 10) return 'le_10m' as const
+      if (ageMin <= 30) return 'le_30m' as const
+      if (ageMin <= 60) return 'le_60m' as const
+      if (ageMin <= 180) return 'le_180m' as const
+      return 'gt_180m' as const
+    }
+
     const lastRunDistribution = health.reduce(
       (acc, row) => {
-        const d = toDate(row.last_run_at || row.display_last_run_at)
-        if (!d) {
-          acc.never += 1
-          return acc
-        }
-        const ageMin = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000))
-        if (ageMin <= 10) acc.le_10m += 1
-        else if (ageMin <= 30) acc.le_30m += 1
-        else if (ageMin <= 60) acc.le_60m += 1
-        else if (ageMin <= 180) acc.le_180m += 1
-        else acc.gt_180m += 1
+        const bucket = bucketFromLatestRunAt(row.last_run_at || null)
+        acc[bucket] += 1
         return acc
       },
       { never: 0, le_10m: 0, le_30m: 0, le_60m: 0, le_180m: 0, gt_180m: 0 },
@@ -477,6 +480,17 @@ export async function GET(request: Request) {
               global_direct_count_last_2h: globalDirectCountLast2h,
               source_direct_count_last_2h: sourceDirectCountLast2h,
               source_direct_latest_by_id: sourceDirectLatestById,
+              distribution_sample: (debugSourceIds.length > 0 ? debugSourceIds : (health || []).slice(0, 3).map((h: any) => Number(h.source_id))).slice(0, 3).map((sid: number) => {
+                const h = (health || []).find((row: any) => Number(row.source_id) === Number(sid))
+                const d = sourceDirectLatestById.find((row) => Number(row.source_id) === Number(sid))
+                const latestUsed = h?.last_run_at || null
+                return {
+                  source_id: sid,
+                  latest_run_at_used_for_bucket: latestUsed,
+                  latest_run_at_direct: d?.run_at_utc || null,
+                  bucket: bucketFromLatestRunAt(latestUsed),
+                }
+              }),
               parity_ok: parityOk,
               global_rows_last5: globalRowsLast5,
             }
