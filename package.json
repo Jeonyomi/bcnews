@@ -15,7 +15,9 @@
     "check:news": "node scripts/checkNews.mjs",
     "create:brief": "node scripts/createBrief.mjs",
     "cron:ingest-update": "node scripts/cronIngestAndUpdate.mjs",
-    "cron:health": "node scripts/cronHealthCheck.mjs"
+    "cron:health": "node scripts/cronHealthCheck.mjs",
+    "worker:send-pending": "node scripts/sendPendingChannelPosts.mjs",
+    "ops:check-stuck-posts": "node scripts/checkStuckChannelPosts.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

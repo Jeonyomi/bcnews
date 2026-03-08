@@ -43,9 +43,20 @@ prisma/*.db
 
 # local tmp
 /tmp
+/tmp/**
+tmp_*
+tmp_*.json
+tmp_*.cjs
+temp_*
+_tmp_*
+_update_*
 build.log
 *tsbuildinfo
 scripts/temp_*
 scripts/_*
+scripts/local-debug/
+scripts/local-ops/
 scripts/trigger_ingest*.ps1
-temp_*
+data/backups/
+data/briefs/main-*.md
+data/briefs/today_brief_input.md

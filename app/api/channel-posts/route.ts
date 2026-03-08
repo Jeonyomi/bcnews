@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { SENDING_STALE_MINUTES } from '@/lib/channelPosting'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,14 @@ export async function GET(request: Request) {
       let countQuery = client.from('channel_posts').select('id', { count: 'exact', head: true })
       if (status) countQuery = countQuery.eq('status', status)
       const counted = await countQuery
-      return NextResponse.json({ ok: true, data: data || [], meta: { status: status || 'all', count: counted.count || 0 } })
+      const staleBefore = new Date(Date.now() - SENDING_STALE_MINUTES * 60 * 1000).toISOString()
+      const [pendingCount, sendingCount, staleSendingCount, failedCount] = await Promise.all([
+        client.from('channel_posts').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        client.from('channel_posts').select('id', { count: 'exact', head: true }).eq('status', 'sending'),
+        client.from('channel_posts').select('id', { count: 'exact', head: true }).eq('status', 'sending').lt('updated_at', staleBefore),
+        client.from('channel_posts').select('id', { count: 'exact', head: true }).eq('status', 'failed'),
+      ])
+      return NextResponse.json({ ok: true, data: data || [], meta: { status: status || 'all', count: counted.count || 0, stale_threshold_minutes: SENDING_STALE_MINUTES, backlog: { pending: pendingCount.count || 0, sending: sendingCount.count || 0, stale_sending: staleSendingCount.count || 0, failed: failedCount.count || 0 } } })
     }
 
     return NextResponse.json({ ok: true, data: data || [] })

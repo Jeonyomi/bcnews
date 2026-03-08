@@ -2,8 +2,8 @@ import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSupabaseServerConfig } from '@/lib/supabaseServer'
 import { err } from '@/lib/dashboardApi'
-import { isBreakingLane } from '@/lib/breakingClassifier'
 import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
+import { escapeTelegramMarkdownV2, escapeTelegramUrl, insertChannelPostSafe, TELEGRAM_BREAKING_CHANNEL } from '@/lib/channelPosting'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,57 +28,6 @@ const CRYPTO_RELEVANCE_KEYWORDS = [
   'coinbase', 'etf', 'sec', 'cftc', 'fomc', 'rate cut', 'listing', 'liquidation',
   'hack', 'exploit', 'bridge', 'staking', 'airdrop', 'mainnet', 'l2',
 ]
-
-const AUTO_POST_DEDUPE_HOURS = Number.parseInt(process.env.AUTO_POST_DEDUPE_HOURS || '12', 10) || 12
-const TELEGRAM_BOT_TOKEN = process.env.TG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ''
-const TELEGRAM_BREAKING_CHANNEL = process.env.TG_BREAKING_CHANNEL || '@Krypto_breaking'
-const AUTO_POST_MODE = String(process.env.AUTO_POST_MODE || 'all_post').toLowerCase()
-
-
-const BREAKING_TIER_A_ALLOWLIST = [
-  'Reuters',
-  'FinancialJuice',
-  'Binance Announcements',
-  'Coinbase Announcements',
-    'SEC',
-  'CFTC',
-  'Federal Reserve',
-  'U.S. Treasury',
-  'Blockmedia',
-  'Tokenpost',
-  'Coinness',
-]
-
-const BREAKING_TIER_B_ALLOWLIST = [
-  'CoinDesk',
-  'The Block',
-  'DL News',
-  'Blockworks',
-  'Decrypt',
-]
-
-const TAG_RULES: Array<{ tag: string; keywords: string[] }> = [
-  { tag: '#BTC', keywords: ['bitcoin', 'btc'] },
-  { tag: '#ETH', keywords: ['ethereum', 'eth'] },
-  { tag: '#ALT', keywords: ['solana', 'xrp', 'altcoin', 'token'] },
-  { tag: '#MACRO', keywords: ['war', 'oil', 'rates', 'rate cut', 'cpi', 'inflation', 'fed', 'fomc', 'treasury yield', 'geopolitics'] },
-  { tag: '#REGULATION', keywords: ['sec', 'cftc', 'regulation', 'lawsuit', 'compliance', 'enforcement'] },
-  { tag: '#EXCHANGE', keywords: ['binance', 'coinbase', 'exchange', 'listing', 'delisting'] },
-  { tag: '#HACK', keywords: ['hack', 'exploit', 'breach'] },
-  { tag: '#STABLECOIN', keywords: ['stablecoin', 'usdt', 'usdc', 'depeg'] },
-  { tag: '#ETF', keywords: ['etf'] },
-  { tag: '#ONCHAIN', keywords: ['onchain', 'wallet', 'validator', 'bridge', 'staking', 'gas fee', 'mempool'] },
-]
-
-const deriveBreakingTags = (text: string) => {
-  const lower = String(text || '').toLowerCase()
-  const tags: string[] = []
-  for (const rule of TAG_RULES) {
-    if (rule.keywords.some((k) => lower.includes(k))) tags.push(rule.tag)
-    if (tags.length >= 3) break
-  }
-  return tags
-}
 
 const ALWAYS_ALLOW_SOURCES = [
   'FinancialJuice',
@@ -759,53 +708,6 @@ const regionFromSource = (value: string | null) => {
 
 
 
-const insertChannelPostSafe = async (client: any, row: any) => {
-  const { error } = await client.from('channel_posts').insert({ ...row })
-  if (!error) return
-
-  if (String(error.message || '').includes('reason')) {
-    const fallback = { ...row }
-    delete fallback.reason
-    const { error: fallbackErr } = await client.from('channel_posts').insert(fallback)
-    if (!fallbackErr) return
-    throw fallbackErr
-  }
-
-  throw error
-}
-
-const sendTelegramMessage = async (text: string) => {
-
-  if (!TELEGRAM_BOT_TOKEN) throw new Error('missing_telegram_bot_token')
-
-  const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_BREAKING_CHANNEL,
-      text,
-      parse_mode: 'MarkdownV2',
-      disable_web_page_preview: true,
-    }),
-  })
-
-  const payload = await response.json().catch(() => ({} as any))
-  if (!response.ok || !payload?.ok) {
-    throw new Error(`telegram_send_failed: ${payload?.description || response.statusText}`)
-  }
-
-  return {
-    messageId: Number(payload.result?.message_id || 0),
-    chatId: String(payload.result?.chat?.id || TELEGRAM_BREAKING_CHANNEL),
-  }
-}
-
-
-const escapeTelegramMarkdownV2 = (value: string) =>
-  String(value || '').replace(/([_\*\[\]\(\)~`>#+\-=|{}.!])/g, '\\$1')
-
-const escapeTelegramUrl = (value: string) => encodeURI(String(value || '')).replace(/[()]/g, (m) => (m === '(' ? '%28' : '%29'))
-
 const formatKbnPost = (payload: {
   title: string
   summary?: string
@@ -864,7 +766,7 @@ const autoPostBreaking = async (client: any, payload: {
   whyItMatters?: string
   importanceLabel: string
 }) => {
-  const dedupeBase = hashContent(`${payload.canonicalUrl || payload.articleUrl || ''}|${payload.contentHash || ''}|${payload.headline}`.toLowerCase())
+  const dedupeKey = `breaking:${hashContent(`${payload.canonicalUrl || payload.articleUrl || ''}|${payload.contentHash || ''}|${payload.headline}`.toLowerCase())}`
 
   const skip = async (reason: string, postText: string | null) => {
     await insertChannelPostSafe(client, {
@@ -872,14 +774,14 @@ const autoPostBreaking = async (client: any, payload: {
       source_name: payload.sourceName, headline: payload.headline, headline_ko: payload.headline,
       article_url: payload.canonicalUrl || payload.articleUrl, tags: [], post_text: postText,
       target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
-      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:${reason.slice(0,24)}`,
+      dedupe_key: `${dedupeKey}:${Date.now()}:${reason.slice(0,24)}`,
       reason, approved_by: 'auto',
     })
-    return { posted: false, reason }
+    return { queued: false, reason }
   }
 
   if (!String(payload.headline || '').trim() || !isValidHttpUrl(payload.canonicalUrl || payload.articleUrl)) {
-    return skip('skipped_invalid_payload', null)
+    return skip(CHANNEL_POST_REASONS.SKIPPED_INVALID_PAYLOAD, null)
   }
 
   const post = formatKbnPost({
@@ -899,40 +801,24 @@ const autoPostBreaking = async (client: any, payload: {
 
   const { data: dup } = await client
     .from('channel_posts')
-    .select('id')
+    .select('id,status')
     .eq('lane', 'breaking')
-    .eq('status', 'posted')
-    .or(`article_url.eq.${post.link},dedupe_key.like.breaking:${dedupeBase}:%`)
+    .or(`article_url.eq.${post.link},dedupe_key.eq.${dedupeKey}`)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
   if (dup?.id) return skip(CHANNEL_POST_REASONS.SKIPPED_DUPLICATE, post.text)
 
-  try {
-    const sent = await sendTelegramMessage(post.text)
-    await insertChannelPostSafe(client, {
-      status: 'posted', lane: 'breaking', article_id: payload.articleId,
-      source_name: payload.sourceName, headline: post.finalTitle, headline_ko: post.finalTitle,
-      article_url: post.link, tags: [], post_text: post.text,
-      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
-      dedupe_key: `breaking:${dedupeBase}:${Date.now()}`,
-      posted_at: new Date().toISOString(), approved_by: 'auto',
-      telegram_message_id: sent.messageId, telegram_chat_id: sent.chatId, reason: CHANNEL_POST_REASONS.POSTED_AUTO,
-    })
-    return { posted: true, reason: CHANNEL_POST_REASONS.POSTED_AUTO }
-  } catch (sendErr: any) {
-    const failReason = `failed_send:${String(sendErr?.message || sendErr)}`.slice(0, 180)
-    await insertChannelPostSafe(client, {
-      status: 'failed', lane: 'breaking', article_id: payload.articleId,
-      source_name: payload.sourceName, headline: post.finalTitle, headline_ko: post.finalTitle,
-      article_url: post.link, tags: [], post_text: post.text,
-      target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
-      dedupe_key: `breaking:${dedupeBase}:${Date.now()}:failed`,
-      approved_by: 'auto', reason: failReason,
-    })
-    return { posted: false, reason: CHANNEL_POST_REASONS.FAILED_SEND }
-  }
+  await insertChannelPostSafe(client, {
+    status: 'pending', lane: 'breaking', article_id: payload.articleId,
+    source_name: payload.sourceName, headline: post.finalTitle, headline_ko: post.finalTitle,
+    article_url: post.link, tags: [], post_text: post.text,
+    target_channel: TELEGRAM_BREAKING_CHANNEL, target_admin: '@master_billybot',
+    dedupe_key: dedupeKey,
+    approved_by: 'auto', reason: CHANNEL_POST_REASONS.QUEUED_WORKER,
+  })
+  return { queued: true, reason: CHANNEL_POST_REASONS.QUEUED_WORKER }
 }
 
 const insertSourceRunLog = async (client: any, runLog: any) => {
@@ -1377,9 +1263,9 @@ ${effectiveSummary}`.slice(0, 4000)
               importanceLabel: articleLabel,
             })
             autopostEval.candidates += 1
-            if (ap.posted) autopostEval.posted += 1
+            if (ap.queued) autopostEval.posted += 1
             else autopostEval.skipped += 1
-            if (!ap.posted) autopostEval.skippedReasons[ap.reason] = (autopostEval.skippedReasons[ap.reason] || 0) + 1
+            if (!ap.queued) autopostEval.skippedReasons[ap.reason] = (autopostEval.skippedReasons[ap.reason] || 0) + 1
           } catch (autoPostErr: any) {
             console.error('autoPostBreaking failed', autoPostErr)
             autopostEval.candidates += 1
