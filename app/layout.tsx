@@ -3,7 +3,7 @@ import './globals.css'
 import SiteChrome from '@/components/SiteChrome'
 
 export const metadata: Metadata = {
-  title: 'Stablecoin News Dashboard',
+  title: 'Crypto News Dashboard',
   description: 'Daily stablecoin and crypto news updates',
 }
 
