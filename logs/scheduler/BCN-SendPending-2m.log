@@ -1,0 +1,4 @@
+[2026-03-11 15:28:42] job=BCN-SendPending-2m status=200 ok=true endpoint=https://bcnews-agent.vercel.app/api/jobs/send-pending
+[2026-03-11 15:28:42] body={"ok":true,"stale_threshold_minutes":15,"recovery":{"staleBefore":"2026-03-11T06:13:40.100Z","scanned":0,"recovered":0,"skippedDuplicate":0},"scanned":2,"claimed":2,"posted":2,"failed":0,"skipped":0}
+[2026-03-11 15:29:55] job=BCN-SendPending-2m status=200 ok=true endpoint=https://bcnews-agent.vercel.app/api/jobs/send-pending
+[2026-03-11 15:29:55] body={"ok":true,"stale_threshold_minutes":15,"recovery":{"staleBefore":"2026-03-11T06:14:53.897Z","scanned":0,"recovered":0,"skippedDuplicate":0},"scanned":0,"claimed":0,"posted":0,"failed":0,"skipped":0}
