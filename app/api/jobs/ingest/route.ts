@@ -684,6 +684,48 @@ ${summary}`.toLowerCase()
   return Array.from(new Set(tokens))
 }
 
+const detectListingPriority = (title: string, summary: string) => {
+  const text = `${title}
+${summary}`.toLowerCase()
+
+  const excludePatterns = [
+    /입출금\s*(지원\s*)?(중단|재개|일시\s*중단|일시\s*재개)/,
+    /deposits?\s*(and|&)??\s*withdrawals?\s*(suspension|resume|resumption|reopen|closed?)/,
+    /네트워크\s*(점검|업그레이드|정기점검|점검 안내)/,
+    /network\s*(upgrade|maintenance|suspension|support)/,
+    /에어드롭|이벤트|프로모션|수수료\s*이벤트|trading competition|fee promotion|airdrop|event|promotion/,
+    /유의종목|상장폐지|거래지원\s*종료|거래지원 종료|종목\s*지정/,
+    /delist|delisting|will delist|trading support end|termination of trading/,
+  ]
+
+  if (excludePatterns.some((pattern) => pattern.test(text))) {
+    return { hit: false, reason: 'excluded_non_listing_notice' }
+  }
+
+  const includePatterns = [
+    /신규\s*상장/,
+    /상장\s*안내/,
+    /거래\s*지원\s*시작/,
+    /거래지원\s*시작/,
+    /(원화|krw|btc|usdt)\s*마켓\s*추가/,
+    /신규\s*마켓/,
+    /거래쌍\s*추가/,
+    /listing/,
+    /will list/,
+    /listed on/,
+    /adds?\s+trading\s+pair/,
+    /new\s+market/,
+    /opens?\s+trading\s+for/,
+    /trading\s+pair/,
+  ]
+
+  const matched = includePatterns.find((pattern) => pattern.test(text))
+  return {
+    hit: !!matched,
+    reason: matched ? `listing_priority:${matched}` : 'none',
+  }
+}
+
 const computeScores = (args: {
   sourceTier: string | null
   topic: string
@@ -697,8 +739,15 @@ const computeScores = (args: {
   const topicScore = keywordSignals[topic as keyof typeof keywordSignals] || keywordSignals.unknown
   const keywordBoost = Math.min(20, topicKeywords(title, summary).length * 6)
   const entityBoost = Math.min(24, entities.length * 4)
-  const score = clampScore(sourceScore + topicScore + keywordBoost + entityBoost)
-  return { score, importance_label: labelFromScore(score) }
+  const listingPriority = detectListingPriority(title, summary)
+  const baseScore = clampScore(sourceScore + topicScore + keywordBoost + entityBoost)
+  const score = listingPriority.hit ? Math.max(baseScore, 76) : baseScore
+  return {
+    score,
+    importance_label: listingPriority.hit ? 'HIGH' : labelFromScore(score),
+    listing_priority_hit: listingPriority.hit,
+    listing_priority_reason: listingPriority.reason,
+  }
 }
 
 const regionFromSource = (value: string | null) => {
@@ -1198,7 +1247,12 @@ ${effectiveSummary}`.slice(0, 4000)
           const contentHash = buildLookupHash(canonical_url, effectiveTitle, effectiveSummary)
           const topic = deriveTopic(effectiveTitle, effectiveSummary)
           const entities = extractEntities(`${effectiveTitle} ${effectiveSummary}`)
-          const { score: articleScore, importance_label: articleLabel } = computeScores({
+          const {
+            score: articleScore,
+            importance_label: articleLabel,
+            listing_priority_hit: articleListingHit,
+            listing_priority_reason: articleListingReason,
+          } = computeScores({
             sourceTier: source.tier,
             topic,
             entities,
@@ -1249,6 +1303,15 @@ ${effectiveSummary}`.slice(0, 4000)
           }
           insertedArticles += 1
           runLog.items_saved += 1
+          if (articleListingHit) {
+            ;(runLog as any).listing_priority_hits = Number((runLog as any).listing_priority_hits || 0) + 1
+            console.log('listing_priority_hit', {
+              source: source.name,
+              article_id: inserted.id,
+              title: effectiveTitle,
+              reason: articleListingReason,
+            })
+          }
 
           try {
             const ap = await autoPostBreaking(client, {
