@@ -83,10 +83,16 @@ export const recoverStaleSendingRows = async (client: any) => {
   let recovered = 0
   let skippedDuplicate = 0
   for (const row of stuck || []) {
+    const { data: currentRow } = await client
+      .from('channel_posts')
+      .select('lane')
+      .eq('id', Number(row.id))
+      .maybeSingle()
+
     const { data: alreadyPosted } = await client
       .from('channel_posts')
       .select('id')
-      .eq('lane', 'breaking')
+      .eq('lane', String(currentRow?.lane || 'breaking'))
       .eq('status', 'posted')
       .or(`dedupe_key.eq.${String(row.dedupe_key || '')},article_url.eq.${String(row.article_url || '')}`)
       .neq('id', Number(row.id))

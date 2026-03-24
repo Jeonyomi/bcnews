@@ -17,7 +17,8 @@
     "cron:ingest-update": "node scripts/cronIngestAndUpdate.mjs",
     "cron:health": "node scripts/cronHealthCheck.mjs",
     "worker:send-pending": "node scripts/sendPendingChannelPosts.mjs",
-    "ops:check-stuck-posts": "node scripts/checkStuckChannelPosts.mjs"
+    "ops:check-stuck-posts": "node scripts/checkStuckChannelPosts.mjs",
+    "job:btc-snapshot": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsBtcSnapshot.ps1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

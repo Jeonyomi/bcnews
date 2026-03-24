@@ -8,6 +8,10 @@ export const CHANNEL_POST_REASONS = {
   SKIPPED_SOURCE_DISABLED_FOR_KBN: 'skipped_source_disabled_for_kbn',
   SKIPPED_BAD_NOTICE_TITLE: 'skipped_bad_notice_title',
   FAILED_SEND: 'failed_send',
+  SKIPPED_BTC_SNAPSHOT_DISABLED: 'skipped_btc_snapshot_disabled',
+  SKIPPED_BTC_SNAPSHOT_NO_BASELINE: 'skipped_btc_snapshot_no_baseline',
+  SKIPPED_BTC_SNAPSHOT_SAME_BUCKET: 'skipped_btc_snapshot_same_bucket',
+  SKIPPED_BTC_SNAPSHOT_INTERVAL_NOT_ELAPSED: 'skipped_btc_snapshot_interval_not_elapsed',
 
   // legacy reasons kept for backward-compatible analytics
   NOT_BREAKING_LANE: 'not_breaking_lane',
@@ -36,6 +40,10 @@ export const normalizeChannelPostReason = (reason: string | null | undefined) =>
   if (r === CHANNEL_POST_REASONS.SKIPPED_SOURCE_DISABLED_FOR_KBN) return 'skipped_source_disabled_for_kbn'
   if (r === CHANNEL_POST_REASONS.SKIPPED_BAD_NOTICE_TITLE) return 'skipped_bad_notice_title'
   if (r === CHANNEL_POST_REASONS.FAILED_SEND || r.startsWith(CHANNEL_POST_REASONS.TELEGRAM_ERROR_PREFIX) || r.startsWith('failed_send:')) return 'failed_send'
+  if (r === CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_DISABLED) return 'skipped_btc_snapshot_disabled'
+  if (r === CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_NO_BASELINE) return 'skipped_btc_snapshot_no_baseline'
+  if (r === CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_SAME_BUCKET) return 'skipped_btc_snapshot_same_bucket'
+  if (r === CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_INTERVAL_NOT_ELAPSED) return 'skipped_btc_snapshot_interval_not_elapsed'
 
   // legacy mapping
   if (r === CHANNEL_POST_REASONS.NOT_BREAKING_LANE) return 'skipped_not_breaking_lane'

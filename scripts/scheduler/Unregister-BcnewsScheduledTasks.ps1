@@ -1,4 +1,4 @@
-$tasks = 'BCN-Ingest-5m','BCN-SendPending-2m'
+$tasks = 'BCN-Ingest-5m','BCN-SendPending-2m','BCN-BtcSnapshot-5m'
 foreach ($task in $tasks) {
   Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
   Write-Output "removed $task"

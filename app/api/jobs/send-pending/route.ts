@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const recovered = await recoverStaleSendingRows(client)
     const { data: pending, error } = await client
       .from('channel_posts')
-      .select('id,status,dedupe_key,article_url,post_text,target_channel')
+      .select('id,status,lane,dedupe_key,article_url,post_text,target_channel')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
       .limit(MAX_SENDS_PER_RUN)
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       const { data: alreadyPosted } = await client
         .from('channel_posts')
         .select('id')
-        .eq('lane', 'breaking')
+        .eq('lane', String(row.lane || 'breaking'))
         .eq('status', 'posted')
         .or(`dedupe_key.eq.${String(row.dedupe_key || '')},article_url.eq.${String(row.article_url || '')}`)
         .neq('id', Number(row.id))

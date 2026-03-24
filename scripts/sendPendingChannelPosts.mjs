@@ -46,7 +46,7 @@ async function main() {
   const staleBefore = new Date(Date.now() - SENDING_STALE_MINUTES * 60 * 1000).toISOString()
   const { data: stale } = await db
     .from('channel_posts')
-    .select('id,dedupe_key,article_url,updated_at,created_at')
+    .select('id,lane,dedupe_key,article_url,updated_at,created_at')
     .eq('status', 'sending')
     .lt('updated_at', staleBefore)
     .order('updated_at', { ascending: true })
@@ -58,6 +58,7 @@ async function main() {
     const { data: dup } = await db
       .from('channel_posts')
       .select('id')
+      .eq('lane', String(row.lane || 'breaking'))
       .eq('status', 'posted')
       .or(`dedupe_key.eq.${String(row.dedupe_key || '')},article_url.eq.${String(row.article_url || '')}`)
       .neq('id', row.id)
@@ -80,7 +81,7 @@ async function main() {
 
   const { data: pending, error } = await db
     .from('channel_posts')
-    .select('id,dedupe_key,article_url,post_text,target_channel')
+    .select('id,lane,dedupe_key,article_url,post_text,target_channel')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
     .limit(MAX_SENDS_PER_RUN)
@@ -105,6 +106,7 @@ async function main() {
     const { data: dup } = await db
       .from('channel_posts')
       .select('id')
+      .eq('lane', String(row.lane || 'breaking'))
       .eq('status', 'posted')
       .or(`dedupe_key.eq.${String(row.dedupe_key || '')},article_url.eq.${String(row.article_url || '')}`)
       .neq('id', row.id)
