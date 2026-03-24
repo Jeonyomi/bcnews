@@ -3,17 +3,28 @@ import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 import { TELEGRAM_BREAKING_CHANNEL, insertChannelPostSafe } from '@/lib/channelPosting'
 
 export const BTC_SNAPSHOT_LANE = 'market_snapshot'
-export const BTC_SNAPSHOT_SOURCE_NAME = 'Binance'
-export const BTC_SNAPSHOT_ARTICLE_BASE_URL = 'https://www.binance.com/en/futures/BTCUSDT'
-
 export const BTC_SNAPSHOT_ENABLED = ['1', 'true', 'yes', 'on'].includes(String(process.env.KBN_BTC_SNAPSHOT_ENABLED || '').trim().toLowerCase())
 export const BTC_SNAPSHOT_SYMBOL = String(process.env.KBN_BTC_SNAPSHOT_SYMBOL || 'BTC').trim().toUpperCase() || 'BTC'
-export const BTC_SNAPSHOT_PROVIDER = String(process.env.KBN_BTC_SNAPSHOT_PROVIDER || 'binance_perp').trim().toLowerCase() || 'binance_perp'
-export const BTC_SNAPSHOT_PROVIDER_SYMBOL = String(process.env.KBN_BTC_SNAPSHOT_PROVIDER_SYMBOL || 'BTCUSDT').trim().toUpperCase() || 'BTCUSDT'
+export const BTC_SNAPSHOT_PROVIDER = String(process.env.KBN_BTC_SNAPSHOT_PROVIDER || 'coinbase_spot').trim().toLowerCase() || 'coinbase_spot'
+export const BTC_SNAPSHOT_PROVIDER_SYMBOL = String(process.env.KBN_BTC_SNAPSHOT_PROVIDER_SYMBOL || 'BTC-USD').trim().toUpperCase() || 'BTC-USD'
 export const BTC_SNAPSHOT_STEP = Math.max(1, Number.parseInt(process.env.KBN_BTC_SNAPSHOT_STEP || '1000', 10) || 1000)
 export const BTC_SNAPSHOT_TARGET_CHANNEL = String(process.env.KBN_BTC_SNAPSHOT_TARGET_CHANNEL || TELEGRAM_BREAKING_CHANNEL).trim() || TELEGRAM_BREAKING_CHANNEL
 export const BTC_SNAPSHOT_RUN_INTERVAL_SECONDS = Math.max(1, Number.parseInt(process.env.KBN_BTC_SNAPSHOT_RUN_INTERVAL_SECONDS || '300', 10) || 300)
-export const BTC_SNAPSHOT_SOURCE_URL = String(process.env.KBN_BTC_SNAPSHOT_SOURCE_URL || 'https://fapi.binance.com/fapi/v1/ticker/price').trim()
+export const BTC_SNAPSHOT_SOURCE_URL = String(process.env.KBN_BTC_SNAPSHOT_SOURCE_URL || 'https://api.coinbase.com/v2/prices/BTC-USD/spot').trim()
+
+const PROVIDER_META: Record<string, { sourceName: string; articleBaseUrl: string }> = {
+  coinbase_spot: {
+    sourceName: 'Coinbase',
+    articleBaseUrl: 'https://www.coinbase.com/price/bitcoin',
+  },
+  binance_perp: {
+    sourceName: 'Binance',
+    articleBaseUrl: 'https://www.binance.com/en/futures/BTCUSDT',
+  },
+}
+
+export const BTC_SNAPSHOT_SOURCE_NAME = PROVIDER_META[BTC_SNAPSHOT_PROVIDER]?.sourceName || 'Market Data'
+export const BTC_SNAPSHOT_ARTICLE_BASE_URL = PROVIDER_META[BTC_SNAPSHOT_PROVIDER]?.articleBaseUrl || 'https://www.coinbase.com/price/bitcoin'
 
 export const buildBucketPrice = (price: number, step = BTC_SNAPSHOT_STEP) => Math.floor(price / step) * step
 export const buildDirection = (previousBucket: number, nextBucket: number) => (nextBucket > previousBucket ? 'up' : 'down') as 'up' | 'down'
@@ -33,10 +44,8 @@ export const getBtcSnapshotConfig = () => ({
 })
 
 export const fetchBtcSnapshotPrice = async () => {
-  if (BTC_SNAPSHOT_PROVIDER !== 'binance_perp') throw new Error(`unsupported_btc_snapshot_provider:${BTC_SNAPSHOT_PROVIDER}`)
-
   const url = new URL(BTC_SNAPSHOT_SOURCE_URL)
-  if (!url.searchParams.get('symbol')) {
+  if (BTC_SNAPSHOT_PROVIDER === 'binance_perp' && !url.searchParams.get('symbol')) {
     url.searchParams.set('symbol', BTC_SNAPSHOT_PROVIDER_SYMBOL)
   }
 
@@ -47,11 +56,21 @@ export const fetchBtcSnapshotPrice = async () => {
   })
 
   const payload = await response.json().catch(() => ({} as any))
-  if (!response.ok || payload?.price == null) {
-    throw new Error(`btc_snapshot_price_fetch_failed:${payload?.msg || response.statusText}`)
+
+  let priceRaw: unknown = null
+  if (BTC_SNAPSHOT_PROVIDER === 'binance_perp') {
+    priceRaw = payload?.price
+  } else if (BTC_SNAPSHOT_PROVIDER === 'coinbase_spot') {
+    priceRaw = payload?.data?.amount
+  } else {
+    throw new Error(`unsupported_btc_snapshot_provider:${BTC_SNAPSHOT_PROVIDER}`)
   }
 
-  const price = Number(payload.price)
+  if (!response.ok || priceRaw == null) {
+    throw new Error(`btc_snapshot_price_fetch_failed:${payload?.msg || payload?.error || response.statusText}`)
+  }
+
+  const price = Number(priceRaw)
   if (!Number.isFinite(price) || price <= 0) {
     throw new Error('btc_snapshot_invalid_price')
   }
