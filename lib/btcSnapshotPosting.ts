@@ -34,14 +34,31 @@ export const buildSnapshotMessage = (symbol: string, bucketPrice: number, direct
   const emoji = direction === 'up' ? '🟢' : direction === 'down' ? '🔴' : '⚪'
   return `${emoji} ${symbol} $${bucketPrice.toLocaleString('en-US')}`
 }
-export const buildSnapshotArticleUrl = (bucketPrice: number, direction: 'up' | 'down') => `${BTC_SNAPSHOT_ARTICLE_BASE_URL}?snapshot=${bucketPrice}&dir=${direction}`
+export const buildSnapshotArticleUrl = (bucketPrice: number, direction: 'up' | 'down', observedPrice?: number) => {
+  const url = new URL(BTC_SNAPSHOT_ARTICLE_BASE_URL)
+  url.searchParams.set('snapshot', String(bucketPrice))
+  url.searchParams.set('dir', direction)
+  if (Number.isFinite(observedPrice)) {
+    url.searchParams.set('observed', String(observedPrice))
+  }
+  return String(url)
+}
 export const buildSnapshotDedupeKey = (symbol: string, bucketPrice: number, direction: 'up' | 'down') => `btc_snapshot:${symbol}:${direction}:${bucketPrice}`
 export const buildForcedSnapshotWindow = (observedAtIso: string, intervalSeconds = BTC_SNAPSHOT_FORCE_INTERVAL_SECONDS) => {
   const epochSeconds = Math.floor(new Date(observedAtIso).getTime() / 1000)
   return Math.floor(epochSeconds / intervalSeconds)
 }
 export const buildForcedSnapshotDedupeKey = (symbol: string, bucketPrice: number, windowKey: number) => `btc_snapshot_hourly:${symbol}:${bucketPrice}:${windowKey}`
-export const buildForcedSnapshotArticleUrl = (bucketPrice: number, windowKey: number) => `${BTC_SNAPSHOT_ARTICLE_BASE_URL}?snapshot=${bucketPrice}&type=hourly&window=${windowKey}`
+export const buildForcedSnapshotArticleUrl = (bucketPrice: number, windowKey: number, observedPrice?: number) => {
+  const url = new URL(BTC_SNAPSHOT_ARTICLE_BASE_URL)
+  url.searchParams.set('snapshot', String(bucketPrice))
+  url.searchParams.set('type', 'hourly')
+  url.searchParams.set('window', String(windowKey))
+  if (Number.isFinite(observedPrice)) {
+    url.searchParams.set('observed', String(observedPrice))
+  }
+  return String(url)
+}
 
 export const getBtcSnapshotConfig = () => ({
   enabled: BTC_SNAPSHOT_ENABLED,
@@ -137,7 +154,7 @@ export const recordBtcSnapshotBaseline = async (client: any, args: { bucketPrice
 
 export const queueBtcSnapshotPost = async (client: any, args: { bucketPrice: number; direction: 'up' | 'down'; observedPrice: number; fetchedAt?: string | null }) => {
   const dedupeKey = buildSnapshotDedupeKey(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, args.direction)
-  const articleUrl = buildSnapshotArticleUrl(args.bucketPrice, args.direction)
+  const articleUrl = buildSnapshotArticleUrl(args.bucketPrice, args.direction, args.observedPrice)
   const postText = buildSnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, args.direction)
   const headline = postText
 
@@ -190,7 +207,7 @@ export const queueBtcSnapshotPost = async (client: any, args: { bucketPrice: num
 export const queueForcedBtcSnapshotPost = async (client: any, args: { bucketPrice: number; observedPrice: number; fetchedAt: string; direction: 'up' | 'down' | 'flat' }) => {
   const windowKey = buildForcedSnapshotWindow(args.fetchedAt)
   const dedupeKey = buildForcedSnapshotDedupeKey(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, windowKey)
-  const articleUrl = buildForcedSnapshotArticleUrl(args.bucketPrice, windowKey)
+  const articleUrl = buildForcedSnapshotArticleUrl(args.bucketPrice, windowKey, args.observedPrice)
   const postText = buildSnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, args.direction)
   const headline = postText
 

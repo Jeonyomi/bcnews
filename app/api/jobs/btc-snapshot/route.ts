@@ -69,12 +69,22 @@ export async function POST(request: Request) {
     const baselineRegex = new RegExp(`btc_snapshot_baseline:${config.symbol}:(\d+)$`)
     const parsed = (latestSnapshotRows || []).map((row: any) => {
       const dedupeKey = String(row.dedupe_key || '')
+      const articleUrl = String(row.article_url || '')
+      let observedPrice: number | null = null
+      try {
+        if (articleUrl) {
+          const observed = new URL(articleUrl).searchParams.get('observed')
+          const parsedObserved = Number(observed)
+          observedPrice = Number.isFinite(parsedObserved) ? parsedObserved : null
+        }
+      } catch {}
       const base = {
         id: Number(row.id),
         created_at: String(row.created_at || ''),
         posted_at: String(row.posted_at || ''),
         status: String(row.status || ''),
         dedupeKey,
+        observedPrice,
       }
       const match = dedupeKey.match(bucketRegex)
       if (match) {
@@ -111,6 +121,7 @@ export async function POST(request: Request) {
       posted_at: string
       status: string
       dedupeKey: string
+      observedPrice: number | null
       eventType: 'bucket' | 'hourly' | 'baseline'
       direction: 'up' | 'down' | 'flat'
       bucketPrice: number
@@ -137,6 +148,7 @@ export async function POST(request: Request) {
           posted_at: String(existingCurrentBaseline.posted_at || ''),
           status: String(existingCurrentBaseline.status || ''),
           dedupeKey: String(existingCurrentBaseline.dedupe_key || ''),
+          observedPrice: null,
           eventType: 'baseline' as const,
           direction: 'flat' as const,
           bucketPrice,
@@ -170,13 +182,21 @@ export async function POST(request: Request) {
 
     const forcedDirection: 'up' | 'down' | 'flat' = !latestPosted
       ? 'flat'
-      : bucketPrice > latestPosted.bucketPrice
-        ? 'up'
-        : bucketPrice < latestPosted.bucketPrice
-          ? 'down'
-          : latestPosted.direction === 'up' || latestPosted.direction === 'down'
-            ? latestPosted.direction
-            : 'flat'
+      : Number.isFinite(latestPosted.observedPrice)
+        ? observed.price > Number(latestPosted.observedPrice)
+          ? 'up'
+          : observed.price < Number(latestPosted.observedPrice)
+            ? 'down'
+            : latestPosted.direction === 'up' || latestPosted.direction === 'down'
+              ? latestPosted.direction
+              : 'flat'
+        : bucketPrice > latestPosted.bucketPrice
+          ? 'up'
+          : bucketPrice < latestPosted.bucketPrice
+            ? 'down'
+            : latestPosted.direction === 'up' || latestPosted.direction === 'down'
+              ? latestPosted.direction
+              : 'flat'
 
     if (latestSnapshot.bucketPrice !== bucketPrice) {
       const direction = buildDirection(latestSnapshot.bucketPrice, bucketPrice)
