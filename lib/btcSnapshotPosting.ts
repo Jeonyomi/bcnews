@@ -187,11 +187,11 @@ export const queueBtcSnapshotPost = async (client: any, args: { bucketPrice: num
   }
 }
 
-export const queueForcedBtcSnapshotPost = async (client: any, args: { bucketPrice: number; observedPrice: number; fetchedAt: string }) => {
+export const queueForcedBtcSnapshotPost = async (client: any, args: { bucketPrice: number; observedPrice: number; fetchedAt: string; direction: 'up' | 'down' | 'flat' }) => {
   const windowKey = buildForcedSnapshotWindow(args.fetchedAt)
   const dedupeKey = buildForcedSnapshotDedupeKey(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, windowKey)
   const articleUrl = buildForcedSnapshotArticleUrl(args.bucketPrice, windowKey)
-  const postText = buildSnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, 'flat')
+  const postText = buildSnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, args.direction)
   const headline = postText
 
   const { data: existing } = await client

@@ -168,6 +168,16 @@ export async function POST(request: Request) {
       ? Math.max(0, Math.floor((Date.now() - new Date(referenceAt).getTime()) / 1000))
       : Number.POSITIVE_INFINITY
 
+    const forcedDirection: 'up' | 'down' | 'flat' = !latestPosted
+      ? 'flat'
+      : bucketPrice > latestPosted.bucketPrice
+        ? 'up'
+        : bucketPrice < latestPosted.bucketPrice
+          ? 'down'
+          : latestPosted.direction === 'up' || latestPosted.direction === 'down'
+            ? latestPosted.direction
+            : 'flat'
+
     if (latestSnapshot.bucketPrice !== bucketPrice) {
       const direction = buildDirection(latestSnapshot.bucketPrice, bucketPrice)
       const queued = await queueBtcSnapshotPost(client, {
@@ -223,6 +233,7 @@ export async function POST(request: Request) {
       bucketPrice,
       observedPrice: observed.price,
       fetchedAt: observed.fetchedAt,
+      direction: forcedDirection,
     })
 
     return NextResponse.json({
@@ -230,7 +241,7 @@ export async function POST(request: Request) {
       queued: queued.queued,
       reason: queued.reason,
       event_type: 'hourly_forced',
-      direction: 'flat',
+      direction: forcedDirection,
       observed_price: observed.price,
       bucket_price: bucketPrice,
       previous_bucket_price: latestSnapshot.bucketPrice,
