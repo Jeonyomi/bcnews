@@ -64,9 +64,9 @@ export async function POST(request: Request) {
 
     if (latestErr) throw latestErr
 
-    const bucketRegex = new RegExp(`btc_snapshot:${config.symbol}:(up|down):(\d+)$`)
-    const hourlyRegex = new RegExp(`btc_snapshot_hourly:${config.symbol}:(\d+):(\d+)$`)
-    const baselineRegex = new RegExp(`btc_snapshot_baseline:${config.symbol}:(\d+)$`)
+    const bucketRegex = new RegExp(`btc_snapshot:${config.symbol}:(up|down):(\\d+)$`)
+    const hourlyRegex = new RegExp(`btc_snapshot_hourly:${config.symbol}:(\\d+):(\\d+)$`)
+    const baselineRegex = new RegExp(`btc_snapshot_baseline:${config.symbol}:(\\d+)$`)
     const parsed = (latestSnapshotRows || []).map((row: any) => {
       const dedupeKey = String(row.dedupe_key || '')
       const articleUrl = String(row.article_url || '')
