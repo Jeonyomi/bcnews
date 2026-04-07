@@ -8,6 +8,7 @@ import {
   fetchBtcSnapshotPrice,
   getBtcSnapshotConfig,
   queueBtcSnapshotPost,
+  queueForcedBtcSnapshotPost,
   recordBtcSnapshotBaseline,
 } from '@/lib/btcSnapshotPosting'
 
@@ -56,39 +57,65 @@ export async function POST(request: Request) {
 
     const { data: latestSnapshotRows, error: latestErr } = await client
       .from('channel_posts')
-      .select('id,created_at,dedupe_key,article_url,post_text,status')
+      .select('id,created_at,posted_at,dedupe_key,article_url,post_text,status')
       .eq('lane', BTC_SNAPSHOT_LANE)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(50)
 
     if (latestErr) throw latestErr
 
-    const bucketRegex = new RegExp(`btc_snapshot:${config.symbol}:(up|down):(\\d+)$`)
-    const baselineRegex = new RegExp(`btc_snapshot_baseline:${config.symbol}:(\\d+)$`)
+    const bucketRegex = new RegExp(`btc_snapshot:${config.symbol}:(up|down):(\d+)$`)
+    const hourlyRegex = new RegExp(`btc_snapshot_hourly:${config.symbol}:(\d+):(\d+)$`)
+    const baselineRegex = new RegExp(`btc_snapshot_baseline:${config.symbol}:(\d+)$`)
     const parsed = (latestSnapshotRows || []).map((row: any) => {
       const dedupeKey = String(row.dedupe_key || '')
+      const base = {
+        id: Number(row.id),
+        created_at: String(row.created_at || ''),
+        posted_at: String(row.posted_at || ''),
+        status: String(row.status || ''),
+        dedupeKey,
+      }
       const match = dedupeKey.match(bucketRegex)
       if (match) {
         return {
-          id: Number(row.id),
-          created_at: String(row.created_at || ''),
-          status: String(row.status || ''),
+          ...base,
+          eventType: 'bucket' as const,
           direction: String(match[1]) as 'up' | 'down',
           bucketPrice: Number(match[2]),
+        }
+      }
+      const hourlyMatch = dedupeKey.match(hourlyRegex)
+      if (hourlyMatch) {
+        return {
+          ...base,
+          eventType: 'hourly' as const,
+          direction: 'flat' as const,
+          bucketPrice: Number(hourlyMatch[1]),
+          windowKey: Number(hourlyMatch[2]),
         }
       }
       const baselineMatch = dedupeKey.match(baselineRegex)
       if (baselineMatch) {
         return {
-          id: Number(row.id),
-          created_at: String(row.created_at || ''),
-          status: String(row.status || ''),
-          direction: 'up' as const,
+          ...base,
+          eventType: 'baseline' as const,
+          direction: 'flat' as const,
           bucketPrice: Number(baselineMatch[1]),
         }
       }
       return null
-    }).filter(Boolean) as Array<{ id: number; created_at: string; status: string; direction: 'up' | 'down'; bucketPrice: number }>
+    }).filter(Boolean) as Array<{
+      id: number
+      created_at: string
+      posted_at: string
+      status: string
+      dedupeKey: string
+      eventType: 'bucket' | 'hourly' | 'baseline'
+      direction: 'up' | 'down' | 'flat'
+      bucketPrice: number
+      windowKey?: number
+    }>
 
     const latestSnapshot = parsed[0] || null
     if (!latestSnapshot) {
@@ -108,11 +135,43 @@ export async function POST(request: Request) {
       })
     }
 
-    if (latestSnapshot.bucketPrice === bucketPrice) {
+    const latestPosted = parsed.find((row) => row.status === 'posted') || null
+    const latestPostedAt = latestPosted?.posted_at || latestPosted?.created_at || ''
+    const referenceAt = latestPostedAt || latestSnapshot.created_at
+    const secondsSinceLastPosted = referenceAt
+      ? Math.max(0, Math.floor((Date.now() - new Date(referenceAt).getTime()) / 1000))
+      : Number.POSITIVE_INFINITY
+
+    if (latestSnapshot.bucketPrice !== bucketPrice) {
+      const direction = buildDirection(latestSnapshot.bucketPrice, bucketPrice)
+      const queued = await queueBtcSnapshotPost(client, {
+        bucketPrice,
+        direction,
+        observedPrice: observed.price,
+        fetchedAt: observed.fetchedAt,
+      })
+
+      return NextResponse.json({
+        ok: true,
+        queued: queued.queued,
+        reason: queued.reason,
+        event_type: 'bucket',
+        direction,
+        observed_price: observed.price,
+        bucket_price: bucketPrice,
+        previous_bucket_price: latestSnapshot.bucketPrice,
+        dedupe_key: queued.dedupeKey,
+        post_text: queued.postText,
+        target_channel: config.targetChannel,
+        config,
+      })
+    }
+
+    if (!config.forceEnabled) {
       return NextResponse.json({
         ok: true,
         queued: false,
-        reason: CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_SAME_BUCKET,
+        reason: CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_FORCE_DISABLED,
         observed_price: observed.price,
         bucket_price: bucketPrice,
         previous_bucket_price: latestSnapshot.bucketPrice,
@@ -120,10 +179,22 @@ export async function POST(request: Request) {
       })
     }
 
-    const direction = buildDirection(latestSnapshot.bucketPrice, bucketPrice)
-    const queued = await queueBtcSnapshotPost(client, {
+    if (secondsSinceLastPosted < config.forceIntervalSeconds) {
+      return NextResponse.json({
+        ok: true,
+        queued: false,
+        reason: CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_FORCE_INTERVAL_NOT_ELAPSED,
+        observed_price: observed.price,
+        bucket_price: bucketPrice,
+        previous_bucket_price: latestSnapshot.bucketPrice,
+        next_forced_update_in_seconds: Math.max(0, config.forceIntervalSeconds - secondsSinceLastPosted),
+        seconds_since_last_posted_snapshot: secondsSinceLastPosted,
+        config,
+      })
+    }
+
+    const queued = await queueForcedBtcSnapshotPost(client, {
       bucketPrice,
-      direction,
       observedPrice: observed.price,
       fetchedAt: observed.fetchedAt,
     })
@@ -132,13 +203,15 @@ export async function POST(request: Request) {
       ok: true,
       queued: queued.queued,
       reason: queued.reason,
-      direction,
+      event_type: 'hourly_forced',
+      direction: 'flat',
       observed_price: observed.price,
       bucket_price: bucketPrice,
       previous_bucket_price: latestSnapshot.bucketPrice,
       dedupe_key: queued.dedupeKey,
       post_text: queued.postText,
       target_channel: config.targetChannel,
+      seconds_since_last_posted_snapshot: secondsSinceLastPosted,
       config,
     })
   } catch (error) {

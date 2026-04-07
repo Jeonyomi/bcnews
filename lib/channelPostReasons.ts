@@ -12,6 +12,8 @@ export const CHANNEL_POST_REASONS = {
   SKIPPED_BTC_SNAPSHOT_NO_BASELINE: 'skipped_btc_snapshot_no_baseline',
   SKIPPED_BTC_SNAPSHOT_SAME_BUCKET: 'skipped_btc_snapshot_same_bucket',
   SKIPPED_BTC_SNAPSHOT_INTERVAL_NOT_ELAPSED: 'skipped_btc_snapshot_interval_not_elapsed',
+  SKIPPED_BTC_SNAPSHOT_FORCE_DISABLED: 'skipped_btc_snapshot_force_disabled',
+  SKIPPED_BTC_SNAPSHOT_FORCE_INTERVAL_NOT_ELAPSED: 'skipped_btc_snapshot_force_interval_not_elapsed',
 
   // legacy reasons kept for backward-compatible analytics
   NOT_BREAKING_LANE: 'not_breaking_lane',

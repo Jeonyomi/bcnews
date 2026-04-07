@@ -10,6 +10,8 @@ export const BTC_SNAPSHOT_PROVIDER_SYMBOL = String(process.env.KBN_BTC_SNAPSHOT_
 export const BTC_SNAPSHOT_STEP = Math.max(1, Number.parseInt(process.env.KBN_BTC_SNAPSHOT_STEP || '1000', 10) || 1000)
 export const BTC_SNAPSHOT_TARGET_CHANNEL = String(process.env.KBN_BTC_SNAPSHOT_TARGET_CHANNEL || TELEGRAM_BREAKING_CHANNEL).trim() || TELEGRAM_BREAKING_CHANNEL
 export const BTC_SNAPSHOT_RUN_INTERVAL_SECONDS = Math.max(1, Number.parseInt(process.env.KBN_BTC_SNAPSHOT_RUN_INTERVAL_SECONDS || '300', 10) || 300)
+export const BTC_SNAPSHOT_FORCE_ENABLED = ['1', 'true', 'yes', 'on'].includes(String(process.env.KBN_BTC_SNAPSHOT_FORCE_ENABLED || 'true').trim().toLowerCase())
+export const BTC_SNAPSHOT_FORCE_INTERVAL_SECONDS = Math.max(60, Number.parseInt(process.env.KBN_BTC_SNAPSHOT_FORCE_INTERVAL_SECONDS || '3600', 10) || 3600)
 export const BTC_SNAPSHOT_SOURCE_URL = String(process.env.KBN_BTC_SNAPSHOT_SOURCE_URL || 'https://api.coinbase.com/v2/prices/BTC-USD/spot').trim()
 
 const PROVIDER_META: Record<string, { sourceName: string; articleBaseUrl: string }> = {
@@ -28,9 +30,18 @@ export const BTC_SNAPSHOT_ARTICLE_BASE_URL = PROVIDER_META[BTC_SNAPSHOT_PROVIDER
 
 export const buildBucketPrice = (price: number, step = BTC_SNAPSHOT_STEP) => Math.floor(price / step) * step
 export const buildDirection = (previousBucket: number, nextBucket: number) => (nextBucket > previousBucket ? 'up' : 'down') as 'up' | 'down'
-export const buildSnapshotMessage = (symbol: string, bucketPrice: number, direction: 'up' | 'down') => `${direction === 'up' ? '🟢' : '🔴'} ${symbol} $${bucketPrice.toLocaleString('en-US')}`
+export const buildSnapshotMessage = (symbol: string, bucketPrice: number, direction: 'up' | 'down' | 'flat') => {
+  const emoji = direction === 'up' ? '🟢' : direction === 'down' ? '🔴' : '⚪'
+  return `${emoji} ${symbol} $${bucketPrice.toLocaleString('en-US')}`
+}
 export const buildSnapshotArticleUrl = (bucketPrice: number, direction: 'up' | 'down') => `${BTC_SNAPSHOT_ARTICLE_BASE_URL}?snapshot=${bucketPrice}&dir=${direction}`
 export const buildSnapshotDedupeKey = (symbol: string, bucketPrice: number, direction: 'up' | 'down') => `btc_snapshot:${symbol}:${direction}:${bucketPrice}`
+export const buildForcedSnapshotWindow = (observedAtIso: string, intervalSeconds = BTC_SNAPSHOT_FORCE_INTERVAL_SECONDS) => {
+  const epochSeconds = Math.floor(new Date(observedAtIso).getTime() / 1000)
+  return Math.floor(epochSeconds / intervalSeconds)
+}
+export const buildForcedSnapshotDedupeKey = (symbol: string, bucketPrice: number, windowKey: number) => `btc_snapshot_hourly:${symbol}:${bucketPrice}:${windowKey}`
+export const buildForcedSnapshotArticleUrl = (bucketPrice: number, windowKey: number) => `${BTC_SNAPSHOT_ARTICLE_BASE_URL}?snapshot=${bucketPrice}&type=hourly&window=${windowKey}`
 
 export const getBtcSnapshotConfig = () => ({
   enabled: BTC_SNAPSHOT_ENABLED,
@@ -40,6 +51,8 @@ export const getBtcSnapshotConfig = () => ({
   step: BTC_SNAPSHOT_STEP,
   targetChannel: BTC_SNAPSHOT_TARGET_CHANNEL,
   runIntervalSeconds: BTC_SNAPSHOT_RUN_INTERVAL_SECONDS,
+  forceEnabled: BTC_SNAPSHOT_FORCE_ENABLED,
+  forceIntervalSeconds: BTC_SNAPSHOT_FORCE_INTERVAL_SECONDS,
   sourceUrl: BTC_SNAPSHOT_SOURCE_URL,
 })
 
@@ -88,7 +101,7 @@ const fingerprintPostText = (text: string) => createHash('sha256').update(String
 export const recordBtcSnapshotBaseline = async (client: any, args: { bucketPrice: number; observedPrice: number; fetchedAt?: string | null }) => {
   const dedupeKey = `btc_snapshot_baseline:${BTC_SNAPSHOT_SYMBOL}:${args.bucketPrice}`
   const articleUrl = `${BTC_SNAPSHOT_ARTICLE_BASE_URL}?snapshot=${args.bucketPrice}&baseline=1`
-  const postText = buildSnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, 'up')
+  const postText = buildSnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, 'flat')
 
   const { data: existing } = await client
     .from('channel_posts')
@@ -171,5 +184,60 @@ export const queueBtcSnapshotPost = async (client: any, args: { bucketPrice: num
     articleUrl,
     postText,
     postFingerprint: fingerprintPostText(postText),
+  }
+}
+
+export const queueForcedBtcSnapshotPost = async (client: any, args: { bucketPrice: number; observedPrice: number; fetchedAt: string }) => {
+  const windowKey = buildForcedSnapshotWindow(args.fetchedAt)
+  const dedupeKey = buildForcedSnapshotDedupeKey(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, windowKey)
+  const articleUrl = buildForcedSnapshotArticleUrl(args.bucketPrice, windowKey)
+  const postText = buildSnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, 'flat')
+  const headline = postText
+
+  const { data: existing } = await client
+    .from('channel_posts')
+    .select('id,status,created_at,dedupe_key,post_text')
+    .eq('dedupe_key', dedupeKey)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (existing?.id) {
+    return {
+      queued: false,
+      reason: CHANNEL_POST_REASONS.SKIPPED_DUPLICATE,
+      dedupeKey,
+      articleUrl,
+      postText,
+      existingId: Number(existing.id),
+      windowKey,
+    }
+  }
+
+  await insertChannelPostSafe(client, {
+    status: 'pending',
+    lane: BTC_SNAPSHOT_LANE,
+    article_id: null,
+    source_name: BTC_SNAPSHOT_SOURCE_NAME,
+    headline,
+    headline_ko: headline,
+    article_url: articleUrl,
+    tags: [BTC_SNAPSHOT_SYMBOL, 'MarketSnapshot', 'HourlyUpdate'],
+    post_text: postText,
+    target_channel: BTC_SNAPSHOT_TARGET_CHANNEL,
+    target_admin: '@master_billybot',
+    dedupe_key: dedupeKey,
+    approved_by: 'auto',
+    reason: CHANNEL_POST_REASONS.QUEUED_WORKER,
+  })
+
+  return {
+    queued: true,
+    reason: CHANNEL_POST_REASONS.QUEUED_WORKER,
+    dedupeKey,
+    articleUrl,
+    postText,
+    postFingerprint: fingerprintPostText(postText),
+    windowKey,
   }
 }
