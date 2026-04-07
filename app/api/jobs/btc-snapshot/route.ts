@@ -117,7 +117,33 @@ export async function POST(request: Request) {
       windowKey?: number
     }>
 
-    const latestSnapshot = parsed[0] || null
+    let latestSnapshot = parsed[0] || null
+
+    if (!latestSnapshot) {
+      const currentBucketBaselineKey = `btc_snapshot_baseline:${config.symbol}:${bucketPrice}`
+      const { data: existingCurrentBaseline } = await client
+        .from('channel_posts')
+        .select('id,created_at,posted_at,status,dedupe_key')
+        .eq('lane', BTC_SNAPSHOT_LANE)
+        .eq('dedupe_key', currentBucketBaselineKey)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingCurrentBaseline?.id) {
+        latestSnapshot = {
+          id: Number(existingCurrentBaseline.id),
+          created_at: String(existingCurrentBaseline.created_at || ''),
+          posted_at: String(existingCurrentBaseline.posted_at || ''),
+          status: String(existingCurrentBaseline.status || ''),
+          dedupeKey: String(existingCurrentBaseline.dedupe_key || ''),
+          eventType: 'baseline' as const,
+          direction: 'flat' as const,
+          bucketPrice,
+        }
+      }
+    }
+
     if (!latestSnapshot) {
       const baseline = await recordBtcSnapshotBaseline(client, {
         bucketPrice,
