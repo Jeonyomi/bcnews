@@ -128,7 +128,8 @@ export async function POST(request: Request) {
       windowKey?: number
     }>
 
-    let latestSnapshot = parsed[0] || null
+    const latestBucketState = parsed.find((row) => row.eventType === 'bucket' || row.eventType === 'hourly' || row.eventType === 'baseline') || null
+    let latestSnapshot = latestBucketState
 
     if (!latestSnapshot) {
       const currentBucketBaselineKey = `btc_snapshot_baseline:${config.symbol}:${bucketPrice}`
@@ -174,6 +175,7 @@ export async function POST(request: Request) {
     }
 
     const latestPosted = parsed.find((row) => row.status === 'posted') || null
+    const latestPostedBucketState = parsed.find((row) => row.status === 'posted' && (row.eventType === 'bucket' || row.eventType === 'hourly' || row.eventType === 'baseline')) || latestSnapshot
     const latestPostedAt = latestPosted?.posted_at || latestPosted?.created_at || ''
     const referenceAt = latestPostedAt || latestSnapshot.created_at
     const secondsSinceLastPosted = referenceAt
@@ -198,8 +200,8 @@ export async function POST(request: Request) {
               ? latestPosted.direction
               : 'flat'
 
-    if (latestSnapshot.bucketPrice !== bucketPrice) {
-      const direction = buildDirection(latestSnapshot.bucketPrice, bucketPrice)
+    if (latestPostedBucketState && latestPostedBucketState.bucketPrice !== bucketPrice) {
+      const direction = buildDirection(latestPostedBucketState.bucketPrice, bucketPrice)
       const queued = await queueBtcSnapshotPost(client, {
         bucketPrice,
         direction,
@@ -215,7 +217,7 @@ export async function POST(request: Request) {
         direction,
         observed_price: observed.price,
         bucket_price: bucketPrice,
-        previous_bucket_price: latestSnapshot.bucketPrice,
+        previous_bucket_price: latestPostedBucketState.bucketPrice,
         dedupe_key: queued.dedupeKey,
         post_text: queued.postText,
         target_channel: config.targetChannel,
@@ -230,7 +232,7 @@ export async function POST(request: Request) {
         reason: CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_FORCE_DISABLED,
         observed_price: observed.price,
         bucket_price: bucketPrice,
-        previous_bucket_price: latestSnapshot.bucketPrice,
+        previous_bucket_price: latestPostedBucketState.bucketPrice,
         config,
       })
     }
@@ -242,7 +244,7 @@ export async function POST(request: Request) {
         reason: CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_FORCE_INTERVAL_NOT_ELAPSED,
         observed_price: observed.price,
         bucket_price: bucketPrice,
-        previous_bucket_price: latestSnapshot.bucketPrice,
+        previous_bucket_price: latestPostedBucketState.bucketPrice,
         next_forced_update_in_seconds: Math.max(0, config.forceIntervalSeconds - secondsSinceLastPosted),
         seconds_since_last_posted_snapshot: secondsSinceLastPosted,
         config,
@@ -264,7 +266,7 @@ export async function POST(request: Request) {
       direction: forcedDirection,
       observed_price: observed.price,
       bucket_price: bucketPrice,
-      previous_bucket_price: latestSnapshot.bucketPrice,
+      previous_bucket_price: latestPostedBucketState.bucketPrice,
       dedupe_key: queued.dedupeKey,
       post_text: queued.postText,
       target_channel: config.targetChannel,
