@@ -4,6 +4,7 @@ import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 import {
   BTC_SNAPSHOT_LANE,
   buildBucketPrice,
+  buildCurrentBucketStateKey,
   buildDirection,
   fetchBtcSnapshotPrice,
   getBtcSnapshotConfig,
@@ -54,6 +55,14 @@ export async function POST(request: Request) {
 
     const observed = await fetchBtcSnapshotPrice()
     const bucketPrice = buildBucketPrice(observed.price, config.step)
+    const currentStateKey = buildCurrentBucketStateKey(config.symbol)
+    const { data: currentStateMarker } = await client
+      .from('channel_posts')
+      .select('id,created_at,posted_at,status,dedupe_key,article_url,post_text')
+      .eq('lane', BTC_SNAPSHOT_LANE)
+      .eq('dedupe_key', currentStateKey)
+      .limit(1)
+      .maybeSingle()
 
     const { data: latestSnapshotRows, error: latestErr } = await client
       .from('channel_posts')
@@ -130,6 +139,34 @@ export async function POST(request: Request) {
 
     const latestBucketState = parsed.find((row) => row.eventType === 'bucket' || row.eventType === 'hourly' || row.eventType === 'baseline') || null
     let latestSnapshot = latestBucketState
+
+    if (currentStateMarker?.id) {
+      let currentStateObservedPrice: number | null = null
+      let currentStateBucketPrice: number | null = null
+      try {
+        const markerUrl = String(currentStateMarker.article_url || '')
+        if (markerUrl) {
+          const parsedUrl = new URL(markerUrl)
+          const observedValue = Number(parsedUrl.searchParams.get('observed'))
+          const bucketValue = Number(parsedUrl.searchParams.get('snapshot'))
+          currentStateObservedPrice = Number.isFinite(observedValue) ? observedValue : null
+          currentStateBucketPrice = Number.isFinite(bucketValue) ? bucketValue : null
+        }
+      } catch {}
+      if (currentStateBucketPrice !== null) {
+        latestSnapshot = {
+          id: Number(currentStateMarker.id),
+          created_at: String(currentStateMarker.created_at || ''),
+          posted_at: String(currentStateMarker.posted_at || ''),
+          status: String(currentStateMarker.status || ''),
+          dedupeKey: String(currentStateMarker.dedupe_key || ''),
+          observedPrice: currentStateObservedPrice,
+          eventType: 'baseline' as const,
+          direction: 'flat' as const,
+          bucketPrice: currentStateBucketPrice,
+        }
+      }
+    }
 
     if (!latestSnapshot) {
       const currentBucketBaselineKey = `btc_snapshot_baseline:${config.symbol}:${bucketPrice}`

@@ -54,6 +54,7 @@ export const buildForcedSnapshotWindow = (observedAtIso: string, intervalSeconds
   return Math.floor(epochSeconds / intervalSeconds)
 }
 export const buildForcedSnapshotDedupeKey = (symbol: string, bucketPrice: number, windowKey: number) => `btc_snapshot_hourly:${symbol}:${bucketPrice}:${windowKey}`
+export const buildCurrentBucketStateKey = (symbol: string) => `btc_snapshot_state_current:${symbol}`
 export const buildForcedSnapshotArticleUrl = (bucketPrice: number, windowKey: number, observedPrice?: number) => {
   const url = new URL(BTC_SNAPSHOT_ARTICLE_BASE_URL)
   url.searchParams.set('snapshot', String(bucketPrice))
