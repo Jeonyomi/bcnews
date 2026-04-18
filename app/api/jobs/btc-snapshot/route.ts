@@ -175,7 +175,9 @@ export async function POST(request: Request) {
     }
 
     const latestPosted = parsed.find((row) => row.status === 'posted') || null
-    const latestPostedBucketState = parsed.find((row) => row.status === 'posted' && (row.eventType === 'bucket' || row.eventType === 'hourly' || row.eventType === 'baseline')) || latestSnapshot
+    const latestPostedBucketState = parsed.find((row) => row.status === 'posted' && row.eventType === 'bucket')
+      || parsed.find((row) => row.status === 'posted' && (row.eventType === 'hourly' || row.eventType === 'baseline'))
+      || latestSnapshot
     const latestPostedAt = latestPosted?.posted_at || latestPosted?.created_at || ''
     const referenceAt = latestPostedAt || latestSnapshot.created_at
     const secondsSinceLastPosted = referenceAt
