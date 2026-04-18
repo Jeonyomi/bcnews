@@ -34,6 +34,11 @@ export const buildSnapshotMessage = (symbol: string, bucketPrice: number, direct
   const emoji = direction === 'up' ? '🟢' : direction === 'down' ? '🔴' : '⚪'
   return `${emoji} ${symbol} $${bucketPrice.toLocaleString('en-US')}`
 }
+
+export const buildForcedSnapshotMessage = (symbol: string, observedPrice: number) => {
+  const displayPrice = Math.round(observedPrice)
+  return `${symbol} $${displayPrice.toLocaleString('en-US')}`
+}
 export const buildSnapshotArticleUrl = (bucketPrice: number, direction: 'up' | 'down', observedPrice?: number) => {
   const url = new URL(BTC_SNAPSHOT_ARTICLE_BASE_URL)
   url.searchParams.set('snapshot', String(bucketPrice))
@@ -208,7 +213,7 @@ export const queueForcedBtcSnapshotPost = async (client: any, args: { bucketPric
   const windowKey = buildForcedSnapshotWindow(args.fetchedAt)
   const dedupeKey = buildForcedSnapshotDedupeKey(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, windowKey)
   const articleUrl = buildForcedSnapshotArticleUrl(args.bucketPrice, windowKey, args.observedPrice)
-  const postText = buildSnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.bucketPrice, args.direction)
+  const postText = buildForcedSnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.observedPrice)
   const headline = postText
 
   const { data: existing } = await client
