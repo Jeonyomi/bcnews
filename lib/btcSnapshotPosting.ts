@@ -34,7 +34,7 @@ export const buildHourlySnapshotDedupeKey = (symbol: string, windowKey: string) 
 
 export const buildHourlySnapshotMessage = (symbol: string, observedPrice: number) => {
   const displayPrice = Math.round(observedPrice)
-  return `${symbol} $${displayPrice.toLocaleString('en-US')}`
+  return `⚪ ${symbol} $${displayPrice.toLocaleString('en-US')}`
 }
 
 export const buildHourlySnapshotArticleUrl = (observedPrice: number, windowKey: string) => {
