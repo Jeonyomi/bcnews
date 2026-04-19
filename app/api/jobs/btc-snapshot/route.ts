@@ -31,16 +31,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, queued: false, reason: CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_DISABLED, config })
     }
 
-    if (!isTargetMinute(config.postMinute)) {
-      return NextResponse.json({
-        ok: true,
-        queued: false,
-        reason: CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_FORCE_INTERVAL_NOT_ELAPSED,
-        detail: 'outside_hourly_post_window',
-        config,
-      })
-    }
-
     const client = createSupabaseServerClient()
     const observed = await fetchBtcSnapshotPrice()
     const queued = await queueHourlyBtcSnapshotPost(client, {
