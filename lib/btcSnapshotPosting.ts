@@ -32,9 +32,10 @@ export const buildHourlySnapshotWindow = (observedAtIso: string) => {
 
 export const buildHourlySnapshotDedupeKey = (symbol: string, windowKey: string) => `btc_snapshot_hourly:${symbol}:${windowKey}`
 
-export const buildHourlySnapshotMessage = (symbol: string, observedPrice: number) => {
+export const buildHourlySnapshotMessage = (symbol: string, observedPrice: number, direction: 'up' | 'down' | 'flat') => {
   const displayPrice = Math.round(observedPrice)
-  return `⚪ ${symbol} $${displayPrice.toLocaleString('en-US')}`
+  const emoji = direction === 'up' ? '🟢' : direction === 'down' ? '🔴' : '⚪'
+  return `${emoji} ${symbol} $${displayPrice.toLocaleString('en-US')}`
 }
 
 export const buildHourlySnapshotArticleUrl = (observedPrice: number, windowKey: string) => {
@@ -96,11 +97,11 @@ export const fetchBtcSnapshotPrice = async () => {
   }
 }
 
-export const queueHourlyBtcSnapshotPost = async (client: any, args: { observedPrice: number; fetchedAt: string }) => {
+export const queueHourlyBtcSnapshotPost = async (client: any, args: { observedPrice: number; fetchedAt: string; direction: 'up' | 'down' | 'flat' }) => {
   const windowKey = buildHourlySnapshotWindow(args.fetchedAt)
   const dedupeKey = buildHourlySnapshotDedupeKey(BTC_SNAPSHOT_SYMBOL, windowKey)
   const articleUrl = buildHourlySnapshotArticleUrl(args.observedPrice, windowKey)
-  const postText = buildHourlySnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.observedPrice)
+  const postText = buildHourlySnapshotMessage(BTC_SNAPSHOT_SYMBOL, args.observedPrice, args.direction)
 
   const { data: existing } = await client
     .from('channel_posts')

@@ -33,9 +33,38 @@ export async function POST(request: Request) {
 
     const client = createSupabaseServerClient()
     const observed = await fetchBtcSnapshotPrice()
+
+    const { data: latestPostedHourly } = await client
+      .from('channel_posts')
+      .select('id,article_url,posted_at,created_at,dedupe_key')
+      .eq('lane', BTC_SNAPSHOT_LANE)
+      .eq('status', 'posted')
+      .like('dedupe_key', `btc_snapshot_hourly:${config.symbol}:%`)
+      .order('posted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    let previousObservedPrice: number | null = null
+    try {
+      const articleUrl = String(latestPostedHourly?.article_url || '')
+      if (articleUrl) {
+        const observedValue = Number(new URL(articleUrl).searchParams.get('observed'))
+        previousObservedPrice = Number.isFinite(observedValue) ? observedValue : null
+      }
+    } catch {}
+
+    const direction: 'up' | 'down' | 'flat' = previousObservedPrice == null
+      ? 'flat'
+      : observed.price > previousObservedPrice
+        ? 'up'
+        : observed.price < previousObservedPrice
+          ? 'down'
+          : 'flat'
+
     const queued = await queueHourlyBtcSnapshotPost(client, {
       observedPrice: observed.price,
       fetchedAt: observed.fetchedAt,
+      direction,
     })
 
     return NextResponse.json({
@@ -43,6 +72,7 @@ export async function POST(request: Request) {
       queued: queued.queued,
       reason: queued.reason,
       event_type: 'hourly_forced',
+      direction,
       observed_price: observed.price,
       dedupe_key: queued.dedupeKey,
       post_text: queued.postText,
