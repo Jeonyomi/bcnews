@@ -58,7 +58,7 @@ export const buildOccApplicantDedupeKey = (row: Pick<OccApplicantRow, 'dateRecei
   `occ_applicant:${hashText(`${row.dateReceivedIso}|${row.applicant}`.toLowerCase())}`
 
 export const buildOccApplicantPostText = (row: Pick<OccApplicantRow, 'dateReceivedIso' | 'applicant' | 'linkUrl'>) => {
-  const text = `OCC adds ${row.applicant} to digital assets licensing applications list (${row.dateReceivedIso})`
+  const text = `🏦 OCC adds ${row.applicant} to digital assets licensing applications list (${row.dateReceivedIso})`
   return `[${escapeTelegramMarkdownV2(text)}](${escapeTelegramUrl(row.linkUrl)})`
 }
 
@@ -222,8 +222,8 @@ export const queueOccApplicantPost = async (client: any, row: OccApplicantRow) =
     lane: OCC_APPLICANTS_LANE,
     article_id: null,
     source_name: OCC_APPLICANTS_SOURCE_NAME,
-    headline: `OCC adds ${row.applicant} to digital assets licensing applications list (${row.dateReceivedIso})`,
-    headline_ko: `OCC adds ${row.applicant} to digital assets licensing applications list (${row.dateReceivedIso})`,
+    headline: `🏦 OCC adds ${row.applicant} to digital assets licensing applications list (${row.dateReceivedIso})`,
+    headline_ko: `🏦 OCC adds ${row.applicant} to digital assets licensing applications list (${row.dateReceivedIso})`,
     article_url: row.linkUrl,
     tags: ['OCC', 'DigitalAssets', 'LicensingApplications'],
     post_text: postText,
