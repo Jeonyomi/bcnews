@@ -21,6 +21,12 @@ $tasks = @(
     Vbs = $btcSnapshotVbs
     Interval = (New-TimeSpan -Hours 1)
     AlignTopOfHour = $true
+  },
+  @{
+    Name = 'BCN-StrcSnapshot-Hourly'
+    Vbs = $strcSnapshotVbs
+    Interval = (New-TimeSpan -Hours 1)
+    AlignTopOfHour = $true
   }
 )
 

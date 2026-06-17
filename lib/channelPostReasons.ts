@@ -14,6 +14,7 @@ export const CHANNEL_POST_REASONS = {
   SKIPPED_BTC_SNAPSHOT_INTERVAL_NOT_ELAPSED: 'skipped_btc_snapshot_interval_not_elapsed',
   SKIPPED_BTC_SNAPSHOT_FORCE_DISABLED: 'skipped_btc_snapshot_force_disabled',
   SKIPPED_BTC_SNAPSHOT_FORCE_INTERVAL_NOT_ELAPSED: 'skipped_btc_snapshot_force_interval_not_elapsed',
+  SKIPPED_STRC_SNAPSHOT_DISABLED: 'skipped_strc_snapshot_disabled',
 
   // legacy reasons kept for backward-compatible analytics
   NOT_BREAKING_LANE: 'not_breaking_lane',
@@ -46,6 +47,7 @@ export const normalizeChannelPostReason = (reason: string | null | undefined) =>
   if (r === CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_NO_BASELINE) return 'skipped_btc_snapshot_no_baseline'
   if (r === CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_SAME_BUCKET) return 'skipped_btc_snapshot_same_bucket'
   if (r === CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_INTERVAL_NOT_ELAPSED) return 'skipped_btc_snapshot_interval_not_elapsed'
+  if (r === CHANNEL_POST_REASONS.SKIPPED_STRC_SNAPSHOT_DISABLED) return 'skipped_strc_snapshot_disabled'
 
   // legacy mapping
   if (r === CHANNEL_POST_REASONS.NOT_BREAKING_LANE) return 'skipped_not_breaking_lane'

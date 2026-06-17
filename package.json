@@ -18,7 +18,8 @@
     "cron:health": "node scripts/cronHealthCheck.mjs",
     "worker:send-pending": "node scripts/sendPendingChannelPosts.mjs",
     "ops:check-stuck-posts": "node scripts/checkStuckChannelPosts.mjs",
-    "job:btc-snapshot": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsBtcSnapshot.ps1"
+    "job:btc-snapshot": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsBtcSnapshot.ps1",
+    "job:strc-snapshot": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsStrcSnapshot.ps1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
