@@ -29,10 +29,9 @@ export const buildHourlySnapshotWindow = (observedAtIso: string) => {
 export const buildHourlySnapshotDedupeKey = (symbol: string, windowKey: string) => `strc_snapshot_hourly:${symbol}:${windowKey}`
 
 export const buildHourlySnapshotMessage = (symbol: string, observedPrice: number, direction: 'up' | 'down' | 'flat') => {
-  const displayPrice = observedPrice >= 10 ? observedPrice.toFixed(2) : observedPrice.toFixed(3)
-  const normalized = displayPrice.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+  const displayPrice = Math.round(observedPrice)
   const emoji = direction === 'up' ? '🟢' : direction === 'down' ? '🔴' : '⚪'
-  return `${emoji} ${symbol} $${normalized}`
+  return `${emoji} ${symbol} $${displayPrice.toLocaleString('en-US')}`
 }
 
 export const buildHourlySnapshotArticleUrl = (observedPrice: number, windowKey: string) => {
