@@ -2,7 +2,7 @@ import { TELEGRAM_BREAKING_CHANNEL, insertChannelPostSafe } from '@/lib/channelP
 import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 
 export const STRC_SNAPSHOT_LANE = 'market_snapshot'
-export const STRC_SNAPSHOT_ENABLED = ['1', 'true', 'yes', 'on'].includes(String(process.env.KBN_STRC_SNAPSHOT_ENABLED || '').trim().toLowerCase())
+export const STRC_SNAPSHOT_ENABLED = ['1', 'true', 'yes', 'on'].includes(String(process.env.KBN_STRC_SNAPSHOT_ENABLED || 'true').trim().toLowerCase())
 export const STRC_SNAPSHOT_SYMBOL = String(process.env.KBN_STRC_SNAPSHOT_SYMBOL || 'STRC').trim().toUpperCase() || 'STRC'
 export const STRC_SNAPSHOT_PROVIDER = String(process.env.KBN_STRC_SNAPSHOT_PROVIDER || 'yahoo_chart').trim().toLowerCase() || 'yahoo_chart'
 export const STRC_SNAPSHOT_PROVIDER_SYMBOL = String(process.env.KBN_STRC_SNAPSHOT_PROVIDER_SYMBOL || 'STRC').trim().toUpperCase() || 'STRC'
