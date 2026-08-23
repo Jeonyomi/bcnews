@@ -8,7 +8,7 @@ if (-not $RepoRoot) {
   $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 }
 
-$powerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$wscript = Join-Path $env:SystemRoot 'System32\wscript.exe'
 
 # Replace the retired STRC publisher instead of leaving two hourly tasks active.
 Unregister-ScheduledTask -TaskName 'BCN-StrcSnapshot-Hourly' -Confirm:$false -ErrorAction SilentlyContinue
@@ -17,22 +17,26 @@ $tasks = @(
   @{
     Name = 'BCN-Ingest-5m'
     Script = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsIngest.ps1'
+    Launcher = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsIngest-Hidden.vbs'
     Interval = (New-TimeSpan -Minutes 5)
   },
   @{
     Name = 'BCN-SendPending-2m'
     Script = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsSendPending.ps1'
+    Launcher = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsSendPending-Hidden.vbs'
     Interval = (New-TimeSpan -Minutes 2)
   },
   @{
     Name = 'BCN-BtcSnapshot-Hourly'
     Script = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsBtcSnapshot.ps1'
+    Launcher = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsBtcSnapshot-Hidden.vbs'
     Interval = (New-TimeSpan -Hours 1)
     AlignTopOfHour = $true
   },
   @{
     Name = 'BCN-AltSnapshot-Hourly'
     Script = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsAltSnapshot.ps1'
+    Launcher = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsAltSnapshot-Hidden.vbs'
     Interval = (New-TimeSpan -Hours 1)
     AlignTopOfHour = $true
   }
@@ -42,9 +46,14 @@ foreach ($task in $tasks) {
   if (-not (Test-Path $task.Script)) {
     throw "Missing scheduler script: $($task.Script)"
   }
+  if (-not (Test-Path $task.Launcher)) {
+    throw "Missing hidden scheduler launcher: $($task.Launcher)"
+  }
 
-  $arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$($task.Script)`""
-  $action = New-ScheduledTaskAction -Execute $powerShell -Argument $arguments -WorkingDirectory $RepoRoot
+  # wscript hosts the launcher without allocating a console, avoiding the
+  # brief cmd/PowerShell flash that can occur before -WindowStyle Hidden applies.
+  $arguments = "//B //Nologo `"$($task.Launcher)`""
+  $action = New-ScheduledTaskAction -Execute $wscript -Argument $arguments -WorkingDirectory $RepoRoot
 
   if ($task.AlignTopOfHour) {
     $nextHour = (Get-Date).AddHours(1)

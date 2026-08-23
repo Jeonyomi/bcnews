@@ -43,6 +43,23 @@ test('scheduler migration unregisters the legacy STRC task before registering al
   assert.doesNotMatch(registerScript, /Name\s*=\s*'BCN-StrcSnapshot-Hourly'/)
 })
 
+test('scheduled jobs use wscript launchers so no console window can flash', () => {
+  const registerScript = readFileSync(
+    new URL('../scripts/scheduler/Register-BcnewsScheduledTasks.ps1', import.meta.url),
+    'utf8',
+  )
+  assert.match(registerScript, /wscript\.exe/i)
+  assert.doesNotMatch(registerScript, /New-ScheduledTaskAction\s+-Execute\s+\$powerShell/)
+  for (const launcher of [
+    'Run-BcnewsIngest-Hidden.vbs',
+    'Run-BcnewsSendPending-Hidden.vbs',
+    'Run-BcnewsBtcSnapshot-Hidden.vbs',
+    'Run-BcnewsAltSnapshot-Hidden.vbs',
+  ]) {
+    assert.match(registerScript, new RegExp(launcher.replace('.', '\\.')))
+  }
+})
+
 test('rejects malformed prior snapshot prices instead of showing a false direction', () => {
   assert.equal(parseObservedSnapshotPrice('https://example.com/?observed=0.15548'), 0.15548)
   assert.throws(() => parseObservedSnapshotPrice('https://example.com/'), /invalid_previous_snapshot_price/)
