@@ -7,6 +7,7 @@ import {
   buildAltSnapshotMessage,
   getPriceDirection,
   isRetiredSnapshotDedupeKey,
+  parseCoinbaseSpotPrice,
   parseObservedSnapshotPrice,
 } from '../lib/altSnapshotConfig.ts'
 
@@ -14,8 +15,8 @@ test('replaces STRC with HYPE and ENA snapshot assets', () => {
   assert.deepEqual(
     ALT_SNAPSHOT_ASSETS.map(({ symbol, providerSymbol }) => ({ symbol, providerSymbol })),
     [
-      { symbol: 'HYPE', providerSymbol: 'HYPEUSDT' },
-      { symbol: 'ENA', providerSymbol: 'ENAUSDT' },
+      { symbol: 'HYPE', providerSymbol: 'HYPE-USD' },
+      { symbol: 'ENA', providerSymbol: 'ENA-USD' },
     ],
   )
   assert.equal(ALT_SNAPSHOT_ASSETS.some(({ symbol }) => symbol === 'STRC'), false)
@@ -47,6 +48,13 @@ test('rejects malformed prior snapshot prices instead of showing a false directi
   assert.throws(() => parseObservedSnapshotPrice('https://example.com/'), /invalid_previous_snapshot_price/)
   assert.throws(() => parseObservedSnapshotPrice('https://example.com/?observed=oops'), /invalid_previous_snapshot_price/)
   assert.throws(() => parseObservedSnapshotPrice('not-a-url'), /invalid_previous_snapshot_price/)
+})
+
+test('parses valid Coinbase spot prices and rejects malformed responses', () => {
+  assert.equal(parseCoinbaseSpotPrice({ data: { amount: '78.455' } }), 78.455)
+  assert.equal(parseCoinbaseSpotPrice({ data: { amount: '0.1535' } }), 0.1535)
+  assert.throws(() => parseCoinbaseSpotPrice({ data: {} }), /invalid_coinbase_spot_price/)
+  assert.throws(() => parseCoinbaseSpotPrice({ data: { amount: 'oops' } }), /invalid_coinbase_spot_price/)
 })
 
 test('posting endpoints never accept a public environment variable as their secret', () => {

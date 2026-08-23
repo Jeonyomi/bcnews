@@ -10,15 +10,15 @@ export type AltSnapshotAsset = {
 export const ALT_SNAPSHOT_ASSETS: readonly AltSnapshotAsset[] = [
   {
     symbol: 'HYPE',
-    providerSymbol: 'HYPEUSDT',
-    sourceUrl: 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=HYPEUSDT',
-    articleBaseUrl: 'https://www.binance.com/en/futures/HYPEUSDT',
+    providerSymbol: 'HYPE-USD',
+    sourceUrl: 'https://api.coinbase.com/v2/prices/HYPE-USD/spot',
+    articleBaseUrl: 'https://www.coinbase.com/price/hyperliquid',
   },
   {
     symbol: 'ENA',
-    providerSymbol: 'ENAUSDT',
-    sourceUrl: 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=ENAUSDT',
-    articleBaseUrl: 'https://www.binance.com/en/futures/ENAUSDT',
+    providerSymbol: 'ENA-USD',
+    sourceUrl: 'https://api.coinbase.com/v2/prices/ENA-USD/spot',
+    articleBaseUrl: 'https://www.coinbase.com/price/ethena',
   },
 ]
 
@@ -45,6 +45,12 @@ export const parseObservedSnapshotPrice = (articleUrl: string) => {
 
 export const isRetiredSnapshotDedupeKey = (dedupeKey: string | null | undefined) =>
   String(dedupeKey || '').startsWith('strc_snapshot_hourly:')
+
+export const parseCoinbaseSpotPrice = (payload: any) => {
+  const value = Number(payload?.data?.amount)
+  if (!Number.isFinite(value) || value <= 0) throw new Error('invalid_coinbase_spot_price')
+  return value
+}
 
 const formatSnapshotPrice = (price: number) => {
   const maximumFractionDigits = price >= 100 ? 0 : price >= 1 ? 2 : 4

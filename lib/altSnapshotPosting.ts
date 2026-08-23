@@ -3,6 +3,7 @@ import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 import {
   ALT_SNAPSHOT_ASSETS,
   buildAltSnapshotMessage,
+  parseCoinbaseSpotPrice,
   parseObservedSnapshotPrice,
   type AltSnapshotAsset,
   type PriceDirection,
@@ -26,7 +27,7 @@ export const buildHourlyAltSnapshotDedupeKey = (symbol: string, windowKey: strin
 export const getAltSnapshotConfig = () => ({
   enabled: ALT_SNAPSHOT_ENABLED,
   targetChannel: ALT_SNAPSHOT_TARGET_CHANNEL,
-  provider: 'binance_perp',
+  provider: 'coinbase_spot',
   assets: ALT_SNAPSHOT_ASSETS.map(({ symbol, providerSymbol }) => ({ symbol, providerSymbol })),
 })
 
@@ -37,7 +38,7 @@ export const fetchAltSnapshotPrice = async (asset: AltSnapshotAsset) => {
     cache: 'no-store',
   })
   const payload = await response.json().catch(() => ({} as any))
-  const price = Number(payload?.price)
+  const price = parseCoinbaseSpotPrice(payload)
 
   if (!response.ok || !Number.isFinite(price) || price <= 0) {
     throw new Error(`alt_snapshot_price_fetch_failed:${asset.symbol}:${payload?.msg || response.statusText}`)
@@ -105,7 +106,7 @@ export const queueHourlyAltSnapshotPost = async (
     status: 'pending',
     lane: ALT_SNAPSHOT_LANE,
     article_id: null,
-    source_name: 'Binance',
+    source_name: 'Coinbase',
     headline: postText,
     headline_ko: postText,
     article_url: String(articleUrl),
