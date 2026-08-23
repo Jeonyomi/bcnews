@@ -103,6 +103,17 @@ async function main() {
 
     if (!claim?.id) continue
 
+    if (String(row.dedupe_key || '').startsWith('strc_snapshot_hourly:')) {
+      const { error: retireError } = await db
+        .from('channel_posts')
+        .update({ status: 'skipped', updated_at: new Date().toISOString(), reason: 'skipped_retired_snapshot' })
+        .eq('id', row.id)
+        .eq('status', 'sending')
+      if (retireError) throw retireError
+      skipped += 1
+      continue
+    }
+
     const { data: dup } = await db
       .from('channel_posts')
       .select('id')

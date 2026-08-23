@@ -3,13 +3,14 @@ import { err } from '@/lib/dashboardApi'
 import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 import { claimPendingChannelPost, recoverStaleSendingRows, sendTelegramMessage, SENDING_STALE_MINUTES } from '@/lib/channelPosting'
 import { createSupabaseServerClient } from '@/lib/supabaseServer'
+import { isRetiredSnapshotDedupeKey } from '@/lib/altSnapshotConfig'
 
 export const dynamic = 'force-dynamic'
 
 const MAX_SENDS_PER_RUN = Number.parseInt(process.env.CHANNEL_SEND_MAX_PER_RUN || '5', 10) || 5
 
 const getSecret = () =>
-  process.env.X_CRON_SECRET || process.env.CRON_SECRET || process.env.NEXT_PUBLIC_CRON_SECRET
+  process.env.X_CRON_SECRET || process.env.CRON_SECRET
 
 export async function POST(request: Request) {
   try {
@@ -39,6 +40,21 @@ export async function POST(request: Request) {
       const claim = await claimPendingChannelPost(client, Number(row.id))
       if (!claim?.id) continue
       claimed += 1
+
+      if (isRetiredSnapshotDedupeKey(row.dedupe_key)) {
+        const { error: retireError } = await client
+          .from('channel_posts')
+          .update({
+            status: 'skipped',
+            updated_at: new Date().toISOString(),
+            reason: CHANNEL_POST_REASONS.SKIPPED_RETIRED_SNAPSHOT,
+          })
+          .eq('id', Number(row.id))
+          .eq('status', 'sending')
+        if (retireError) throw retireError
+        skipped += 1
+        continue
+      }
 
       const { data: alreadyPosted } = await client
         .from('channel_posts')

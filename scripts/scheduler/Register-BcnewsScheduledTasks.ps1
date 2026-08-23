@@ -9,6 +9,10 @@ if (-not $RepoRoot) {
 }
 
 $powerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+
+# Replace the retired STRC publisher instead of leaving two hourly tasks active.
+Unregister-ScheduledTask -TaskName 'BCN-StrcSnapshot-Hourly' -Confirm:$false -ErrorAction SilentlyContinue
+
 $tasks = @(
   @{
     Name = 'BCN-Ingest-5m'
@@ -27,8 +31,8 @@ $tasks = @(
     AlignTopOfHour = $true
   },
   @{
-    Name = 'BCN-StrcSnapshot-Hourly'
-    Script = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsStrcSnapshot.ps1'
+    Name = 'BCN-AltSnapshot-Hourly'
+    Script = Join-Path $RepoRoot 'scripts\scheduler\Run-BcnewsAltSnapshot.ps1'
     Interval = (New-TimeSpan -Hours 1)
     AlignTopOfHour = $true
   }
