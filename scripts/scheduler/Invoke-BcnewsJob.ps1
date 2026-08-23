@@ -1,12 +1,19 @@
 param(
   [Parameter(Mandatory = $true)] [string]$JobName,
   [Parameter(Mandatory = $true)] [string]$Endpoint,
-  [string]$RepoRoot = "$env:USERPROFILE\.openclaw\workspace\bcnews",
-  [string]$LogRoot = "$env:USERPROFILE\.openclaw\workspace\bcnews\logs\scheduler",
+  [string]$RepoRoot = '',
+  [string]$LogRoot = '',
   [int]$TimeoutSec = 120
 )
 
 $ErrorActionPreference = 'Stop'
+
+if (-not $RepoRoot) {
+  $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+}
+if (-not $LogRoot) {
+  $LogRoot = Join-Path $RepoRoot 'logs\scheduler'
+}
 
 function Get-EnvValue([string]$Path, [string[]]$Keys) {
   if (-not (Test-Path $Path)) { return $null }
@@ -14,7 +21,7 @@ function Get-EnvValue([string]$Path, [string[]]$Keys) {
   foreach ($key in $Keys) {
     $line = $lines | Where-Object { $_ -match "^${key}=" } | Select-Object -First 1
     if ($line) {
-      return ($line -replace "^${key}=", '').Trim().Trim('"')
+      return ($line -replace "^${key}=", '').Trim().Trim('"').Trim("'")
     }
   }
   return $null

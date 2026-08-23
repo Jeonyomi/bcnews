@@ -7,6 +7,7 @@ export const CHANNEL_POST_REASONS = {
   SKIPPED_INVALID_PAYLOAD: 'skipped_invalid_payload',
   SKIPPED_SOURCE_DISABLED_FOR_KBN: 'skipped_source_disabled_for_kbn',
   SKIPPED_BAD_NOTICE_TITLE: 'skipped_bad_notice_title',
+  SKIPPED_STALE_ARTICLE: 'skipped_stale_article',
   FAILED_SEND: 'failed_send',
   SKIPPED_BTC_SNAPSHOT_DISABLED: 'skipped_btc_snapshot_disabled',
   SKIPPED_BTC_SNAPSHOT_NO_BASELINE: 'skipped_btc_snapshot_no_baseline',
@@ -42,6 +43,7 @@ export const normalizeChannelPostReason = (reason: string | null | undefined) =>
   if (r === CHANNEL_POST_REASONS.SKIPPED_INVALID_PAYLOAD) return 'skipped_invalid_payload'
   if (r === CHANNEL_POST_REASONS.SKIPPED_SOURCE_DISABLED_FOR_KBN) return 'skipped_source_disabled_for_kbn'
   if (r === CHANNEL_POST_REASONS.SKIPPED_BAD_NOTICE_TITLE) return 'skipped_bad_notice_title'
+  if (r === CHANNEL_POST_REASONS.SKIPPED_STALE_ARTICLE) return 'skipped_stale_article'
   if (r === CHANNEL_POST_REASONS.FAILED_SEND || r.startsWith(CHANNEL_POST_REASONS.TELEGRAM_ERROR_PREFIX) || r.startsWith('failed_send:')) return 'failed_send'
   if (r === CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_DISABLED) return 'skipped_btc_snapshot_disabled'
   if (r === CHANNEL_POST_REASONS.SKIPPED_BTC_SNAPSHOT_NO_BASELINE) return 'skipped_btc_snapshot_no_baseline'

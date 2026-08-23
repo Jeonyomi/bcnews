@@ -4,6 +4,7 @@ import { createSupabaseServerClient, getSupabaseServerConfig } from '@/lib/supab
 import { err } from '@/lib/dashboardApi'
 import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 import { escapeTelegramMarkdownV2, escapeTelegramUrl, insertChannelPostSafe, TELEGRAM_BREAKING_CHANNEL } from '@/lib/channelPosting'
+import { isWithinAgeHours, normalizePublicationDate } from '@/lib/articleFreshness'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +15,7 @@ const FETCH_TIMEOUT_MS = Number.parseInt(process.env.CRON_FETCH_TIMEOUT_MS || '1
 const FETCH_TRIES = Number.parseInt(process.env.CRON_FETCH_TRIES || '3', 10) || 3
 const TITLE_SIMILARITY_THRESHOLD = Number.parseFloat(process.env.INGEST_TITLE_SIM_THRESHOLD || '0.82') || 0.82
 const TITLE_DEDUPE_WINDOW_HOURS = Number.parseInt(process.env.INGEST_TITLE_DEDUPE_WINDOW_HOURS || '36', 10) || 36
+const CHANNEL_AUTOPOST_MAX_AGE_HOURS = Number.parseInt(process.env.CHANNEL_AUTOPOST_MAX_AGE_HOURS || '24', 10) || 24
 
 // Hard allowlist for ingest scope (KBN policy)
 const INGEST_SOURCE_ALLOWLIST_IDS = [
@@ -224,14 +226,6 @@ const decodeHtml = (value: string) => {
     .replace(/&apos;/gi, "'")
 }
 
-const normalizeDate = (value?: string) => {
-  if (!value) return new Date().toISOString()
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return new Date().toISOString()
-  return parsed.toISOString()
-}
-
 const extractLinkFromEntry = (entry: string) => {
   const cdataStripped = entry.replace(/<!\[CDATA\[|\]\]>/g, '')
   // Atom feeds frequently use href with either single/double quotes and arbitrary
@@ -326,7 +320,7 @@ const cleanTitle = (title: string, summary: string, sourceName = '') => {
 
 
 const extractItemsFromNoticeHtml = (html: string, baseUrl: string, sourceName = '') => {
-  const items: Array<{ title: string; link: string; summary: string; publishedAt: string }> = []
+  const items: Array<{ title: string; link: string; summary: string; publishedAt: string | null }> = []
   const anchorRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
   const toAbs = (href: string) => {
     try { return new URL(href, baseUrl).toString() } catch { return href }
@@ -339,11 +333,11 @@ const extractItemsFromNoticeHtml = (html: string, baseUrl: string, sourceName = 
     if (/^javascript:/i.test(href)) continue
     const link = normalizeFeedLink(toAbs(href))
     if (!/(notice|announcement|support|service_center|customer_support|info_notice|\/n\/[0-9]+|\b공지\b)/i.test(link)) continue
-    items.push({ title: text, link, summary: text, publishedAt: new Date().toISOString() })
+    items.push({ title: text, link, summary: text, publishedAt: null })
     if (items.length >= 60) break
   }
 
-  const uniq = new Map<string, { title: string; link: string; summary: string; publishedAt: string }>()
+  const uniq = new Map<string, { title: string; link: string; summary: string; publishedAt: string | null }>()
   for (const it of items) {
     const key = canonicalizeUrl(it.link)
     if (!uniq.has(key)) uniq.set(key, it)
@@ -377,7 +371,7 @@ const extractItemsFromRss = (xml: string, sourceName = "") => {
       : ''
     const summary = isHn ? cleanTitle(sanitizeHnText(title), '', sourceName) : rawSummary
     const dateSource = dateMatch?.[1]
-    const publishedAt = normalizeDate(dateSource)
+    const publishedAt = normalizePublicationDate(dateSource)
 
     return { title: cleanTitle(isHn ? sanitizeHnText(title) : title, summary, sourceName), link, summary, publishedAt }
   }
@@ -398,7 +392,7 @@ const extractItemsFromRss = (xml: string, sourceName = "") => {
         ? stripHtmlTags(descMatch[1].replace(/<!\[CDATA\[|\]\]>/g, ''))
         : ''
       const summary = isHn ? cleanTitle(sanitizeHnText(title), '', sourceName) : rawSummary
-      const publishedAt = normalizeDate(pubMatch?.[1])
+      const publishedAt = normalizePublicationDate(pubMatch?.[1])
 
       return { title: cleanTitle(isHn ? sanitizeHnText(title) : title, summary, sourceName), link, summary, publishedAt }
     })
@@ -814,6 +808,7 @@ const autoPostBreaking = async (client: any, payload: {
   summary: string
   whyItMatters?: string
   importanceLabel: string
+  publishedAt: string | null
 }) => {
   const dedupeKey = `breaking:${hashContent(`${payload.canonicalUrl || payload.articleUrl || ''}|${payload.contentHash || ''}|${payload.headline}`.toLowerCase())}`
 
@@ -831,6 +826,10 @@ const autoPostBreaking = async (client: any, payload: {
 
   if (!String(payload.headline || '').trim() || !isValidHttpUrl(payload.canonicalUrl || payload.articleUrl)) {
     return skip(CHANNEL_POST_REASONS.SKIPPED_INVALID_PAYLOAD, null)
+  }
+
+  if (!isWithinAgeHours(payload.publishedAt, CHANNEL_AUTOPOST_MAX_AGE_HOURS)) {
+    return skip(CHANNEL_POST_REASONS.SKIPPED_STALE_ARTICLE, null)
   }
 
   const post = formatKbnPost({
@@ -1324,6 +1323,7 @@ ${effectiveSummary}`.slice(0, 4000)
               summary: effectiveSummary,
               whyItMatters: effectiveSummary.slice(0, 140),
               importanceLabel: articleLabel,
+              publishedAt: item.publishedAt,
             })
             autopostEval.candidates += 1
             if (ap.queued) autopostEval.posted += 1
