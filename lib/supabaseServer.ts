@@ -30,7 +30,15 @@ export const getSupabaseServerConfig = () => {
   }
 }
 
+const noStoreFetch: typeof fetch = (input, init) =>
+  fetch(input, {
+    ...init,
+    cache: 'no-store',
+  })
+
 export const createSupabaseServerClient = () => {
   const cfg = getSupabaseServerConfig()
-  return createClient(cfg.url, cfg.serviceRoleKey)
+  return createClient(cfg.url, cfg.serviceRoleKey, {
+    global: { fetch: noStoreFetch },
+  })
 }
