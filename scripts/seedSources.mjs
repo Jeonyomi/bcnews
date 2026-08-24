@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
+import { SOURCE_FEED_OVERRIDES } from './sourceFeedOverrides.mjs'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -117,6 +118,7 @@ async function main() {
     tier: s.tier ? String(s.tier) : null,
     region: s.region || null,
     ...s,
+    ...(SOURCE_FEED_OVERRIDES[s.name] || {}),
   }))
 
   const { error } = await supabase.from('sources').upsert(normalized, { onConflict: 'name' })
