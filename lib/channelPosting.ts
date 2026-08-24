@@ -3,12 +3,18 @@ import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 const TELEGRAM_BOT_TOKEN = process.env.TG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ''
 export const TELEGRAM_BREAKING_CHANNEL = process.env.TG_BREAKING_CHANNEL || '@Krypto_breaking'
 
+export const normalizeChannelPostRow = (row: any) => ({
+  ...(row || {}),
+  post_text: row?.status === 'skipped' && row?.post_text == null ? '' : row?.post_text,
+})
+
 export const insertChannelPostSafe = async (client: any, row: any) => {
-  const { error } = await client.from('channel_posts').insert({ ...row })
+  const normalizedRow = normalizeChannelPostRow(row)
+  const { error } = await client.from('channel_posts').insert(normalizedRow)
   if (!error) return
 
   if (String(error.message || '').includes('reason')) {
-    const fallback = { ...row }
+    const fallback = { ...normalizedRow }
     delete fallback.reason
     const { error: fallbackErr } = await client.from('channel_posts').insert(fallback)
     if (!fallbackErr) return
