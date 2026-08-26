@@ -20,7 +20,8 @@
     "ops:check-stuck-posts": "node scripts/checkStuckChannelPosts.mjs",
     "job:btc-snapshot": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsBtcSnapshot.ps1",
     "job:alt-snapshot": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsAltSnapshot.ps1",
-    "job:mbai-bridge-am": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiBridgeAm.ps1"
+    "job:mbai-bridge-am": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiBridgeAm.ps1",
+    "job:mbai-korea-close": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiKoreaClose.ps1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
