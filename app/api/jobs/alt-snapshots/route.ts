@@ -4,9 +4,11 @@ import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 import { ALT_SNAPSHOT_ASSETS, getPriceDirection } from '@/lib/altSnapshotConfig'
 import {
   fetchAltSnapshotPrice,
+  fetchAthEthIndexSnapshot,
   getAltSnapshotConfig,
   getPreviousAltSnapshotPrice,
   queueHourlyAltSnapshotPost,
+  queueHourlyAthEthIndexPost,
 } from '@/lib/altSnapshotPosting'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +36,19 @@ export async function POST(request: Request) {
 
     const client = createSupabaseServerClient()
     const results = []
+
+    const athEthIndex = await fetchAthEthIndexSnapshot()
+    const indexQueued = await queueHourlyAthEthIndexPost(client, athEthIndex)
+    results.push({
+      symbol: 'ATH/ETH',
+      queued: indexQueued.queued,
+      reason: indexQueued.reason,
+      observed_price: athEthIndex.index,
+      ath_price: athEthIndex.athPrice,
+      eth_price: athEthIndex.ethPrice,
+      dedupe_key: indexQueued.dedupeKey,
+      post_text: indexQueued.postText,
+    })
 
     for (const asset of ALT_SNAPSHOT_ASSETS) {
       const observed = await fetchAltSnapshotPrice(asset)

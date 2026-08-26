@@ -10,6 +10,12 @@ import {
   parseCoinbaseSpotPrice,
   parseObservedSnapshotPrice,
 } from '../lib/altSnapshotConfig.ts'
+import {
+  ATH_ETH_INDEX_BASELINE,
+  buildAthEthIndexMessage,
+  calculateAthEthIndex,
+  getAthEthIndexSignal,
+} from '../lib/athEthIndexConfig.ts'
 
 test('replaces STRC with HYPE and ENA snapshot assets', () => {
   assert.deepEqual(
@@ -72,6 +78,51 @@ test('parses valid Coinbase spot prices and rejects malformed responses', () => 
   assert.equal(parseCoinbaseSpotPrice({ data: { amount: '0.1535' } }), 0.1535)
   assert.throws(() => parseCoinbaseSpotPrice({ data: {} }), /invalid_coinbase_spot_price/)
   assert.throws(() => parseCoinbaseSpotPrice({ data: { amount: 'oops' } }), /invalid_coinbase_spot_price/)
+})
+
+test('ATH ETH index uses the agreed 2026-08-26 baseline as 100', () => {
+  assert.equal(ATH_ETH_INDEX_BASELINE.athKrw, 6.91)
+  assert.equal(ATH_ETH_INDEX_BASELINE.ethKrw, 3_426_000)
+  assert.equal(calculateAthEthIndex(6.91, 3_426_000), 100)
+  assert.equal(calculateAthEthIndex(7.3937, 3_426_000), 107)
+  assert.throws(() => calculateAthEthIndex(0, 3_426_000), /invalid_ath_eth_index_price/)
+  assert.throws(() => calculateAthEthIndex(6.91, Number.NaN), /invalid_ath_eth_index_price/)
+})
+
+test('ATH ETH index maps risk and rotation thresholds to clear signals', () => {
+  assert.equal(getAthEthIndexSignal(89.9).label, '위험선 하회')
+  assert.equal(getAthEthIndexSignal(90).label, '위험선 도달')
+  assert.equal(getAthEthIndexSignal(100).label, '대기 구간')
+  assert.equal(getAthEthIndexSignal(107).label, '1차 전환선 도달')
+  assert.equal(getAthEthIndexSignal(119).label, '2차 전환선 도달')
+  assert.equal(getAthEthIndexSignal(131).label, '3차 전환선 도달')
+})
+
+test('ATH ETH index builds a compact Telegram MarkdownV2 channel post', () => {
+  assert.equal(
+    buildAthEthIndexMessage({ athPrice: 0.00496, ethPrice: 2462.61, index: 99.9 }),
+    [
+      '📊 *ATH/ETH 상대강도 지수 99\\.9*',
+      '⚪ 대기 구간',
+      'ATH $0\\.00496 · ETH $2,463',
+      '기준 2026\\-08\\-26 \\= 100 · 전환 107 / 119 / 131 · 위험 90',
+    ].join('\n'),
+  )
+})
+
+test('alt snapshot route queues ATH ETH before unrelated asset snapshots', () => {
+  const route = readFileSync(new URL('../app/api/jobs/alt-snapshots/route.ts', import.meta.url), 'utf8')
+  assert.match(route, /fetchAthEthIndexSnapshot/)
+  assert.match(route, /queueHourlyAthEthIndexPost/)
+  assert.match(route, /symbol:\s*'ATH\/ETH'/)
+  assert.ok(route.indexOf('fetchAthEthIndexSnapshot()') < route.indexOf('for (const asset of ALT_SNAPSHOT_ASSETS)'))
+})
+
+test('ATH ETH queue retries failed rows and treats unique races as duplicates', () => {
+  const posting = readFileSync(new URL('../lib/altSnapshotPosting.ts', import.meta.url), 'utf8')
+  assert.match(posting, /existing\.status === 'failed'/)
+  assert.match(posting, /status:\s*'pending'/)
+  assert.match(posting, /23505/)
 })
 
 test('posting endpoints never accept a public environment variable as their secret', () => {
