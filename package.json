@@ -10,6 +10,7 @@
     "push:brief": "node scripts/pushLatestBriefToSupabase.mjs",
     "migrate:001": "node scripts/migrations/apply_001.mjs",
     "migrate:issue": "node scripts/migrations/apply_002_003.mjs",
+    "migrate:007": "node scripts/migrations/apply_007_mbai_breaking_bridge_queue.mjs",
     "seed:sources": "node scripts/seedSources.mjs",
     "log:run": "node scripts/logRun.mjs",
     "check:news": "node scripts/checkNews.mjs",
@@ -22,7 +23,8 @@
     "job:alt-snapshot": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsAltSnapshot.ps1",
     "job:mbai-bridge-am": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiBridgeAm.ps1",
     "job:mbai-korea-close": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiKoreaClose.ps1",
-    "job:mbai-us-open": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiUsOpen.ps1"
+    "job:mbai-us-open": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiUsOpen.ps1",
+    "job:mbai-breaking-bridge": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiBreakingBridge.ps1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
