@@ -78,7 +78,7 @@ export const recoverStaleSendingRows = async (client: any) => {
   const staleBefore = new Date(Date.now() - SENDING_STALE_MINUTES * 60 * 1000).toISOString()
   const { data: stuck, error } = await client
     .from('channel_posts')
-    .select('id,dedupe_key,article_url,updated_at,created_at')
+    .select('id,lane,dedupe_key,article_url,updated_at,created_at')
     .eq('status', 'sending')
     .lt('updated_at', staleBefore)
     .order('updated_at', { ascending: true })
@@ -88,17 +88,26 @@ export const recoverStaleSendingRows = async (client: any) => {
 
   let recovered = 0
   let skippedDuplicate = 0
+  let skippedDeliveryUnknown = 0
   for (const row of stuck || []) {
-    const { data: currentRow } = await client
-      .from('channel_posts')
-      .select('lane')
-      .eq('id', Number(row.id))
-      .maybeSingle()
+    if (row.lane === 'mbai_breaking_bridge') {
+      await client
+        .from('channel_posts')
+        .update({
+          status: 'skipped',
+          updated_at: new Date().toISOString(),
+          reason: CHANNEL_POST_REASONS.SKIPPED_DELIVERY_UNKNOWN,
+        })
+        .eq('id', Number(row.id))
+        .eq('status', 'sending')
+      skippedDeliveryUnknown += 1
+      continue
+    }
 
     const { data: alreadyPosted } = await client
       .from('channel_posts')
       .select('id')
-      .eq('lane', String(currentRow?.lane || 'breaking'))
+      .eq('lane', String(row.lane || 'breaking'))
       .eq('status', 'posted')
       .or(`dedupe_key.eq.${String(row.dedupe_key || '')},article_url.eq.${String(row.article_url || '')}`)
       .neq('id', Number(row.id))
@@ -137,5 +146,6 @@ export const recoverStaleSendingRows = async (client: any) => {
     scanned: (stuck || []).length,
     recovered,
     skippedDuplicate,
+    skippedDeliveryUnknown,
   }
 }

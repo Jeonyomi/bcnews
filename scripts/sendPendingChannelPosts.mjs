@@ -54,7 +54,18 @@ async function main() {
 
   let recovered = 0
   let recoveredSkippedDuplicate = 0
+  let recoveredSkippedDeliveryUnknown = 0
   for (const row of stale || []) {
+    if (row.lane === 'mbai_breaking_bridge') {
+      await db.from('channel_posts').update({
+        status: 'skipped',
+        updated_at: new Date().toISOString(),
+        reason: 'skipped_delivery_unknown',
+      }).eq('id', row.id).eq('status', 'sending')
+      recoveredSkippedDeliveryUnknown += 1
+      continue
+    }
+
     const { data: dup } = await db
       .from('channel_posts')
       .select('id')
@@ -151,7 +162,7 @@ async function main() {
     }
   }
 
-  console.log(JSON.stringify({ ok: true, stale_threshold_minutes: SENDING_STALE_MINUTES, recovery: { scanned: (stale || []).length, recovered, skipped_duplicate: recoveredSkippedDuplicate }, scanned: (pending || []).length, posted, failed, skipped }, null, 2))
+  console.log(JSON.stringify({ ok: true, stale_threshold_minutes: SENDING_STALE_MINUTES, recovery: { scanned: (stale || []).length, recovered, skipped_duplicate: recoveredSkippedDuplicate, skipped_delivery_unknown: recoveredSkippedDeliveryUnknown }, scanned: (pending || []).length, posted, failed, skipped }, null, 2))
 }
 
 main().catch((e) => {

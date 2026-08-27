@@ -4,6 +4,7 @@ export const CHANNEL_POST_REASONS = {
   SENDING_WORKER: 'sending_worker',
   RECOVERED_STALE_SENDING: 'recovered_stale_sending',
   SKIPPED_DUPLICATE: 'skipped_duplicate',
+  SKIPPED_DELIVERY_UNKNOWN: 'skipped_delivery_unknown',
   SKIPPED_INVALID_PAYLOAD: 'skipped_invalid_payload',
   SKIPPED_SOURCE_DISABLED_FOR_KBN: 'skipped_source_disabled_for_kbn',
   SKIPPED_BAD_NOTICE_TITLE: 'skipped_bad_notice_title',
@@ -42,6 +43,7 @@ export const normalizeChannelPostReason = (reason: string | null | undefined) =>
   if (r === CHANNEL_POST_REASONS.SENDING_WORKER) return 'sending_worker'
   if (r === CHANNEL_POST_REASONS.RECOVERED_STALE_SENDING || r.startsWith('recovered_stale_sending:')) return 'recovered_stale_sending'
   if (r === CHANNEL_POST_REASONS.SKIPPED_DUPLICATE) return 'skipped_duplicate'
+  if (r === CHANNEL_POST_REASONS.SKIPPED_DELIVERY_UNKNOWN) return 'skipped_delivery_unknown'
   if (r === CHANNEL_POST_REASONS.SKIPPED_INVALID_PAYLOAD) return 'skipped_invalid_payload'
   if (r === CHANNEL_POST_REASONS.SKIPPED_SOURCE_DISABLED_FOR_KBN) return 'skipped_source_disabled_for_kbn'
   if (r === CHANNEL_POST_REASONS.SKIPPED_BAD_NOTICE_TITLE) return 'skipped_bad_notice_title'

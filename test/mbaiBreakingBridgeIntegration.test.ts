@@ -33,14 +33,27 @@ test('BREAKING BRIDGE scheduler runs hidden every two minutes and is removable',
 })
 
 test('BREAKING BRIDGE rolling cooldown is atomic inside a service-role-only database transaction', () => {
-  const migration = readFileSync(new URL('../migrations/007_mbai_breaking_bridge_queue.sql', import.meta.url), 'utf8')
+  const migration = readFileSync(new URL('../migrations/008_mbai_breaking_bridge_queue.sql', import.meta.url), 'utf8')
   const posting = readFileSync(new URL('../lib/mbaiBreakingBridgePosting.ts', import.meta.url), 'utf8')
 
   assert.match(migration, /pg_advisory_xact_lock/)
+  assert.match(migration, /set search_path = pg_catalog, public/i)
   assert.match(migration, /for update/)
   assert.match(migration, /interval '2 hours'/)
   assert.match(migration, /grant execute[\s\S]+service_role/i)
   assert.match(migration, /revoke all[\s\S]+public/i)
   assert.match(posting, /\.rpc\('queue_mbai_breaking_bridge_post'/)
   assert.doesNotMatch(posting, /\.from\('channel_posts'\)/)
+})
+
+test('BREAKING BRIDGE ambiguous sending rows are never recovered for automatic resend', () => {
+  const workers = [
+    readFileSync(new URL('../lib/channelPosting.ts', import.meta.url), 'utf8'),
+    readFileSync(new URL('../scripts/sendPendingChannelPosts.mjs', import.meta.url), 'utf8'),
+  ]
+  for (const worker of workers) {
+    assert.match(worker, /row\.lane === 'mbai_breaking_bridge'/)
+    assert.match(worker, /skipped_delivery_unknown/i)
+    assert.ok(worker.indexOf("row.lane === 'mbai_breaking_bridge'") < worker.indexOf("status: 'pending'"))
+  }
 })

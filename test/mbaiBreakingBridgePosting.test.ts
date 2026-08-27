@@ -6,7 +6,7 @@ import { fetchBreakingBridgeSnapshot, queueBreakingBridgePost } from '../lib/mba
 
 const response = (payload: any, status = 200) => new Response(JSON.stringify(payload), { status })
 const observedAt = '2026-08-27T06:10:00.000Z'
-const end = Date.parse(observedAt) / 1000 - 60
+const end = Date.parse(observedAt) / 1000 - 5 * 60
 const yahoo = (baseline: number, latest: number, stale = false) => {
   const last = stale ? end - 3600 : end
   return { chart: { result: [{
@@ -64,41 +64,31 @@ test('BREAKING BRIDGE excludes stale closed markets and rejects non-2xx without 
     if (String(input).includes('ES%3DF')) return response({ internal: 'do-not-leak' }, 429)
     return response(payloadFor(String(input)))
   }) as typeof fetch
-  await assert.rejects(() => fetchBreakingBridgeSnapshot(failed, observedAt), /^Error: mbai_breaking_bridge_fetch_failed:ES=F:429$/)
+  const partial = await fetchBreakingBridgeSnapshot(failed, observedAt)
+  assert.equal(partial.es30, null)
+  assert.equal(partial.nq30, 1)
+  assert.deepEqual(evaluateBreakingSignals(partial).map(({ id }) => id).sort(), [
+    'CRYPTO_SHOCK', 'FX_SHOCK', 'RATE_SHOCK',
+  ])
 })
 
 class Client {
   rows: any[]
-  loseFailedUpdate = false
   constructor(rows: any[] = []) { this.rows = rows }
   async rpc(name: string, args: any) {
     assert.equal(name, 'queue_mbai_breaking_bridge_post')
     const exact = this.rows.find((row) => row.dedupe_key === args.p_dedupe_key)
-    if (exact && exact.status !== 'failed') {
+    if (exact) {
       return { data: { queued: false, reason: 'skipped_duplicate', id: exact.id }, error: null }
     }
     const since = Date.parse(args.p_observed_at) - 2 * 60 * 60 * 1000
     const recent = this.rows.find((row) =>
       row.lane === 'mbai_breaking_bridge'
-      && ['pending', 'sending', 'posted'].includes(row.status)
+      && ['pending', 'sending', 'posted', 'failed', 'skipped'].includes(row.status)
       && [args.p_signal_id, args.p_direction].every((value: string) => row.tags?.includes(value))
       && Math.max(Date.parse(row.created_at), Date.parse(row.updated_at || row.created_at)) >= since)
     if (recent) return { data: { queued: false, reason: 'skipped_duplicate', id: recent.id }, error: null }
-    if (exact?.status === 'failed') {
-      if (this.loseFailedUpdate) {
-        exact.status = 'pending'
-        return { data: { queued: false, reason: 'skipped_duplicate', id: exact.id }, error: null }
-      }
-      Object.assign(exact, {
-        status: 'pending',
-        lane: 'mbai_breaking_bridge',
-        target_channel: '@MBAI_ch',
-        tags: args.p_tags,
-        post_text: args.p_post_text,
-        updated_at: args.p_observed_at,
-      })
-      return { data: { queued: true, reason: 'queued_worker', id: exact.id }, error: null }
-    }
+
     const row = {
       id: this.rows.length + 1,
       status: 'pending',
@@ -137,18 +127,14 @@ test('BREAKING BRIDGE queues only to MB.AI once per signal cooldown bucket', asy
   assert.equal(client.rows[0].dedupe_key, 'mbai_breaking_bridge:risk_divergence:stocks_up_crypto_down:2026-08-27T06')
 })
 
-test('BREAKING BRIDGE atomically retries failed rows and loses a retry race safely', async () => {
+test('BREAKING BRIDGE never retries a failed delivery row', async () => {
   const snapshot = await liveSnapshot()
   const primary = selectPrimarySignal(evaluateBreakingSignals(snapshot))
   assert.ok(primary)
   const key = 'mbai_breaking_bridge:risk_divergence:stocks_up_crypto_down:2026-08-27T06'
-  const retryClient = new Client([{ id: 7, status: 'failed', dedupe_key: key }])
-  assert.equal((await queueBreakingBridgePost(retryClient, snapshot, primary)).queued, true)
-  assert.equal(retryClient.rows[0].status, 'pending')
-
-  const raceClient = new Client([{ id: 8, status: 'failed', dedupe_key: key }])
-  raceClient.loseFailedUpdate = true
-  assert.equal((await queueBreakingBridgePost(raceClient, snapshot, primary)).queued, false)
+  const client = new Client([{ id: 7, status: 'failed', dedupe_key: key }])
+  assert.equal((await queueBreakingBridgePost(client, snapshot, primary)).queued, false)
+  assert.equal(client.rows[0].status, 'failed')
 })
 
 test('BREAKING BRIDGE does not retry a failed bucket when the same signal was recently posted', async () => {
@@ -171,21 +157,39 @@ test('BREAKING BRIDGE does not retry a failed bucket when the same signal was re
   assert.equal(client.rows[0].status, 'failed')
 })
 
-test('BREAKING BRIDGE cooldown starts again from a late failed-row retry', async () => {
-  const retrySnapshot = { ...(await liveSnapshot()), observedAt: '2026-08-27T07:59:00.000Z' }
-  const primary = selectPrimarySignal(evaluateBreakingSignals(retrySnapshot))
+test('BREAKING BRIDGE failed delivery suppresses a new bucket within the rolling cooldown', async () => {
+  const failedSnapshot = { ...(await liveSnapshot()), observedAt: '2026-08-27T07:59:00.000Z' }
+  const primary = selectPrimarySignal(evaluateBreakingSignals(failedSnapshot))
   assert.ok(primary)
   const client = new Client([{
     id: 7,
     status: 'failed',
     dedupe_key: 'mbai_breaking_bridge:risk_divergence:stocks_up_crypto_down:2026-08-27T06',
-    created_at: '2026-08-27T06:01:00.000Z',
-    updated_at: '2026-08-27T06:02:00.000Z',
+    lane: 'mbai_breaking_bridge',
+    tags: ['RISK_DIVERGENCE', 'stocks_up_crypto_down'],
+    created_at: '2026-08-27T07:59:00.000Z',
+    updated_at: '2026-08-27T07:59:00.000Z',
   }])
-  assert.equal((await queueBreakingBridgePost(client, retrySnapshot, primary)).queued, true)
-
-  const nextBucket = { ...retrySnapshot, observedAt: '2026-08-27T08:03:00.000Z' }
+  const nextBucket = { ...failedSnapshot, observedAt: '2026-08-27T08:03:00.000Z' }
   assert.equal((await queueBreakingBridgePost(client, nextBucket, primary)).queued, false)
+  assert.equal(client.rows.length, 1)
+})
+
+test('BREAKING BRIDGE ambiguous skipped delivery suppresses a new bucket within the rolling cooldown', async () => {
+  const snapshot = { ...(await liveSnapshot()), observedAt: '2026-08-27T08:03:00.000Z' }
+  const primary = selectPrimarySignal(evaluateBreakingSignals(snapshot))
+  assert.ok(primary)
+  const client = new Client([{
+    id: 9,
+    status: 'skipped',
+    reason: 'skipped_delivery_unknown',
+    dedupe_key: 'mbai_breaking_bridge:risk_divergence:stocks_up_crypto_down:2026-08-27T06',
+    lane: 'mbai_breaking_bridge',
+    tags: ['RISK_DIVERGENCE', 'stocks_up_crypto_down'],
+    created_at: '2026-08-27T07:59:00.000Z',
+    updated_at: '2026-08-27T08:01:00.000Z',
+  }])
+  assert.equal((await queueBreakingBridgePost(client, snapshot, primary)).queued, false)
   assert.equal(client.rows.length, 1)
 })
 

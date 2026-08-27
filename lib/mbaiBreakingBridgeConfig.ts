@@ -68,7 +68,7 @@ export const calculateSeriesChange = (series: CandleSeries, lookbackMinutes: num
   return round(((latest.value - baseline.value) / baseline.value) * 100)
 }
 
-export const calculateFreshSeriesChange = (
+const selectFreshWindow = (
   series: CandleSeries,
   lookbackMinutes: number,
   observedAt: string,
@@ -76,14 +76,27 @@ export const calculateFreshSeriesChange = (
 ) => {
   const observedTimestamp = new Date(observedAt).getTime() / 1000
   if (!Number.isFinite(observedTimestamp)) throw new Error('invalid_breaking_bridge_observed_at')
-  const latest = series.points[series.points.length - 1]
-  const ageSeconds = observedTimestamp - latest.timestamp
-  if (ageSeconds < -300) throw new Error(`future_candle_timestamp:${series.symbol}`)
-  if (ageSeconds > maxAgeMinutes * 60) return null
+  const sourceLatest = series.points[series.points.length - 1]
+  if (sourceLatest.timestamp - observedTimestamp > 300) {
+    throw new Error(`future_candle_timestamp:${series.symbol}`)
+  }
+  const latest = [...series.points].reverse().find((point) => point.timestamp + 5 * 60 <= observedTimestamp)
+  if (!latest || observedTimestamp - latest.timestamp > maxAgeMinutes * 60) return null
   const target = latest.timestamp - lookbackMinutes * 60
   const baseline = [...series.points].reverse().find((point) => point.timestamp <= target)
-  if (!baseline || target - baseline.timestamp > maxAgeMinutes * 60) return null
-  return round(((latest.value - baseline.value) / baseline.value) * 100)
+  if (!baseline || target - baseline.timestamp > 5 * 60) return null
+  return { latest, baseline }
+}
+
+export const calculateFreshSeriesChange = (
+  series: CandleSeries,
+  lookbackMinutes: number,
+  observedAt: string,
+  maxAgeMinutes: number,
+) => {
+  const window = selectFreshWindow(series, lookbackMinutes, observedAt, maxAgeMinutes)
+  if (!window) return null
+  return round(((window.latest.value - window.baseline.value) / window.baseline.value) * 100)
 }
 
 export const calculateFreshSeriesDelta = (
@@ -93,11 +106,9 @@ export const calculateFreshSeriesDelta = (
   maxAgeMinutes: number,
   multiplier = 1,
 ) => {
-  if (calculateFreshSeriesChange(series, lookbackMinutes, observedAt, maxAgeMinutes) == null) return null
-  const latest = series.points[series.points.length - 1]
-  const target = latest.timestamp - lookbackMinutes * 60
-  const baseline = [...series.points].reverse().find((point) => point.timestamp <= target)!
-  return round((latest.value - baseline.value) * multiplier)
+  const window = selectFreshWindow(series, lookbackMinutes, observedAt, maxAgeMinutes)
+  if (!window) return null
+  return round((window.latest.value - window.baseline.value) * multiplier)
 }
 
 const signal = (

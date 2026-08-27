@@ -31,12 +31,33 @@ test('BREAKING BRIDGE parses ordered Yahoo and Coinbase candles and calculates a
   ], 'BTC-USD')
   assert.deepEqual(coinbase.points, yahoo.points)
   assert.throws(() => calculateSeriesChange(yahoo, 60), /insufficient_series_lookback/)
-  assert.equal(calculateFreshSeriesChange(yahoo, 15, '1970-01-01T00:33:20.000Z', 10), 4)
+  assert.equal(calculateFreshSeriesChange(yahoo, 15, '1970-01-01T00:36:40.000Z', 10), 4)
   assert.equal(calculateFreshSeriesChange(yahoo, 15, '1970-01-01T01:00:00.000Z', 10), null)
   assert.equal(calculateFreshSeriesChange({
     symbol: 'GAPPED',
     points: [{ timestamp: 1000, value: 100 }, { timestamp: 1900, value: 104 }],
   }, 5, '1970-01-01T00:33:20.000Z', 5), null)
+})
+
+test('BREAKING BRIDGE rejects stretched lookbacks and ignores an unclosed five-minute candle', () => {
+  const observedAt = '2026-08-27T06:10:00.000Z'
+  const observed = Date.parse(observedAt) / 1000
+  assert.equal(calculateFreshSeriesChange({
+    symbol: 'STRETCHED',
+    points: [
+      { timestamp: observed - 45 * 60, value: 100 },
+      { timestamp: observed - 5 * 60, value: 110 },
+    ],
+  }, 30, observedAt, 15), null)
+
+  assert.equal(calculateFreshSeriesChange({
+    symbol: 'UNCLOSED',
+    points: [
+      { timestamp: observed - 36 * 60, value: 100 },
+      { timestamp: observed - 6 * 60, value: 101 },
+      { timestamp: observed - 60, value: 120 },
+    ],
+  }, 30, observedAt, 15), 1)
 })
 
 const baseSnapshot = (overrides: Partial<BreakingBridgeSnapshot> = {}): BreakingBridgeSnapshot => ({

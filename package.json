@@ -10,7 +10,7 @@
     "push:brief": "node scripts/pushLatestBriefToSupabase.mjs",
     "migrate:001": "node scripts/migrations/apply_001.mjs",
     "migrate:issue": "node scripts/migrations/apply_002_003.mjs",
-    "migrate:007": "node scripts/migrations/apply_007_mbai_breaking_bridge_queue.mjs",
+    "migrate:008": "node scripts/migrations/apply_008_mbai_breaking_bridge_queue.mjs",
     "seed:sources": "node scripts/seedSources.mjs",
     "log:run": "node scripts/logRun.mjs",
     "check:news": "node scripts/checkNews.mjs",

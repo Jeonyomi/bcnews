@@ -45,32 +45,37 @@ export const fetchBreakingBridgeSnapshot = async (
   fetchImpl: typeof fetch = fetch,
   observedAt = new Date().toISOString(),
 ): Promise<BreakingBridgeSnapshot> => {
-  const [esRaw, nqRaw, tnxRaw, dxyRaw, krwRaw, btcRaw, ethRaw] = await Promise.all([
-    fetchJson(SOURCE_URLS.es, 'ES=F', fetchImpl),
-    fetchJson(SOURCE_URLS.nq, 'NQ=F', fetchImpl),
-    fetchJson(SOURCE_URLS.tnx, '^TNX', fetchImpl),
-    fetchJson(SOURCE_URLS.dxy, 'DX-Y.NYB', fetchImpl),
-    fetchJson(SOURCE_URLS.krw, 'KRW=X', fetchImpl),
-    fetchJson(SOURCE_URLS.btc, 'BTC-USD', fetchImpl),
-    fetchJson(SOURCE_URLS.eth, 'ETH-USD', fetchImpl),
-  ])
-  const es = parseYahooCandleSeries(esRaw, 'ES=F')
-  const nq = parseYahooCandleSeries(nqRaw, 'NQ=F')
-  const tnx = parseYahooCandleSeries(tnxRaw, '^TNX')
-  const dxy = parseYahooCandleSeries(dxyRaw, 'DX-Y.NYB')
-  const krw = parseYahooCandleSeries(krwRaw, 'KRW=X')
-  const btc = parseCoinbaseCandleSeries(btcRaw, 'BTC-USD')
-  const eth = parseCoinbaseCandleSeries(ethRaw, 'ETH-USD')
-  return {
-    observedAt,
-    es30: calculateFreshSeriesChange(es, 30, observedAt, 15),
-    nq30: calculateFreshSeriesChange(nq, 30, observedAt, 15),
-    tnx30Bps: calculateFreshSeriesDelta(tnx, 30, observedAt, 15, 100),
-    dxy30: calculateFreshSeriesChange(dxy, 30, observedAt, 15),
-    krw30: calculateFreshSeriesChange(krw, 30, observedAt, 15),
-    btc60: calculateFreshSeriesChange(btc, 60, observedAt, 10),
-    eth60: calculateFreshSeriesChange(eth, 60, observedAt, 10),
+  const safeMetric = async <T>(load: () => Promise<T>): Promise<T | null> => {
+    try {
+      return await load()
+    } catch {
+      return null
+    }
   }
+  const [es30, nq30, tnx30Bps, dxy30, krw30, btc60, eth60] = await Promise.all([
+    safeMetric(async () => calculateFreshSeriesChange(
+      parseYahooCandleSeries(await fetchJson(SOURCE_URLS.es, 'ES=F', fetchImpl), 'ES=F'), 30, observedAt, 15,
+    )),
+    safeMetric(async () => calculateFreshSeriesChange(
+      parseYahooCandleSeries(await fetchJson(SOURCE_URLS.nq, 'NQ=F', fetchImpl), 'NQ=F'), 30, observedAt, 15,
+    )),
+    safeMetric(async () => calculateFreshSeriesDelta(
+      parseYahooCandleSeries(await fetchJson(SOURCE_URLS.tnx, '^TNX', fetchImpl), '^TNX'), 30, observedAt, 15, 100,
+    )),
+    safeMetric(async () => calculateFreshSeriesChange(
+      parseYahooCandleSeries(await fetchJson(SOURCE_URLS.dxy, 'DX-Y.NYB', fetchImpl), 'DX-Y.NYB'), 30, observedAt, 15,
+    )),
+    safeMetric(async () => calculateFreshSeriesChange(
+      parseYahooCandleSeries(await fetchJson(SOURCE_URLS.krw, 'KRW=X', fetchImpl), 'KRW=X'), 30, observedAt, 15,
+    )),
+    safeMetric(async () => calculateFreshSeriesChange(
+      parseCoinbaseCandleSeries(await fetchJson(SOURCE_URLS.btc, 'BTC-USD', fetchImpl), 'BTC-USD'), 60, observedAt, 10,
+    )),
+    safeMetric(async () => calculateFreshSeriesChange(
+      parseCoinbaseCandleSeries(await fetchJson(SOURCE_URLS.eth, 'ETH-USD', fetchImpl), 'ETH-USD'), 60, observedAt, 10,
+    )),
+  ])
+  return { observedAt, es30, nq30, tnx30Bps, dxy30, krw30, btc60, eth60 }
 }
 
 export const getBreakingBridgeConfig = () => ({
