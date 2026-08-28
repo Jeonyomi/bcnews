@@ -213,10 +213,56 @@ export const buildRequiredPickDedupeKey = (date: string, market: RequiredPickMar
   return `mbai_hot24:${date}:${market}:${kind}`
 }
 
-const marketLabel = (market: RequiredPickMarket) => ({ KOREA: '국장', US: '미장', CRYPTO: '크립토' }[market])
 const formatTurnover = (leader: TurnoverLeader) => leader.currency === 'KRW'
   ? `${(leader.turnover / 1_000_000_000_000).toFixed(2)}조원`
   : `$${(leader.turnover / 1_000_000_000).toFixed(2)}B`
+
+const newsNextCheck: Record<RequiredPickMarket, string> = {
+  KOREA: '다음 거래일 외국인·기관 수급이 이어지는지, 영향이 관련 업종으로 번지는지 확인합니다.',
+  US: '다음 세션 지수 선물과 동종 종목이 같은 방향으로 움직이는지, 금리 변화가 흐름을 되돌리는지 확인합니다.',
+  CRYPTO: '후속 보도가 실제 가격과 현물 거래대금으로 이어지는지, 비트코인과 주요 알트코인이 같은 방향으로 반응하는지 확인합니다.',
+}
+
+const newsMarketInterpretation: Record<RequiredPickMarket, string> = {
+  KOREA: '국내 증시에서는 헤드라인 자체보다 외국인·기관 수급과 주도 업종의 확산 여부가 실제 영향력을 가릅니다. 기사 이후 가격과 수급이 함께 움직여야 시장 재료로 확인할 수 있습니다.',
+  US: '미국 시장에서는 뉴스가 해당 종목을 넘어 동종주와 지수로 번지는지가 중요합니다. 기사 이후 가격과 거래대금이 함께 반응해야 시장 전체 재료로 볼 수 있습니다.',
+  CRYPTO: '크립토 시장에서는 정책·상품 뉴스와 실제 가격 반응이 자주 엇갈립니다. 현물 거래대금과 주요 코인의 동반 움직임이 확인돼야 영향이 이어졌다고 볼 수 있습니다.',
+}
+const normalizedNarrative = (value: string) => String(value || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '')
+const distinctNewsInterpretation = (candidate: RequiredNewsCandidate, market: RequiredPickMarket) => {
+  const summary = normalizedNarrative(candidate.summary)
+  const explanation = normalizedNarrative(candidate.whyItMatters)
+  return explanation.length >= 20 && (summary.includes(explanation) || explanation.includes(summary))
+    ? newsMarketInterpretation[market]
+    : candidate.whyItMatters
+}
+
+const assetDirection = (changePercent: number) => Math.abs(changePercent) < 0.1
+  ? '보합권'
+  : changePercent > 0 ? '상승' : '하락'
+const withTopicParticle = (name: string) => {
+  const last = name.at(-1) || ''
+  const code = last.charCodeAt(0)
+  if (code >= 0xac00 && code <= 0xd7a3) return `${name}${(code - 0xac00) % 28 === 0 ? '는' : '은'}`
+  return `${name}은`
+}
+const formatAssetPrice = (leader: TurnoverLeader) => leader.currency === 'KRW'
+  ? `${leader.price.toLocaleString('en-US')}원`
+  : `$${leader.price.toLocaleString('en-US')}`
+const withInstrumentalParticle = (value: string) => {
+  const last = value.at(-1) || ''
+  const code = last.charCodeAt(0)
+  if (code < 0xac00 || code > 0xd7a3) return `${value}로`
+  const finalConsonant = (code - 0xac00) % 28
+  return `${value}${finalConsonant === 0 || finalConsonant === 8 ? '로' : '으로'}`
+}
+const assetNextCheck = (leader: TurnoverLeader) => {
+  const direction = assetDirection(leader.changePercent)
+  if (leader.market === 'CRYPTO') {
+    return `다음 24시간에도 거래대금이 유지되는지, ${direction === '보합권' ? '가격 방향이 새로 정해지는지' : `${direction} 흐름이 주요 코인으로 확산되는지`} 확인합니다.`
+  }
+  return `다음 거래일에도 거래대금이 유지되는지, ${direction === '보합권' ? '가격 방향이 새로 정해지는지' : `${direction} 흐름이 동종 종목과 관련 업종으로 이어지는지`} 확인합니다.`
+}
 
 export const buildRequiredPickMessage = (
   pick: { market: RequiredPickMarket; kind: 'NEWS'; news: RequiredNewsCandidate }
@@ -231,19 +277,30 @@ export const buildRequiredPickMessage = (
   const lines = pick.kind === 'NEWS'
     ? [
       `🔥 *HOT 24 \\· ${pick.market} NEWS*`, `*${escapeMarkdownV2(pick.news.title)}*`, '',
-      '📰 *오늘의 관심 뉴스*', escapeMarkdownV2(pick.news.summary), '',
-      '💡 *왜 중요한가*', escapeMarkdownV2(pick.news.whyItMatters), '',
-      `관심도: HOT ${escapeMarkdownV2(pick.news.hotScore.toFixed(1))} · 독립 관련 출처 ${pick.news.updateCount}`,
-      `출처: ${escapeMarkdownV2(pick.news.sourceName)}`,
+      '📰 *무슨 일이 있었나*', escapeMarkdownV2(pick.news.summary), '',
+      '🔎 *시장은 이렇게 읽는다*', escapeMarkdownV2(distinctNewsInterpretation(pick.news, pick.market)), '',
+      '👀 *다음 체크*', escapeMarkdownV2(newsNextCheck[pick.market]), '',
+      `관심 신호: HOT ${escapeMarkdownV2(pick.news.hotScore.toFixed(1))} · 독립 관련 출처 ${pick.news.updateCount}`,
+      `원문: ${escapeMarkdownV2(pick.news.sourceName)}`,
     ]
-    : [
-      `🔥 *HOT 24 \\· ${pick.market} ASSET*`, `*${escapeMarkdownV2(pick.asset.name)} \\(${escapeMarkdownV2(pick.asset.symbol)}\\)*`, '',
-      '📊 *오늘 거래대금 상위 자산*',
-      escapeMarkdownV2(`가격 ${pick.asset.price.toLocaleString('en-US')} · 변화 ${pick.asset.changePercent >= 0 ? '+' : ''}${pick.asset.changePercent.toFixed(2)}%`),
-      escapeMarkdownV2(`거래대금 ${formatTurnover(pick.asset)}`), '',
-      '💡 *왜 중요한가*', escapeMarkdownV2(`${marketLabel(pick.market)}에서 실제 자금이 가장 집중된 고유동성 자산 중 하나입니다. 다음 세션에도 거래대금이 유지되는지 확인해야 합니다.`), '',
-      `출처: ${escapeMarkdownV2(pick.asset.source)} · 기준 세션 ${escapeMarkdownV2(pick.asset.sessionKey)}`,
-    ]
+    : (() => {
+      const direction = assetDirection(pick.asset.changePercent)
+      const period = pick.market === 'CRYPTO' ? '최근 24시간' : `${pick.asset.sessionKey} 세션`
+      const move = direction === '보합권'
+        ? `${Math.abs(pick.asset.changePercent).toFixed(2)}%로 보합권에 머물렀습니다.`
+        : `${Math.abs(pick.asset.changePercent).toFixed(2)}% ${direction}했습니다.`
+      const scene = `${withTopicParticle(pick.asset.name)} ${period} ${formatAssetPrice(pick.asset)}에 거래됐고, ${move} 거래대금은 ${withInstrumentalParticle(formatTurnover(pick.asset))} 집계됐습니다.`
+      const meaning = direction === '보합권'
+        ? '가격은 보합권이었지만 큰 거래대금이 실렸습니다. 방향은 제한적이어도 실제 매수·매도 공방과 시장의 관심은 컸다는 뜻입니다. 다만 거래대금만으로 다음 방향을 단정할 수는 없습니다.'
+        : `${direction}과 함께 큰 거래대금이 실렸습니다. 단순 등락보다 실제 매수·매도 공방과 시장의 관심이 컸다는 뜻입니다. 다만 거래대금만으로 움직임의 원인을 단정할 수는 없습니다.`
+      return [
+        `🔥 *HOT 24 \\· ${pick.market} ASSET*`, `*${escapeMarkdownV2(pick.asset.name)} \\(${escapeMarkdownV2(pick.asset.symbol)}\\)*`, '',
+        '📊 *오늘의 장면*', escapeMarkdownV2(scene), '',
+        '🔎 *숫자가 말하는 것*', escapeMarkdownV2(meaning), '',
+        '👀 *다음 체크*', escapeMarkdownV2(assetNextCheck(pick.asset)), '',
+        `근거: ${escapeMarkdownV2(pick.asset.source)} · 기준 세션 ${escapeMarkdownV2(pick.asset.sessionKey)}`,
+      ]
+    })()
   const message = [...lines, `조회: ${escapeMarkdownV2(observedKst)} KST`, '', '※ 투자 판단을 위한 참고 정보이며 매수·매도 권유가 아닙니다\.'].join('\n')
   if (message.length > 3900) throw new Error('required_pick_message_too_long')
   return message

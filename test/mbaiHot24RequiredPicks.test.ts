@@ -165,6 +165,59 @@ test('required picks use market-complete distributed windows including New York 
   assert.equal(getRequiredPickExecutionContext('US', new Date('2026-08-28T20:20:00.000Z')).inWindow, false)
 })
 
+test('NEWS message tells a sourced story from event to market implication and next check', () => {
+  const candidate = news({
+    title: '엔비디아 실적 호조와 한은 결정에 코스피 반등',
+    summary: '엔비디아 실적이 예상치를 웃돈 가운데 한국은행 결정 이후 반도체주를 중심으로 코스피가 반등했습니다.',
+    whyItMatters: '미국 AI 투자 기대와 국내 금리 경로가 동시에 반도체 수급에 영향을 주는 구간입니다.',
+    hotScore: 61.2,
+    updateCount: 2,
+  })
+  const message = buildRequiredPickMessage({ market: 'KOREA', kind: 'NEWS', news: candidate }, observedAt)
+  assert.match(message, /무슨 일이 있었나/)
+  assert.match(message, /시장은 이렇게 읽는다/)
+  assert.match(message, /다음 체크/)
+  assert.match(message, /외국인·기관 수급/)
+  assert.ok(message.indexOf('무슨 일이 있었나') < message.indexOf('시장은 이렇게 읽는다'))
+  assert.ok(message.indexOf('시장은 이렇게 읽는다') < message.indexOf('다음 체크'))
+})
+
+test('NEWS message replaces duplicated explanation with market-specific interpretation', () => {
+  const repeated = '엔비디아 실적과 금리 결정이 맞물리며 반도체주를 중심으로 반등했습니다.'
+  const candidate = news({ title: '코스피 반등', summary: repeated, whyItMatters: repeated })
+  const message = buildRequiredPickMessage({ market: 'KOREA', kind: 'NEWS', news: candidate }, observedAt)
+  assert.equal(message.split('반도체주를 중심으로 반등했습니다').length - 1, 1)
+  assert.match(message, /헤드라인 자체보다 외국인·기관 수급/)
+})
+
+test('ASSET message turns price and turnover into a cautious market story', () => {
+  const leader = parseCryptoVolumeLeaders([{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin', current_price: 79000, total_volume: 55_000_000_000, market_cap: 1_500_000_000_000, price_change_percentage_24h: 2.1, last_updated: '2026-08-28T07:00:00.000Z' }], observedAt)[0]
+  const message = buildRequiredPickMessage({ market: 'CRYPTO', kind: 'ASSET', asset: leader }, observedAt)
+  assert.match(message, /오늘의 장면/)
+  assert.match(message, /숫자가 말하는 것/)
+  assert.match(message, /다음 체크/)
+  assert.match(message, /2\\\.10% 상승/)
+  assert.match(message, /실제 매수·매도 공방/)
+  assert.match(message, /다음 24시간에도 거래대금/)
+})
+
+test('ASSET message describes negligible movement as flat instead of directional', () => {
+  const leader = parseCryptoVolumeLeaders([{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin', current_price: 79768, total_volume: 36_260_000_000, market_cap: 1_500_000_000_000, price_change_percentage_24h: 0.02, last_updated: '2026-08-28T07:00:00.000Z' }], observedAt)[0]
+  const message = buildRequiredPickMessage({ market: 'CRYPTO', kind: 'ASSET', asset: leader }, observedAt)
+  assert.match(message, /0\\\.02%로 보합권/)
+  assert.doesNotMatch(message, /0\\\.02% 상승/)
+  assert.match(message, /가격 방향이 새로 정해지는지/)
+})
+
+test('ASSET message uses natural Korean particles and currency units', () => {
+  const leader = parseKoreaTurnoverLeaders([{ stocks: [{ itemCode: '000660', stockName: 'SK하이닉스', stockEndType: 'stock', closePriceRaw: '1653000', fluctuationsRatio: '-4.45', accumulatedTradingValueRaw: '4720000000000', marketValueRaw: '1000000000000000', localTradedAt: '2026-08-28T15:56:00+09:00', tradableStatus: 'tradable' }] }], observedAt)[0]
+  const message = buildRequiredPickMessage({ market: 'KOREA', kind: 'ASSET', asset: leader }, observedAt)
+  assert.match(message, /SK하이닉스는/)
+  assert.match(message, /1,653,000원/)
+  assert.match(message, /4\\\.72조원으로 집계됐습니다/)
+  assert.doesNotMatch(message, /SK하이닉스은|조원였습니다/)
+})
+
 test('required pick uses a market-kind daily key and a safe MarkdownV2 message', () => {
   assert.equal(buildRequiredPickDedupeKey('2026-08-28', 'US', 'ASSET'), 'mbai_hot24:2026-08-28:US:ASSET')
   const leader = parseCryptoVolumeLeaders([{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin', current_price: 79000, total_volume: 55_000_000_000, market_cap: 1_500_000_000_000, price_change_percentage_24h: 2.1, last_updated: '2026-08-28T07:00:00.000Z' }], observedAt)[0]
