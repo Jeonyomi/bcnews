@@ -52,8 +52,8 @@ test('BREAKING BRIDGE ambiguous sending rows are never recovered for automatic r
     readFileSync(new URL('../scripts/sendPendingChannelPosts.mjs', import.meta.url), 'utf8'),
   ]
   for (const worker of workers) {
-    assert.match(worker, /row\.lane === 'mbai_breaking_bridge'/)
+    assert.match(worker, /\['mbai_breaking_bridge',\s*'mbai_hot24'\]\.includes\(String\(row\.lane\)\)/)
     assert.match(worker, /skipped_delivery_unknown/i)
-    assert.ok(worker.indexOf("row.lane === 'mbai_breaking_bridge'") < worker.indexOf("status: 'pending'"))
+    assert.ok(worker.indexOf("['mbai_breaking_bridge', 'mbai_hot24'].includes(String(row.lane))") < worker.indexOf("status: 'pending'"))
   }
 })

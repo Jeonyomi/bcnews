@@ -24,7 +24,8 @@
     "job:mbai-bridge-am": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiBridgeAm.ps1",
     "job:mbai-korea-close": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiKoreaClose.ps1",
     "job:mbai-us-open": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiUsOpen.ps1",
-    "job:mbai-breaking-bridge": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiBreakingBridge.ps1"
+    "job:mbai-breaking-bridge": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiBreakingBridge.ps1",
+    "job:mbai-hot24": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduler/Run-BcnewsMbaiHot24.ps1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

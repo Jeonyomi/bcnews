@@ -90,7 +90,7 @@ export const recoverStaleSendingRows = async (client: any) => {
   let skippedDuplicate = 0
   let skippedDeliveryUnknown = 0
   for (const row of stuck || []) {
-    if (row.lane === 'mbai_breaking_bridge') {
+    if (['mbai_breaking_bridge', 'mbai_hot24'].includes(String(row.lane))) {
       await client
         .from('channel_posts')
         .update({

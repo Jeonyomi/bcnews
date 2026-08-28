@@ -56,7 +56,7 @@ async function main() {
   let recoveredSkippedDuplicate = 0
   let recoveredSkippedDeliveryUnknown = 0
   for (const row of stale || []) {
-    if (row.lane === 'mbai_breaking_bridge') {
+    if (['mbai_breaking_bridge', 'mbai_hot24'].includes(String(row.lane))) {
       await db.from('channel_posts').update({
         status: 'skipped',
         updated_at: new Date().toISOString(),
