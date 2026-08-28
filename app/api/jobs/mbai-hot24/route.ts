@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabaseServer'
-import { buildHot24Message } from '@/lib/mbaiHot24Config'
-import {
-  getHot24Config,
-  getHot24ExecutionContext,
-  queueHot24Post,
-  selectHot24FromLiveData,
-} from '@/lib/mbaiHot24Posting'
+import { MBAI_HOT24_ENABLED, MBAI_HOT24_LANE, MBAI_HOT24_TARGET_CHANNEL } from '@/lib/mbaiHot24Posting'
+import { buildRequiredPickMessage, getRequiredPickExecutionContext, type RequiredPickMarket } from '@/lib/mbaiHot24RequiredPicks'
+import { fetchRequiredPicksForMarket, queueRequiredPick } from '@/lib/mbaiHot24RequiredPicksPosting'
 
 export const dynamic = 'force-dynamic'
 
 const getSecret = () => process.env.BCNEWS_CRON_SECRET || process.env.X_CRON_SECRET || process.env.CRON_SECRET
+const MARKETS: RequiredPickMarket[] = ['KOREA', 'US', 'CRYPTO']
 
 export async function POST(request: Request) {
   try {
@@ -23,46 +20,66 @@ export async function POST(request: Request) {
     const url = new URL(request.url)
     const body = await request.json().catch(() => ({} as any))
     const dryRun = url.searchParams.get('dry_run') === 'true' || body?.dry_run === true
-    const config = getHot24Config()
-    if (!config.enabled) {
-      return NextResponse.json({ ok: true, queued: false, dry_run: dryRun, reason: 'skipped_mbai_hot24_disabled', config })
+    const requestedSlot = String(url.searchParams.get('slot') || body?.slot || '').toUpperCase()
+    if (![...MARKETS, 'ALL'].includes(requestedSlot)) {
+      return NextResponse.json({ ok: false, error: 'invalid_slot' }, { status: 400 })
+    }
+    if (requestedSlot === 'ALL' && !dryRun) {
+      return NextResponse.json({ ok: false, error: 'all_slot_requires_dry_run' }, { status: 400 })
+    }
+    if (!MBAI_HOT24_ENABLED) {
+      return NextResponse.json({ ok: true, queued: false, dry_run: dryRun, reason: 'skipped_mbai_hot24_disabled' })
     }
 
     const observedAt = new Date().toISOString()
-    const execution = getHot24ExecutionContext(new Date(observedAt))
-    if (!dryRun && !execution.inWindow) {
-      return NextResponse.json({
-        ok: true, queued: false, dry_run: false, reason: 'skipped_outside_hot24_window',
-        event_type: 'mbai_hot24', execution, config,
-      })
-    }
-
     const client = createSupabaseServerClient()
-    const selected = await selectHot24FromLiveData(client, fetch, observedAt)
-    if (!selected) {
-      return NextResponse.json({
-        ok: true, queued: false, dry_run: dryRun, reason: 'skipped_no_hot24_candidate',
-        event_type: 'mbai_hot24', observed_at: observedAt, execution, config,
-      })
+    const markets = requestedSlot === 'ALL' ? MARKETS : [requestedSlot as RequiredPickMarket]
+    const results: any[] = []
+
+    for (const market of markets) {
+      const execution = getRequiredPickExecutionContext(market, new Date(observedAt))
+      if (!dryRun && !execution.inWindow) {
+        results.push({ market, queued: false, reason: 'skipped_outside_required_pick_window', execution })
+        continue
+      }
+      const picks = await fetchRequiredPicksForMarket(client, market, observedAt, fetch)
+      if (!picks.length) {
+        results.push({ market, queued: false, reason: 'skipped_no_meaningful_required_pick', execution })
+        continue
+      }
+      if (dryRun) {
+        results.push({
+          market, queued: false, reason: 'dry_run_required_picks_selected', execution,
+          picks: picks.map((pick) => ({
+            kind: pick.kind,
+            content_type: `MBAI_HOT24_${market}_${pick.kind}`,
+            headline: pick.kind === 'NEWS' ? pick.news.title : pick.asset.name,
+            score: pick.kind === 'NEWS' ? pick.news.hotScore : undefined,
+            turnover: pick.kind === 'ASSET' ? pick.asset.turnover : undefined,
+            symbol: pick.kind === 'ASSET' ? pick.asset.symbol : undefined,
+            source: pick.kind === 'NEWS' ? pick.news.sourceName : pick.asset.source,
+            post_text: buildRequiredPickMessage(pick, observedAt),
+          })),
+        })
+        continue
+      }
+      const queued = []
+      for (const pick of picks) {
+        const result = await queueRequiredPick(client, pick, observedAt)
+        queued.push({ kind: pick.kind, content_type: `MBAI_HOT24_${market}_${pick.kind}`, ...result })
+      }
+      results.push({ market, execution, queued: queued.some((item) => item.queued), picks: queued })
     }
 
-    if (dryRun) {
-      return NextResponse.json({
-        ok: true, queued: false, dry_run: true, reason: 'dry_run_candidate_selected',
-        event_type: 'mbai_hot24', observed_at: observedAt, issue_id: selected.issueId,
-        content_type: selected.contentType, hot_score: selected.hotScore,
-        headline: selected.asset?.name || selected.title,
-        post_text: buildHot24Message(selected, observedAt), execution, config,
-      })
-    }
-
-    const queued = await queueHot24Post(client, selected, observedAt)
     return NextResponse.json({
-      ok: true, queued: queued.queued, dry_run: false, reason: queued.reason,
-      event_type: 'mbai_hot24', observed_at: observedAt, issue_id: selected.issueId,
-      content_type: selected.contentType, hot_score: selected.hotScore,
-      dedupe_key: queued.dedupeKey, target_channel: config.targetChannel,
-      post_text: queued.postText, execution, config,
+      ok: true,
+      dry_run: dryRun,
+      queued: results.some((result) => result.queued),
+      queued_count: results.flatMap((result) => result.picks || []).filter((pick) => pick.queued).length,
+      observed_at: observedAt,
+      target_channel: MBAI_HOT24_TARGET_CHANNEL,
+      lane: MBAI_HOT24_LANE,
+      results,
     })
   } catch (error) {
     console.error('POST /api/jobs/mbai-hot24 failed', error)

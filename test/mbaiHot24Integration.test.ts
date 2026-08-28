@@ -2,39 +2,46 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-test('HOT 24 route is private, supports dry run, and stays silent below threshold', () => {
+test('HOT 24 route is private, supports six-slot dry run, and stays silent below meaningful floor', () => {
   const route = readFileSync(new URL('../app/api/jobs/mbai-hot24/route.ts', import.meta.url), 'utf8')
   assert.match(route, /BCNEWS_CRON_SECRET\s*\|\|\s*process\.env\.X_CRON_SECRET\s*\|\|\s*process\.env\.CRON_SECRET/)
   assert.match(route, /x-cron-secret/)
   assert.doesNotMatch(route, /NEXT_PUBLIC_CRON_SECRET/)
   assert.match(route, /dry_run/)
-  assert.match(route, /skipped_no_hot24_candidate/)
-  assert.match(route, /queueHot24Post/)
-  assert.match(route, /event_type:\s*'mbai_hot24'/)
+  assert.match(route, /skipped_no_meaningful_required_pick/)
+  assert.match(route, /queueRequiredPick/)
+  assert.match(route, /MBAI_HOT24_\$\{market\}_\$\{pick\.kind\}/)
   assert.match(route, /internal_error/)
   assert.doesNotMatch(route, /error:\s*String\(error\)/)
 })
 
-test('HOT 24 scheduler runs hidden daily at 20:30 and unregisters cleanly', () => {
+test('HOT 24 schedulers run hidden at Korea, crypto and New York-complete windows', () => {
   const register = readFileSync(new URL('../scripts/scheduler/Register-BcnewsMbaiHot24Task.ps1', import.meta.url), 'utf8')
   const runner = readFileSync(new URL('../scripts/scheduler/Run-BcnewsMbaiHot24.ps1', import.meta.url), 'utf8')
   const launcher = readFileSync(new URL('../scripts/scheduler/Run-BcnewsMbaiHot24-Hidden.vbs', import.meta.url), 'utf8')
   const unregister = readFileSync(new URL('../scripts/scheduler/Unregister-BcnewsScheduledTasks.ps1', import.meta.url), 'utf8')
 
-  assert.match(register, /BCN-MBAI-Hot24-2030/)
+  assert.match(register, /BCN-MBAI-Hot24-Korea-1605/)
+  assert.match(register, /BCN-MBAI-Hot24-Crypto-2030/)
+  assert.match(register, /BCN-MBAI-Hot24-USClose-NY1720/)
   assert.match(register, /-Daily/)
+  assert.match(register, /16:05/)
   assert.match(register, /20:30/)
+  assert.match(register, /06:20/)
+  assert.match(register, /07:20/)
   assert.match(register, /Korea Standard Time/)
   assert.match(register, /Get-TimeZone/)
   assert.match(register, /wscript\.exe/i)
   assert.match(runner, /api\/jobs\/mbai-hot24/)
   assert.match(launcher, /Run-BcnewsMbaiHot24\.ps1/)
-  assert.match(unregister, /BCN-MBAI-Hot24-2030/)
+  assert.match(unregister, /BCN-MBAI-Hot24-Korea-1605/)
+  assert.match(unregister, /BCN-MBAI-Hot24-Crypto-2030/)
+  assert.match(unregister, /BCN-MBAI-Hot24-USClose-NY1720/)
 })
 
 test('HOT 24 canonical issue cooldown is atomic for every delivery state', () => {
-  const migration = readFileSync(new URL('../migrations/009_mbai_hot24_queue.sql', import.meta.url), 'utf8')
-  const posting = readFileSync(new URL('../lib/mbaiHot24Posting.ts', import.meta.url), 'utf8')
+  const migration = readFileSync(new URL('../migrations/010_mbai_hot24_required_picks.sql', import.meta.url), 'utf8')
+  const posting = readFileSync(new URL('../lib/mbaiHot24RequiredPicksPosting.ts', import.meta.url), 'utf8')
 
   assert.match(migration, /queue_mbai_hot24_post/)
   assert.match(migration, /pg_advisory_xact_lock/)
@@ -46,7 +53,7 @@ test('HOT 24 canonical issue cooldown is atomic for every delivery state', () =>
   assert.match(migration, /revoke all[\s\S]+public, anon, authenticated/i)
   assert.match(posting, /\.rpc\('queue_mbai_hot24_post'/)
   assert.doesNotMatch(posting, /\.from\('channel_posts'\)/)
-  assert.match(posting, /Issue:/)
+  assert.match(posting, /Pick:/)
 })
 
 test('HOT 24 is fail-closed to the MB.AI channel, ranks all candidates, and prevents ambiguous resend', () => {

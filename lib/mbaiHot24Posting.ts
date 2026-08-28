@@ -184,8 +184,10 @@ export const fetchHot24Candidates = async (
 
 export const getHot24Config = () => ({
   enabled: MBAI_HOT24_ENABLED, targetChannel: MBAI_HOT24_TARGET_CHANNEL,
-  lane: MBAI_HOT24_LANE, contentType: 'MBAI_HOT24', schedule: 'daily 20:30 Asia/Seoul',
-  publishThreshold: 65, dailyCap: 1, sources: ['MB.AI News Intelligence', 'Yahoo Finance', 'Coinbase'],
+  lane: MBAI_HOT24_LANE, contentType: 'MBAI_HOT24_REQUIRED_PICKS',
+  schedules: ['KOREA 16:05 Asia/Seoul', 'CRYPTO 20:30 Asia/Seoul', 'US 17:20 America/New_York'],
+  primaryPublishThreshold: 65, requiredNewsImportanceFloor: 50, requiredNewsHotFloor: 55, dailyCap: 6,
+  sources: ['MB.AI News Intelligence', 'Naver Finance', 'Yahoo Finance', 'CoinGecko'],
 })
 
 export const selectHot24FromLiveData = async (client: any, fetchImpl: typeof fetch = fetch, observedAt = new Date().toISOString()) => {
