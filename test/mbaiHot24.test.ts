@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   buildHot24DedupeKey,
   buildHot24Message,
+  buildVerifiedRelatedCounts,
   evaluateHot24Candidates,
   identifyHot24AssetSymbol,
   isPublishableKoreanNarrative,
@@ -123,6 +124,33 @@ test('HOT 24 only maps precise company aliases to market symbols', () => {
   assert.equal(identifyHot24AssetSymbol('스트래티지 수립과 리스크 관리가 필요하다'), null)
   assert.equal(identifyHot24AssetSymbol('Coinbase shares rally after earnings'), 'COIN')
   assert.equal(identifyHot24AssetSymbol('MicroStrategy bitcoin holdings rise'), 'MSTR')
+})
+
+test('HOT 24 counts only semantically related reports instead of every shared issue id', () => {
+  const counts = buildVerifiedRelatedCounts([
+    { id: 18003, issueId: 144, title: '스트레티지 MSTR 거래량, 델 웃돌았다', summary: 'MSTR 거래량과 비트코인 관련주의 관심이 커졌다.', sourceName: 'Tokenpost' },
+    { id: 18004, issueId: 144, title: 'MSTR 거래량이 주요 기술주를 추월했다', summary: '마이크로스트래티지 거래량과 투자자 관심 증가를 분석했다.', sourceName: 'Reuters' },
+    { id: 18005, issueId: 144, title: 'MSTR 거래량과 투자자 관심 증가', summary: '스트레티지 거래량이 늘며 투자자 관심이 이어졌다.', sourceName: 'Tokenpost' },
+    { id: 18007, issueId: 144, title: '1인치 취약점 32건 보상', summary: '디파이 프로토콜이 보안 취약점 신고자에게 보상했다.', sourceName: 'Tokenpost' },
+    { id: 17960, issueId: 144, title: '스테이블코인 수출대금 원화 정산 구축', summary: '국내 사업자가 스테이블코인 결제 시스템을 구축했다.', sourceName: 'Tokenpost' },
+    { id: 18101, issueId: 144, title: 'BTC ETF 순유입 확대', summary: '비트코인 현물 ETF에 기관 자금이 유입됐다.', sourceName: 'Reuters' },
+    { id: 18102, issueId: 144, title: 'BTC 공매도 고래 손실 확대', summary: '비트코인 숏 포지션을 보유한 고래의 손실이 커졌다.', sourceName: 'Bloomberg' },
+    { id: 18201, issueId: 144, title: 'Advanced Micro Devices earnings guidance rises', summary: 'AMD quarterly revenue beat expectations.', sourceName: 'Reuters' },
+    { id: 18202, issueId: 144, title: 'Advanced Micro Devices appoints new director', summary: 'AMD named a new independent board member.', sourceName: 'Bloomberg' },
+    { id: 18301, issueId: 144, title: 'BTC ETF 기관 순유입 지속', summary: '비트코인 현물 ETF 기관 순유입이 이어졌다.', sourceName: 'Reuters' },
+    { id: 18302, issueId: 144, title: 'ETF 기관 순유입 지속', summary: '현물 ETF 기관 순유입이 이어졌다.', sourceName: 'Bloomberg' },
+  ])
+  assert.equal(counts.get(18003), 1)
+  assert.equal(counts.get(18004), 1)
+  assert.equal(counts.get(18005), 1)
+  assert.equal(counts.get(18007), 0)
+  assert.equal(counts.get(17960), 0)
+  assert.equal(counts.get(18101), 0)
+  assert.equal(counts.get(18102), 0)
+  assert.equal(counts.get(18201), 0)
+  assert.equal(counts.get(18202), 0)
+  assert.equal(counts.get(18301), 0)
+  assert.equal(counts.get(18302), 0)
 })
 
 test('HOT 24 rejects stale or future Yahoo daily reactions', () => {

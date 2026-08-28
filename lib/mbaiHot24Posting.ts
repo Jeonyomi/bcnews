@@ -2,6 +2,7 @@ import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 import {
   buildHot24DedupeKey,
   buildHot24Message,
+  buildVerifiedRelatedCounts,
   evaluateHot24Candidates,
   identifyHot24AssetSymbol,
   isPublishableKoreanNarrative,
@@ -146,11 +147,16 @@ export const fetchHot24Candidates = async (
   }
   if (!articles.length) return []
 
-  const issueCounts = new Map<number, number>()
-  for (const article of articles) {
-    const key = Number(article.issue_id || article.id)
-    issueCounts.set(key, (issueCounts.get(key) || 0) + 1)
-  }
+  const relatedCounts = buildVerifiedRelatedCounts(articles.map((article: any) => {
+    const source = Array.isArray(article.source) ? article.source[0] : article.source
+    return {
+      id: Number(article.id),
+      issueId: Number(article.issue_id || article.id),
+      title: stripHtml(String(article.title || '')),
+      summary: stripHtml(String(article.summary_short || '')),
+      sourceName: String(source?.name || 'unknown'),
+    }
+  }))
 
   const candidates: Hot24Candidate[] = articles.flatMap((article: any) => {
     const source = Array.isArray(article.source) ? article.source[0] : article.source
@@ -169,7 +175,7 @@ export const fetchHot24Candidates = async (
       sourceName: String(source?.name || 'MB.AI verified sources'), sourceTier: String(source?.tier || 'media'),
       articleUrl: String(article.url || 'https://t.me/MBAI_ch'),
       keyEntities: parseJsonArray(issue?.key_entities).map(String), tags: parseJsonArray(issue?.tags).map(String),
-      updateCount: Math.max(0, (issueCounts.get(issueId) || 1) - 1), asset: null,
+      updateCount: relatedCounts.get(Number(article.id)) || 0, asset: null,
     }]
   })
   const reactionCache = new Map<string, Promise<Hot24AssetReaction | null>>()

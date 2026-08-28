@@ -28,6 +28,64 @@ export type Hot24Candidate = {
   asset: Hot24AssetReaction | null
 }
 
+export type Hot24ClusterArticle = {
+  id: number
+  issueId: number
+  title: string
+  summary: string
+  sourceName: string
+}
+
+const CLUSTER_STOP_WORDS = new Set([
+  '관련', '시장', '미국', '국내', '통해', '대한', '이번', '지난', '위한', '했다', '밝혔다',
+  '분석', '전망', '증가', '감소', '확대', '상승', '하락', '기록', '발표', '뉴스', '주식', '가격', '거래',
+])
+const normalizeClusterToken = (value: string) => value.toLowerCase()
+  .replace(/[^0-9a-z가-힣]/g, '')
+  .replace(/(으로|에서|에게|까지|부터|보다|처럼|은|는|이|가|을|를|의|와|과|로|에)$/u, '')
+const clusterTokens = (value: string) => new Set(String(value || '').split(/\s+/)
+  .map(normalizeClusterToken)
+  .filter((token) => token.length >= 2 && !CLUSTER_STOP_WORDS.has(token)))
+const overlapCount = (left: Set<string>, right: Set<string>) => {
+  let count = 0
+  for (const token of left) if (right.has(token)) count += 1
+  return count
+}
+const isClusterAssetToken = (token: string) => HOT24_ASSET_ALIASES.some((asset) =>
+  asset.aliases.some((alias) => clusterTokens(alias).has(token)))
+
+export const buildVerifiedRelatedCounts = (articles: Hot24ClusterArticle[]) => {
+  const prepared = articles.map((article) => {
+    const text = `${article.title} ${article.summary}`
+    return {
+      ...article,
+      symbol: identifyHot24AssetSymbol(text),
+      titleTokens: clusterTokens(article.title),
+      allTokens: clusterTokens(text),
+      eventTokens: new Set([...clusterTokens(text)].filter((token) => !isClusterAssetToken(token))),
+    }
+  })
+  const counts = new Map<number, number>()
+  for (const article of prepared) {
+    const related = new Set<string>()
+    for (const other of prepared) {
+      if (article.id === other.id || article.issueId !== other.issueId) continue
+      if (article.sourceName.trim().toLowerCase() === other.sourceName.trim().toLowerCase()) continue
+      if (Boolean(article.symbol) !== Boolean(other.symbol)) continue
+      if (article.symbol && other.symbol && article.symbol !== other.symbol) continue
+      const titleOverlap = overlapCount(article.titleTokens, other.titleTokens)
+      const allOverlap = overlapCount(article.allTokens, other.allTokens)
+      const eventOverlap = overlapCount(article.eventTokens, other.eventTokens)
+      const sameAsset = Boolean(article.symbol && article.symbol === other.symbol)
+      const isRelated = sameAsset ? eventOverlap >= 2 : titleOverlap >= 2 && allOverlap >= 3
+      if (!isRelated) continue
+      related.add(other.sourceName.trim().toLowerCase())
+    }
+    counts.set(article.id, related.size)
+  }
+  return counts
+}
+
 export type EvaluatedHot24Candidate = Hot24Candidate & {
   hotScore: number
   contentType: 'NEWS' | 'ASSET'
