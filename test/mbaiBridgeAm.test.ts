@@ -68,7 +68,7 @@ test('BRIDGE AM builds a sourced cross-market MarkdownV2 briefing', () => {
     'ETH $2,448 🟠 \\-1\\.02%',
     '',
     '🧭 *오늘의 브리지*',
-    '미국 증시는 위험선호 우위 · 금리 하락은 성장주에 우호적 · 원화 약세는 외국인 수급 부담 · 크립토는 미국 증시 대비 약세',
+    '미국 증시는 위험선호 우위 · 금리 하락은 성장주에 우호적 · 원화 약세는 외국인 수급 부담 · 크립토는 최근 24시간 하락 흐름',
     '',
     '출처: Yahoo Finance · Coinbase',
   ].join('\n'))

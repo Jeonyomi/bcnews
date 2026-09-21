@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
+import { isChannelPostsAdmin, CHANNEL_POSTS_ADMIN_ACTOR } from '@/lib/channelPostsAdmin'
 import { createAdminClient } from '@/lib/supabase'
 import { SENDING_STALE_MINUTES } from '@/lib/channelPosting'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
+  if (!isChannelPostsAdmin(request)) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
   try {
     const url = new URL(request.url)
     const status = (url.searchParams.get('status') || '').trim()
@@ -46,39 +50,38 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (!isChannelPostsAdmin(request)) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
   try {
     const body = await request.json().catch(() => ({}))
     const id = Number(body?.id)
     const action = String(body?.action || '')
-    const approvedBy = String(body?.approvedBy || '@master_billybot')
-    const telegramMessageId = body?.telegramMessageId != null ? Number(body.telegramMessageId) : null
-    const telegramChatId = body?.telegramChatId ? String(body.telegramChatId) : null
+    // Approval is an operator annotation, not proof of Telegram delivery.
+    // Receipt fields and actor names supplied by the caller are never trusted.
 
     if (!Number.isFinite(id) || !['approve', 'skip'].includes(action)) {
       return NextResponse.json({ ok: false, error: 'invalid_request' }, { status: 400 })
     }
 
-    const status = action === 'approve' ? 'posted' : 'skipped'
+    const status = action === 'approve' ? 'pending' : 'skipped'
     const client = createAdminClient()
-    const patch: any = {
+    const patch = {
       status,
       updated_at: new Date().toISOString(),
-      approved_by: approvedBy,
-    }
-    if (status === 'posted') {
-      patch.posted_at = new Date().toISOString()
-      if (Number.isFinite(telegramMessageId as number)) patch.telegram_message_id = telegramMessageId
-      if (telegramChatId) patch.telegram_chat_id = telegramChatId
+      approved_by: CHANNEL_POSTS_ADMIN_ACTOR,
     }
 
     const { data, error } = await client
       .from('channel_posts')
       .update(patch)
       .eq('id', id)
+      .eq('status', 'pending')
       .select('id,status,posted_at,approved_by,telegram_message_id,telegram_chat_id,reason')
-      .single()
+      .maybeSingle()
 
     if (error) throw error
+    if (!data) return NextResponse.json({ ok: false, error: 'state_conflict' }, { status: 409 })
     return NextResponse.json({ ok: true, data })
   } catch (error) {
     console.error('PATCH /api/channel-posts failed', error)

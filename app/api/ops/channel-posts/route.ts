@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isChannelPostsAdmin } from '@/lib/channelPostsAdmin'
 import { createAdminClient } from '@/lib/supabase'
 import { CHANNEL_POST_REASONS, CHANNEL_POST_REASON_VALUES, normalizeChannelPostReason } from '@/lib/channelPostReasons'
 
@@ -41,6 +42,9 @@ const countTop = (items: string[], limit = 8) => {
 }
 
 export async function GET(request: Request) {
+  if (!isChannelPostsAdmin(request)) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
   try {
     const url = new URL(request.url)
     const channel = (url.searchParams.get('channel') || '@Krypto_breaking').trim()

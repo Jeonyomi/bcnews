@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     let claimed = 0
     let posted = 0
     let failed = 0
+    let deliveryUnknown = 0
     let skipped = 0
 
     for (const row of pending || []) {
@@ -79,8 +80,9 @@ export async function POST(request: Request) {
         continue
       }
 
+      let sent: { messageId: number; chatId: string } | undefined
       try {
-        const sent = await sendTelegramMessage(String(row.post_text || ''), String(row.target_channel || ''))
+        sent = await sendTelegramMessage(String(row.post_text || ''), String(row.target_channel || ''))
         const { error: updateError } = await client
           .from('channel_posts')
           .update({
@@ -97,6 +99,24 @@ export async function POST(request: Request) {
         if (updateError) throw updateError
         posted += 1
       } catch (sendErr: any) {
+        if (sent) {
+          // Telegram accepted the send: quarantine instead of claiming delivery failed.
+          // Use the existing skipped/reason taxonomy; no schema migration required.
+          const { error: quarantineError } = await client
+            .from('channel_posts')
+            .update({
+              status: 'skipped',
+              updated_at: new Date().toISOString(),
+              reason: CHANNEL_POST_REASONS.SKIPPED_DELIVERY_UNKNOWN,
+              telegram_message_id: sent.messageId,
+              telegram_chat_id: sent.chatId,
+            })
+            .eq('id', Number(row.id))
+            .eq('status', 'sending')
+          if (quarantineError) throw quarantineError
+          deliveryUnknown += 1
+          continue
+        }
         const failReason = `failed_send:${String(sendErr?.message || sendErr)}`.slice(0, 180)
         await client
           .from('channel_posts')
@@ -110,7 +130,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true, stale_threshold_minutes: SENDING_STALE_MINUTES, recovery: recovered, scanned: (pending || []).length, claimed, posted, failed, skipped })
+    return NextResponse.json({ ok: true, stale_threshold_minutes: SENDING_STALE_MINUTES, recovery: recovered, scanned: (pending || []).length, claimed, posted, failed, skipped, delivery_unknown: deliveryUnknown })
   } catch (error) {
     console.error('POST /api/jobs/send-pending failed', error)
     return NextResponse.json(err(`send_pending_error: ${String(error)}`), { status: 500 })

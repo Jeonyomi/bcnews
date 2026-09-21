@@ -86,7 +86,7 @@ export const buildBridgeInterpretation = (snapshot: BridgeAmSnapshot) => {
     usAverage >= 0.3 ? '미국 증시는 위험선호 우위' : usAverage <= -0.3 ? '미국 증시는 위험회피 우위' : '미국 증시는 혼조권',
     rateBps <= -3 ? '금리 하락은 성장주에 우호적' : rateBps >= 3 ? '금리 상승은 성장주에 부담' : '금리는 중립 범위',
     snapshot.usdKrw.changePercent >= 0.2 ? '원화 약세는 외국인 수급 부담' : snapshot.usdKrw.changePercent <= -0.2 ? '원화 강세는 외국인 수급에 우호적' : '원화는 제한적 움직임',
-    cryptoAverage >= 0.5 ? '크립토는 미국 증시 대비 강세' : cryptoAverage <= -0.5 ? '크립토는 미국 증시 대비 약세' : '크립토는 중립 흐름',
+    cryptoAverage >= 0.5 ? '크립토는 최근 24시간 상승 흐름' : cryptoAverage <= -0.5 ? '크립토는 최근 24시간 하락 흐름' : '크립토는 중립 흐름',
   ]
   return signals.join(' · ')
 }

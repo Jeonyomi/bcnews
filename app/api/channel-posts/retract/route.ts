@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isChannelPostsAdmin, CHANNEL_POSTS_ADMIN_ACTOR } from '@/lib/channelPostsAdmin'
 import { createAdminClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -18,6 +19,9 @@ const callTelegram = async (method: string, payload: object) => {
 }
 
 export async function POST(request: Request) {
+  if (!isChannelPostsAdmin(request)) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
   try {
     const body = await request.json().catch(() => ({}))
     const id = Number(body?.id)
@@ -36,6 +40,7 @@ export async function POST(request: Request) {
       .single()
 
     if (error) throw error
+    if (row?.status !== 'posted') return NextResponse.json({ ok: false, error: 'state_conflict' }, { status: 409 })
     if (!row?.telegram_message_id) return NextResponse.json({ ok: false, error: 'missing_telegram_message_id' }, { status: 400 })
 
     const chatId = row.telegram_chat_id || row.target_channel
@@ -55,13 +60,15 @@ export async function POST(request: Request) {
       .update({
         status: 'skipped',
         updated_at: new Date().toISOString(),
-        approved_by: 'retract',
+        approved_by: CHANNEL_POSTS_ADMIN_ACTOR,
       })
       .eq('id', id)
+      .eq('status', 'posted')
       .select('id,status,telegram_message_id,telegram_chat_id')
-      .single()
+      .maybeSingle()
 
     if (updateErr) throw updateErr
+    if (!updated) return NextResponse.json({ ok: false, error: 'state_conflict' }, { status: 409 })
     return NextResponse.json({ ok: true, data: updated })
   } catch (error) {
     console.error('POST /api/channel-posts/retract failed', error)
