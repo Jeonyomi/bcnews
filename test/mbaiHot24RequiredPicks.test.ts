@@ -193,28 +193,30 @@ test('NEWS message replaces duplicated explanation with market-specific interpre
 test('ASSET message turns price and turnover into a cautious market story', () => {
   const leader = parseCryptoVolumeLeaders([{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin', current_price: 79000, total_volume: 55_000_000_000, market_cap: 1_500_000_000_000, price_change_percentage_24h: 2.1, last_updated: '2026-08-28T07:00:00.000Z' }], observedAt)[0]
   const message = buildRequiredPickMessage({ market: 'CRYPTO', kind: 'ASSET', asset: leader }, observedAt)
-  assert.match(message, /오늘의 장면/)
-  assert.match(message, /숫자가 말하는 것/)
-  assert.match(message, /다음 체크/)
-  assert.match(message, /2\\\.10% 상승/)
-  assert.match(message, /실제 매수·매도 공방/)
-  assert.match(message, /다음 24시간에도 거래대금/)
+  assert.match(message, /조회 시점 가격은/)
+  assert.match(message, /최근 24시간 변동률은/)
+  assert.match(message, /\+2\\\.10%/)
+  assert.match(message, /가격은 상승했습니다/)
+  assert.match(message, /비교한 자료가 없어/)
+  assert.doesNotMatch(message, /큰 거래대금|실제 매수·매도 공방/)
+  assert.match(message, /다음 조회에서 확인할 항목/)
 })
 
 test('ASSET message describes negligible movement as flat instead of directional', () => {
   const leader = parseCryptoVolumeLeaders([{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin', current_price: 79768, total_volume: 36_260_000_000, market_cap: 1_500_000_000_000, price_change_percentage_24h: 0.02, last_updated: '2026-08-28T07:00:00.000Z' }], observedAt)[0]
   const message = buildRequiredPickMessage({ market: 'CRYPTO', kind: 'ASSET', asset: leader }, observedAt)
-  assert.match(message, /0\\\.02%로 보합권/)
+  assert.match(message, /\+0\\\.02%/)
+  assert.match(message, /가격은 보합권이었습니다/)
   assert.doesNotMatch(message, /0\\\.02% 상승/)
-  assert.match(message, /가격 방향이 새로 정해지는지/)
+  assert.match(message, /가격 흐름의 지속 여부/)
 })
 
 test('ASSET message uses natural Korean particles and currency units', () => {
   const leader = parseKoreaTurnoverLeaders([{ stocks: [{ itemCode: '000660', stockName: 'SK하이닉스', stockEndType: 'stock', closePriceRaw: '1653000', fluctuationsRatio: '-4.45', accumulatedTradingValueRaw: '4720000000000', marketValueRaw: '1000000000000000', localTradedAt: '2026-08-28T15:56:00+09:00', tradableStatus: 'tradable' }] }], observedAt)[0]
   const message = buildRequiredPickMessage({ market: 'KOREA', kind: 'ASSET', asset: leader }, observedAt)
-  assert.match(message, /SK하이닉스는/)
+  assert.match(message, /HOT 24 · SK하이닉스/)
   assert.match(message, /1,653,000원/)
-  assert.match(message, /4\\\.72조원으로 집계됐습니다/)
+  assert.match(message, /집계 거래대금은 \*4\\\.72조원\*/)
   assert.doesNotMatch(message, /SK하이닉스은|조원였습니다/)
 })
 
@@ -222,7 +224,8 @@ test('required pick uses a market-kind daily key and a safe MarkdownV2 message',
   assert.equal(buildRequiredPickDedupeKey('2026-08-28', 'US', 'ASSET'), 'mbai_hot24:2026-08-28:US:ASSET')
   const leader = parseCryptoVolumeLeaders([{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin', current_price: 79000, total_volume: 55_000_000_000, market_cap: 1_500_000_000_000, price_change_percentage_24h: 2.1, last_updated: '2026-08-28T07:00:00.000Z' }], observedAt)[0]
   const message = buildRequiredPickMessage({ market: 'CRYPTO', kind: 'ASSET', asset: leader }, observedAt)
-  assert.match(message, /HOT 24 \\· CRYPTO ASSET/)
+  assert.match(message, /HOT 24 · Bitcoin/)
+  assert.doesNotMatch(message, /\\·/)
   assert.match(message, /거래대금/)
   assert.ok(message.length <= 3900)
 })

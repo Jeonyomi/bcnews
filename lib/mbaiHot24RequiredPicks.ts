@@ -240,28 +240,21 @@ const distinctNewsInterpretation = (candidate: RequiredNewsCandidate, market: Re
 const assetDirection = (changePercent: number) => Math.abs(changePercent) < 0.1
   ? '보합권'
   : changePercent > 0 ? '상승' : '하락'
-const withTopicParticle = (name: string) => {
-  const last = name.at(-1) || ''
-  const code = last.charCodeAt(0)
-  if (code >= 0xac00 && code <= 0xd7a3) return `${name}${(code - 0xac00) % 28 === 0 ? '는' : '은'}`
-  return `${name}은`
-}
 const formatAssetPrice = (leader: TurnoverLeader) => leader.currency === 'KRW'
   ? `${leader.price.toLocaleString('en-US')}원`
   : `$${leader.price.toLocaleString('en-US')}`
-const withInstrumentalParticle = (value: string) => {
-  const last = value.at(-1) || ''
-  const code = last.charCodeAt(0)
-  if (code < 0xac00 || code > 0xd7a3) return `${value}로`
-  const finalConsonant = (code - 0xac00) % 28
-  return `${value}${finalConsonant === 0 || finalConsonant === 8 ? '로' : '으로'}`
+const formatAssetAsOf = (asOf: string) => {
+  const timestamp = new Date(asOf)
+  if (!Number.isFinite(timestamp.getTime())) throw new Error('invalid_required_pick_asset_as_of')
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(timestamp).replace(',', '')
 }
 const assetNextCheck = (leader: TurnoverLeader) => {
-  const direction = assetDirection(leader.changePercent)
   if (leader.market === 'CRYPTO') {
-    return `다음 24시간에도 거래대금이 유지되는지, ${direction === '보합권' ? '가격 방향이 새로 정해지는지' : `${direction} 흐름이 주요 코인으로 확산되는지`} 확인합니다.`
+    return '다음 조회에서 확인할 항목은 가격 흐름의 지속 여부, 이전 기간 대비 거래대금 변화, 주요 코인의 동반 움직임입니다.'
   }
-  return `다음 거래일에도 거래대금이 유지되는지, ${direction === '보합권' ? '가격 방향이 새로 정해지는지' : `${direction} 흐름이 동종 종목과 관련 업종으로 이어지는지`} 확인합니다.`
+  return '다음 거래일에 확인할 항목은 가격 흐름의 지속 여부, 같은 기준으로 비교한 거래대금 변화, 동종 종목·관련 업종의 동반 움직임입니다.'
 }
 
 export const buildRequiredPickMessage = (
@@ -285,20 +278,24 @@ export const buildRequiredPickMessage = (
     ]
     : (() => {
       const direction = assetDirection(pick.asset.changePercent)
-      const period = pick.market === 'CRYPTO' ? '최근 24시간' : `${pick.asset.sessionKey} 세션`
-      const move = direction === '보합권'
-        ? `${Math.abs(pick.asset.changePercent).toFixed(2)}%로 보합권에 머물렀습니다.`
-        : `${Math.abs(pick.asset.changePercent).toFixed(2)}% ${direction}했습니다.`
-      const scene = `${withTopicParticle(pick.asset.name)} ${period} ${formatAssetPrice(pick.asset)}에 거래됐고, ${move} 거래대금은 ${withInstrumentalParticle(formatTurnover(pick.asset))} 집계됐습니다.`
-      const meaning = direction === '보합권'
-        ? '가격은 보합권이었지만 큰 거래대금이 실렸습니다. 방향은 제한적이어도 실제 매수·매도 공방과 시장의 관심은 컸다는 뜻입니다. 다만 거래대금만으로 다음 방향을 단정할 수는 없습니다.'
-        : `${direction}과 함께 큰 거래대금이 실렸습니다. 단순 등락보다 실제 매수·매도 공방과 시장의 관심이 컸다는 뜻입니다. 다만 거래대금만으로 움직임의 원인을 단정할 수는 없습니다.`
+      const period = pick.market === 'CRYPTO' ? '최근 24시간' : '해당 거래일'
+      const signedChange = `${pick.asset.changePercent > 0 ? '+' : ''}${pick.asset.changePercent.toFixed(2)}%`
+      const turnoverLabel = pick.market === 'US'
+        ? '같은 거래일의 추정 거래대금(조회 가격×거래량)은'
+        : pick.market === 'CRYPTO' ? '같은 기간 집계 거래대금은' : '같은 거래일 집계 거래대금은'
+      const scene = `조회 시점 가격은 *${escapeMarkdownV2(formatAssetPrice(pick.asset))}*, ${escapeMarkdownV2(period)} 변동률은 *${escapeMarkdownV2(signedChange)}*입니다\\. ${escapeMarkdownV2(turnoverLabel)} *${escapeMarkdownV2(formatTurnover(pick.asset))}*입니다\\.`
+      const priceMove = direction === '보합권'
+        ? '가격은 보합권이었습니다.'
+        : `가격은 ${Math.abs(pick.asset.changePercent) < 1 ? '소폭 ' : ''}${direction}했습니다.`
+      const pressure = direction === '상승' ? '매수세가 강해졌거나'
+        : direction === '하락' ? '매도 압력이 커졌거나' : '매수·매도 공방이 커졌거나'
+      const meaning = `${priceMove} 다만 이전 기간이나 평소 거래대금과 비교한 자료가 없어, 거래가 이례적으로 활발했는지는 확인되지 않습니다. 이 수치만으로 ${pressure} 시장의 관심이 늘었다고 해석하기도 어렵습니다.`
       return [
-        `🔥 *HOT 24 \\· ${pick.market} ASSET*`, `*${escapeMarkdownV2(pick.asset.name)} \\(${escapeMarkdownV2(pick.asset.symbol)}\\)*`, '',
-        '📊 *오늘의 장면*', escapeMarkdownV2(scene), '',
-        '🔎 *숫자가 말하는 것*', escapeMarkdownV2(meaning), '',
-        '👀 *다음 체크*', escapeMarkdownV2(assetNextCheck(pick.asset)), '',
-        `근거: ${escapeMarkdownV2(pick.asset.source)} · 기준 세션 ${escapeMarkdownV2(pick.asset.sessionKey)}`,
+        `🔥 *HOT 24 · ${escapeMarkdownV2(pick.asset.name)} \\(${escapeMarkdownV2(pick.asset.symbol)}\\)*`, '',
+        scene, '', escapeMarkdownV2(meaning), '', escapeMarkdownV2(assetNextCheck(pick.asset)), '',
+        `근거: ${escapeMarkdownV2(pick.asset.source)}`,
+        ...(pick.market === 'CRYPTO' ? [] : [`거래일: ${escapeMarkdownV2(pick.asset.sessionKey)}`]),
+        `시세 기준: ${escapeMarkdownV2(formatAssetAsOf(pick.asset.asOf))} KST`,
       ]
     })()
   const message = [...lines, `조회: ${escapeMarkdownV2(observedKst)} KST`, '', escapeMarkdownV2('※ 투자 판단을 위한 참고 정보이며 매수·매도 권유가 아닙니다.')].join('\n')
