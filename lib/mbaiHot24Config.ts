@@ -302,7 +302,7 @@ export const buildHot24Message = (candidate: EvaluatedHot24Candidate, observedAt
     `출처: ${escapeMarkdownV2(sourceName)} · ${escapeMarkdownV2(candidate.asset?.source || 'MB.AI News Intelligence')}`,
     `조회: ${escapeMarkdownV2(kst)} KST`,
     '',
-    '※ 투자 판단을 위한 참고 정보이며 매수·매도 권유가 아닙니다\.',
+    escapeMarkdownV2('※ 투자 판단을 위한 참고 정보이며 매수·매도 권유가 아닙니다.'),
   ].join('\n')
   if (message.length > 3900) throw new Error('hot24_message_too_long')
   return message

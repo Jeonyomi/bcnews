@@ -301,7 +301,7 @@ export const buildRequiredPickMessage = (
         `근거: ${escapeMarkdownV2(pick.asset.source)} · 기준 세션 ${escapeMarkdownV2(pick.asset.sessionKey)}`,
       ]
     })()
-  const message = [...lines, `조회: ${escapeMarkdownV2(observedKst)} KST`, '', '※ 투자 판단을 위한 참고 정보이며 매수·매도 권유가 아닙니다\.'].join('\n')
+  const message = [...lines, `조회: ${escapeMarkdownV2(observedKst)} KST`, '', escapeMarkdownV2('※ 투자 판단을 위한 참고 정보이며 매수·매도 권유가 아닙니다.')].join('\n')
   if (message.length > 3900) throw new Error('required_pick_message_too_long')
   return message
 }
