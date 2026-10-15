@@ -66,8 +66,9 @@ export const extractOccApplicants = (html: string): OccApplicantRow[] => {
   const rows: OccApplicantRow[] = []
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
   const cellRegex = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi
+  const visibleHtml = html.replace(/<!--[\s\S]*?-->/g, '')
 
-  for (const rowMatch of html.matchAll(rowRegex)) {
+  for (const rowMatch of visibleHtml.matchAll(rowRegex)) {
     const rowHtml = rowMatch[1]
     const cells = Array.from(rowHtml.matchAll(cellRegex)).map((m) => m[1])
     if (cells.length < 3) continue
