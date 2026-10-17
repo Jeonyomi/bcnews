@@ -269,7 +269,7 @@ export const buildRequiredPickMessage = (
   }).format(observed).replace(',', '')
   const lines = pick.kind === 'NEWS'
     ? [
-      `🔥 *HOT 24 \\· ${pick.market} NEWS*`, `*${escapeMarkdownV2(pick.news.title)}*`, '',
+      `🔥 *HOT 24 · ${pick.market} NEWS*`, `*${escapeMarkdownV2(pick.news.title)}*`, '',
       '📰 *무슨 일이 있었나*', escapeMarkdownV2(pick.news.summary), '',
       '🔎 *시장은 이렇게 읽는다*', escapeMarkdownV2(distinctNewsInterpretation(pick.news, pick.market)), '',
       '👀 *다음 체크*', escapeMarkdownV2(newsNextCheck[pick.market]), '',
