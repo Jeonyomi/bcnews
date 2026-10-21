@@ -1,4 +1,5 @@
 import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
+import { buildChannelPostDuplicateFilter } from '@/lib/channelPostDuplicateFilter.mjs'
 
 const TELEGRAM_BOT_TOKEN = process.env.TG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ''
 export const TELEGRAM_BREAKING_CHANNEL = process.env.TG_BREAKING_CHANNEL || '@Krypto_breaking'
@@ -109,7 +110,7 @@ export const recoverStaleSendingRows = async (client: any) => {
       .select('id')
       .eq('lane', String(row.lane || 'breaking'))
       .eq('status', 'posted')
-      .or(`dedupe_key.eq.${String(row.dedupe_key || '')},article_url.eq.${String(row.article_url || '')}`)
+      .or(buildChannelPostDuplicateFilter(row))
       .neq('id', Number(row.id))
       .limit(1)
       .maybeSingle()

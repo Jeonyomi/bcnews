@@ -2,6 +2,7 @@ import dotenv from 'dotenv'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
+import { buildChannelPostDuplicateFilter } from '../lib/channelPostDuplicateFilter.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -71,7 +72,7 @@ async function main() {
       .select('id')
       .eq('lane', String(row.lane || 'breaking'))
       .eq('status', 'posted')
-      .or(`dedupe_key.eq.${String(row.dedupe_key || '')},article_url.eq.${String(row.article_url || '')}`)
+      .or(buildChannelPostDuplicateFilter(row))
       .neq('id', row.id)
       .limit(1)
       .maybeSingle()
@@ -130,7 +131,7 @@ async function main() {
       .select('id')
       .eq('lane', String(row.lane || 'breaking'))
       .eq('status', 'posted')
-      .or(`dedupe_key.eq.${String(row.dedupe_key || '')},article_url.eq.${String(row.article_url || '')}`)
+      .or(buildChannelPostDuplicateFilter(row))
       .neq('id', row.id)
       .limit(1)
       .maybeSingle()

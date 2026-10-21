@@ -23,7 +23,7 @@ export function loadRoute(file, { client, env = {}, fetch = async () => { throw 
         createAdminClient: () => { clients++; return client },
         createSupabaseServerClient: () => { clients++; return client },
       }
-      if (id.startsWith('@/')) return load(resolve(id.slice(2) + '.ts'))
+      if (id.startsWith('@/')) return load(resolve(id.slice(2) + (/\.[cm]?[jt]s$/.test(id) ? '' : '.ts')))
       return nativeRequire(id)
     }
     vm.runInNewContext(source, { module, exports: module.exports, require, process: { env }, Buffer, Request, Response, URL, fetch, console, Date }, { filename })
@@ -42,7 +42,15 @@ export function memoryClient(rows = [], { failPosted = false } = {}) {
       is(k, v) { filters.push(r => (r[k] ?? null) === v); return q },
       lt(k, v) { filters.push(r => r[k] < v); return q },
       neq(k, v) { filters.push(r => r[k] !== v); return q },
-      or() { return q }, gte() { return q },
+      or(expression) {
+        const clauses = expression.split(',').map(part => {
+          const match = /^([^.]+)\.eq\.(.*)$/.exec(part)
+          if (!match) throw new Error(`Unsupported test filter: ${part}`)
+          return r => String(r[match[1]] ?? '') === match[2]
+        })
+        filters.push(r => clauses.some(match => match(r)))
+        return q
+      }, gte() { return q },
       update(value) { patch = value; updating = true; return q },
       single() { single = true; return q }, maybeSingle() { single = true; return q },
       then(resolve) {

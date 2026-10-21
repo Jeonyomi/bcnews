@@ -4,6 +4,7 @@ import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 import { claimPendingChannelPost, recoverStaleSendingRows, sendTelegramMessage, SENDING_STALE_MINUTES } from '@/lib/channelPosting'
 import { createSupabaseServerClient } from '@/lib/supabaseServer'
 import { isRetiredSnapshotDedupeKey } from '@/lib/altSnapshotConfig'
+import { buildChannelPostDuplicateFilter } from '@/lib/channelPostDuplicateFilter.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
         .select('id')
         .eq('lane', String(row.lane || 'breaking'))
         .eq('status', 'posted')
-        .or(`dedupe_key.eq.${String(row.dedupe_key || '')},article_url.eq.${String(row.article_url || '')}`)
+        .or(buildChannelPostDuplicateFilter(row))
         .neq('id', Number(row.id))
         .limit(1)
         .maybeSingle()
