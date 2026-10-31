@@ -32,7 +32,7 @@ test('visible OCC rows retain deterministic ordering, dedupe and absolute applic
   assert.equal(actual.length, 2);
   assert.equal(actual[0].applicant, 'Earlier & Visible Bank');
   assert.equal(actual[0].dateReceivedIso, '2026-09-04');
-  assert.equal(actual[0].linkUrl, 'https://www.occ.treas.gov/application.pdf');
+  assert.equal(actual[0].linkUrl, 'https://www2.occ.gov/application.pdf');
   assert.equal(actual[0].dedupeKey, mod.exports.buildOccApplicantDedupeKey(actual[0]));
   assert.equal(actual[1].applicant, 'Later Visible Bank');
 });

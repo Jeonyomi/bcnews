@@ -4,7 +4,7 @@ import { CHANNEL_POST_REASONS } from '@/lib/channelPostReasons'
 
 export const OCC_APPLICANTS_LANE = 'occ_applicants'
 export const OCC_APPLICANTS_SOURCE_NAME = 'OCC'
-export const OCC_APPLICANTS_INDEX_URL = 'https://www.occ.treas.gov/topics/charters-and-licensing/digital-assets-licensing-applications/index-digital-assets-licensing-applications.html'
+export const OCC_APPLICANTS_INDEX_URL = 'https://www2.occ.gov/topics/charters-and-licensing/digital-assets-licensing-applications/index-digital-assets-licensing-applications.html'
 export const OCC_APPLICANTS_TARGET_CHANNEL = String(process.env.KBN_OCC_APPLICANTS_TARGET_CHANNEL || TELEGRAM_BREAKING_CHANNEL).trim() || TELEGRAM_BREAKING_CHANNEL
 const OCC_STATE_MARKER_PREFIX = 'occ_applicants_state:'
 
