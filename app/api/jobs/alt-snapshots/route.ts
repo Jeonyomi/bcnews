@@ -5,10 +5,12 @@ import { ALT_SNAPSHOT_ASSETS, getPriceDirection } from '@/lib/altSnapshotConfig'
 import {
   fetchAltSnapshotPrice,
   fetchAthEthIndexSnapshot,
+  fetchAthBtcIndexSnapshot,
   getAltSnapshotConfig,
   getPreviousAltSnapshotPrice,
   queueHourlyAltSnapshotPost,
   queueHourlyAthEthIndexPost,
+  queueHourlyAthBtcIndexPost,
 } from '@/lib/altSnapshotPosting'
 
 export const dynamic = 'force-dynamic'
@@ -49,6 +51,24 @@ export async function POST(request: Request) {
       dedupe_key: indexQueued.dedupeKey,
       post_text: indexQueued.postText,
     })
+
+    // The additional benchmark must not suppress the existing snapshot feeds.
+    try {
+      const athBtcIndex = await fetchAthBtcIndexSnapshot(athEthIndex)
+      const btcIndexQueued = await queueHourlyAthBtcIndexPost(client, athBtcIndex)
+      results.push({
+        symbol: 'ATH/BTC',
+        queued: btcIndexQueued.queued,
+        reason: btcIndexQueued.reason,
+        observed_price: athBtcIndex.index,
+        ath_price: athBtcIndex.athPrice,
+        btc_price: athBtcIndex.btcPrice,
+        dedupe_key: btcIndexQueued.dedupeKey,
+        post_text: btcIndexQueued.postText,
+      })
+    } catch {
+      results.push({ symbol: 'ATH/BTC', queued: false, error: 'ath_btc_index_unavailable' })
+    }
 
     for (const asset of ALT_SNAPSHOT_ASSETS) {
       const observed = await fetchAltSnapshotPrice(asset)

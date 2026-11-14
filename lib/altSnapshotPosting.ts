@@ -9,6 +9,7 @@ import {
   type PriceDirection,
 } from '@/lib/altSnapshotConfig'
 import { buildAthEthIndexMessage, calculateAthEthIndex } from '@/lib/athEthIndexConfig'
+import { buildAthBtcIndexMessage, calculateAthBtcIndex } from '@/lib/athBtcIndexConfig'
 
 export const ALT_SNAPSHOT_LANE = 'market_snapshot'
 export const ALT_SNAPSHOT_ENABLED = ['1', 'true', 'yes', 'on'].includes(
@@ -27,6 +28,69 @@ export const buildHourlyAltSnapshotDedupeKey = (symbol: string, windowKey: strin
 
 export const buildHourlyAthEthIndexDedupeKey = (windowKey: string) =>
   `ath_eth_index_hourly:${windowKey}`
+
+export const buildHourlyAthBtcIndexDedupeKey = (windowKey: string) =>
+  `ath_btc_index_hourly:${windowKey}`
+
+export const queueHourlyAthBtcIndexPost = async (
+  client: any,
+  args: { athPrice: number; btcPrice: number; index: number; fetchedAt: string },
+) => {
+  const index = calculateAthBtcIndex(args.athPrice, args.btcPrice)
+  if (index !== args.index || !Number.isFinite(Date.parse(args.fetchedAt))) {
+    throw new Error('invalid_ath_btc_index_snapshot')
+  }
+  const windowKey = buildHourlyAltSnapshotWindow(args.fetchedAt)
+  const dedupeKey = buildHourlyAthBtcIndexDedupeKey(windowKey)
+  const articleUrl = new URL('https://www.coinbase.com/price/aethir')
+  articleUrl.searchParams.set('type', 'ath-btc-index')
+  articleUrl.searchParams.set('window', windowKey)
+  articleUrl.searchParams.set('ath', String(args.athPrice))
+  articleUrl.searchParams.set('btc', String(args.btcPrice))
+  articleUrl.searchParams.set('index', String(index))
+  const postText = buildAthBtcIndexMessage({ ...args, index })
+  const postRow = {
+    status: 'pending',
+    lane: ALT_SNAPSHOT_LANE,
+    article_id: null,
+    source_name: 'Coinbase',
+    headline: postText,
+    headline_ko: postText,
+    article_url: String(articleUrl),
+    tags: ['ATH', 'BTC', 'RelativeStrengthIndex', 'HourlyUpdate'],
+    post_text: postText,
+    target_channel: ALT_SNAPSHOT_TARGET_CHANNEL,
+    target_admin: '@master_billybot',
+    dedupe_key: dedupeKey,
+    approved_by: 'auto',
+    reason: CHANNEL_POST_REASONS.QUEUED_WORKER,
+  }
+  const { data: existing, error } = await client.from('channel_posts')
+    .select('id,status,created_at,dedupe_key').eq('dedupe_key', dedupeKey)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  if (error) throw error
+  if (existing?.id) {
+    if (existing.status === 'failed') {
+      const { data: retried, error: retryError } = await client.from('channel_posts')
+        .update({ ...postRow, updated_at: new Date().toISOString() })
+        .eq('id', Number(existing.id)).eq('status', 'failed').select('id').maybeSingle()
+      if (retryError) throw retryError
+      return { queued: Boolean(retried),
+        reason: retried ? CHANNEL_POST_REASONS.QUEUED_WORKER : CHANNEL_POST_REASONS.SKIPPED_DUPLICATE,
+        dedupeKey, postText, existingId: Number(existing.id) }
+    }
+    return { queued: false, reason: CHANNEL_POST_REASONS.SKIPPED_DUPLICATE,
+      dedupeKey, postText, existingId: Number(existing.id) }
+  }
+  try {
+    await insertChannelPostSafe(client, postRow)
+  } catch (insertError: any) {
+    const unique = insertError?.code === '23505' || String(insertError?.message || '').includes('duplicate key')
+    if (!unique) throw insertError
+    return { queued: false, reason: CHANNEL_POST_REASONS.SKIPPED_DUPLICATE, dedupeKey, postText }
+  }
+  return { queued: true, reason: CHANNEL_POST_REASONS.QUEUED_WORKER, dedupeKey, postText }
+}
 
 const ATH_ETH_INDEX_SOURCES = {
   ath: 'https://api.coinbase.com/v2/prices/ATH-USD/spot',
@@ -89,6 +153,24 @@ export const fetchAthEthIndexSnapshot = async () => {
     ethPrice,
     index: calculateAthEthIndex(athPrice, ethPrice),
     fetchedAt: new Date().toISOString(),
+  }
+}
+
+// Reuse this run's ATH observation and hourly key instead of fetching ATH twice.
+export const fetchAthBtcIndexSnapshot = async (shared: { athPrice: number; fetchedAt: string }) => {
+  const response = await fetch('https://api.coinbase.com/v2/prices/BTC-USD/spot', {
+    method: 'GET',
+    headers: { 'user-agent': 'bcnews-ath-btc-index/1.0' },
+    cache: 'no-store',
+  })
+  if (!response.ok) throw new Error(`ath_btc_index_price_fetch_failed:BTC:${response.status}`)
+  const payload = await response.json()
+  const btcPrice = parseCoinbaseSpotPrice(payload)
+  return {
+    athPrice: shared.athPrice,
+    btcPrice,
+    index: calculateAthBtcIndex(shared.athPrice, btcPrice),
+    fetchedAt: shared.fetchedAt,
   }
 }
 
