@@ -26,7 +26,16 @@ function routeFixture({ btcError = false } = {}) {
     queueHourlyAltSnapshotPost: async () => ({ queued: true, reason: 'queued_worker', dedupeKey: 'alt-key', postText: 'alt summary' }),
   }
   const { route, clientCount } = loadRoute('app/api/jobs/alt-snapshots/route.ts', {
-    client: {}, env: { CRON_SECRET: 'test-only' }, mocks: { '@/lib/altSnapshotPosting': posting },
+    client: {}, env: { CRON_SECRET: 'test-only' }, mocks: {
+      '@/lib/altSnapshotPosting': posting,
+      '@/lib/athAltIndexPosting': {
+        fetchAthAltIndexSnapshot: async (symbol, snapshot) => ({ symbol, ...snapshot, quotePrice: 1 }),
+        queueHourlyAthAltIndexPost: async (_client, snapshot) => {
+          events.push(['ATH/' + snapshot.symbol])
+          return { queued: true, reason: 'queued_worker', dedupeKey: snapshot.symbol, postText: snapshot.symbol }
+        },
+      },
+    },
   })
   return { route, events, clientCount }
 }
@@ -37,8 +46,8 @@ test('hourly route includes ATH/BTC beside ETH using the shared ATH observation'
   const response = await route.POST(authorized())
   assert.equal(response.status, 200)
   const body = await response.json()
-  assert.deepEqual(body.results.map(x => x.symbol), ['ATH/ETH', 'ATH/BTC', 'HYPE', 'ENA'])
-  assert.deepEqual(events.map(x => x[0]), ['ETH', 'BTC', 'HYPE', 'ENA'])
+  assert.deepEqual(body.results.map(x => x.symbol), ['ATH/ETH', 'ATH/BTC', 'ATH/ENA', 'ATH/ZEC', 'HYPE', 'ENA'])
+  assert.deepEqual(events.map(x => x[0]), ['ETH', 'BTC', 'ATH/ENA', 'ATH/ZEC', 'HYPE', 'ENA'])
   assert.equal(body.results[1].ath_price, ethSnapshot.athPrice)
   assert.equal(body.results[1].btc_price, 68216)
   assert.equal(body.results[1].dedupe_key, 'btc-key')
@@ -49,10 +58,10 @@ test('BTC provider failure does not suppress existing ETH HYPE or ENA snapshots'
   const response = await route.POST(authorized())
   assert.equal(response.status, 200)
   const body = await response.json()
-  assert.deepEqual(events.map(x => x[0]), ['ETH', 'HYPE', 'ENA'])
+  assert.deepEqual(events.map(x => x[0]), ['ETH', 'ATH/ENA', 'ATH/ZEC', 'HYPE', 'ENA'])
   assert.equal(body.results.find(x => x.symbol === 'ATH/BTC').queued, false)
   assert.equal(body.results.find(x => x.symbol === 'ATH/BTC').error, 'ath_btc_index_unavailable')
-  assert.equal(body.results.filter(x => x.queued).length, 3)
+  assert.equal(body.results.filter(x => x.queued).length, 5)
 })
 
 test('BTC snapshot fetch reuses ATH and hour and fetches only the BTC quote', async () => {

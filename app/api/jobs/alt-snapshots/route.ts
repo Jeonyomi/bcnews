@@ -13,6 +13,8 @@ import {
   queueHourlyAthBtcIndexPost,
 } from '@/lib/altSnapshotPosting'
 
+import { fetchAthAltIndexSnapshot, queueHourlyAthAltIndexPost } from '@/lib/athAltIndexPosting'
+
 export const dynamic = 'force-dynamic'
 
 const getSecret = () =>
@@ -68,6 +70,25 @@ export async function POST(request: Request) {
       })
     } catch {
       results.push({ symbol: 'ATH/BTC', queued: false, error: 'ath_btc_index_unavailable' })
+    }
+
+    for (const symbol of ['ENA', 'ZEC'] as const) {
+      try {
+        const snapshot = await fetchAthAltIndexSnapshot(symbol, athEthIndex)
+        const queued = await queueHourlyAthAltIndexPost(client, snapshot)
+        results.push({
+          symbol: `ATH/${symbol}`,
+          queued: queued.queued,
+          reason: queued.reason,
+          observed_price: snapshot.index,
+          ath_price: snapshot.athPrice,
+          quote_price: snapshot.quotePrice,
+          dedupe_key: queued.dedupeKey,
+          post_text: queued.postText,
+        })
+      } catch {
+        results.push({ symbol: `ATH/${symbol}`, queued: false, error: 'ath_alt_index_unavailable' })
+      }
     }
 
     for (const asset of ALT_SNAPSHOT_ASSETS) {
